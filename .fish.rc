@@ -1,0 +1,17 @@
+#------------------------------------------------------------------------------
+#
+# This is the `git-nested` initialization script.
+#
+# This script turns on the `git-nested` Git subcommand for the *Fish* shell.
+#
+# Just add a line like this to your `~/.config/fish/config.fish`:
+#
+#   source /path/to/git-nested/.fish.rc
+#
+#------------------------------------------------------------------------------
+
+set GIT_NESTED_ROOT (dirname (realpath (status --current-filename)))
+set PATH $GIT_NESTED_ROOT/lib $PATH
+
+# Load git-nested completions
+source $GIT_NESTED_ROOT/share/git-nested.fish

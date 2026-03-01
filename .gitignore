@@ -1,0 +1,13 @@
+/test/tmp/
+__pycache__
+.venv/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+*.whl
+*.tar.gz

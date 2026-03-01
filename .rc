@@ -1,0 +1,19 @@
+#!/bin/bash
+
+[[ -n ${ZSH_VERSION-} ]] &&
+  GIT_NESTED_ROOT=$0 ||
+  GIT_NESTED_ROOT=$BASH_SOURCE
+
+[[ $GIT_NESTED_ROOT =~ ^/ ]] ||
+  GIT_NESTED_ROOT=$PWD/$GIT_NESTED_ROOT
+
+GIT_NESTED_ROOT=$(
+  cd "$(dirname "$GIT_NESTED_ROOT")" || return
+  pwd
+) || return
+
+export GIT_NESTED_ROOT
+export PATH=$GIT_NESTED_ROOT/lib:$PATH
+export MANPATH=$GIT_NESTED_ROOT/man:$MANPATH
+
+source "$GIT_NESTED_ROOT/share/enable-completion.sh"

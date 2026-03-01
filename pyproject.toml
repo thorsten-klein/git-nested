@@ -1,0 +1,94 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "git-nested"
+dynamic = ["version"]
+description = "Git Submodule Alternative"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+dependencies = [
+    "PyYAML>=6.0",
+]
+authors = [
+    {name = "Thorsten Klein", email = "thorsten.klein.git@gmail.com"}
+]
+keywords = ["git", "nested", "submodule", "nested"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Version Control :: Git",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[project.scripts]
+git-nested = "git_nested:main"
+
+[project.urls]
+Homepage = "https://github.com/thorsten-klein/git-nested"
+Documentation = "https://github.com/thorsten-klein/git-nested#readme"
+Repository = "https://github.com/thorsten-klein/git-nested"
+Issues = "https://github.com/thorsten-klein/git-nested/issues"
+
+[dependency-groups]
+lint = [
+    "ruff~=0.13",
+]
+test = [
+    "coverage>=7.10",
+    "pytest>=8.4,<10.0",
+    "pytest-xdist>=3.0.0",
+    "pytest-cov>=7.0",
+    "pytest-mock>=3.6.1",
+    "pytest-flakefinder>=1.1.0",
+]
+dev = [
+    "poethepoet~=0.37",
+    {include-group = "lint"},
+    {include-group = "test"},
+]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.setuptools]
+py-modules = ["git_nested"]
+package-dir = {"" = "lib"}
+
+[tool.setuptools.dynamic]
+version = {attr = "git_nested.VERSION"}
+
+[tool.setuptools.package-data]
+"*" = ["*.sh", "*.bash"]
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+
+[tool.ruff.format]
+quote-style = "preserve"
+line-ending = "lf"
+# Enable preview mode for Github Annotations added in 0.13.3
+preview = true
+
+[tool.poe.tasks]
+all = ["lint", "format", "test"]
+format = "ruff format ."
+lint = "ruff check ."
+flakefinder = "pytest -n=auto -W error --flake-finder --flake-runs=200"
+test = {cmd = "pytest -n=auto -W error --cov-config=pyproject.toml --cov=git_nested --cov-report=term --cov-report=html", env = {PYTHONIOENCODING = "utf-8"}}
+
+clean = "rm -rf dist/ build/ *.egg-info lib/*.egg-info"
+build = ["clean", {cmd = "uv build"}]
+publish-test = {cmd = "uv publish --publish-url https://test.pypi.org/legacy/"}
+publish = "uv publish"
