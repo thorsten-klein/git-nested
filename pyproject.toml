@@ -86,7 +86,7 @@ all = ["lint", "format", "test"]
 format = "ruff format ."
 lint = "ruff check ."
 flakefinder = "pytest -n=auto -W error --flake-finder --flake-runs=200"
-test = {cmd = "pytest -n=auto -W error --cov-config=pyproject.toml --cov=git_nested --cov-report=term --cov-report=html", env = {PYTHONIOENCODING = "utf-8"}}
+test = {cmd = "pytest -v -n=auto -W error --cov-config=pyproject.toml --cov=git_nested --junitxml=junit.xml -o junit_family=legacy --cov-report=term --cov-report=html --cov-report=xml", env = {PYTHONIOENCODING = "utf-8"}}
 
 clean = "rm -rf dist/ build/ *.egg-info lib/*.egg-info"
 build = ["clean", {cmd = "uv build"}]

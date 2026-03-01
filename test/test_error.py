@@ -149,7 +149,8 @@ def test_error_working_tree_has_changes(foo_bar_cloned):
 def test_error_not_at_top_level(foo_bar_cloned):
     """Test error when command is run from subdirectory"""
     env = foo_bar_cloned
-    cp = cmd_git_nested('status', check=False, cwd=env.test_dir / 'lib')
+    (env.workspace / 'foo' / 'subdir').mkdir()
+    cp = cmd_git_nested('status', check=False, cwd=env.workspace / 'foo' / 'subdir')
     assert_stderr(cp, "git-nested: Need to run nested command from top level directory of the repo.", returncode=1)
 
 
