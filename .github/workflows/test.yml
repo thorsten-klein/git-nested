@@ -1,10 +1,10 @@
-name: Test
+name: Run Tests
 
 on:
   push:
-    branches: ["*"]
+    branches: [main]
   pull_request:
-    branches: ["*"]
+    branches: ['*']
 
 jobs:
   test:
@@ -33,3 +33,13 @@ jobs:
           git config --global --add safe.directory "$PWD.git";
       - name: Run poe all
         run: uv run poe all
+      - name: Upload coverage reports to Codecov
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
