@@ -215,6 +215,99 @@ class GitNestedRepo:
             f.write(GITREPO_HEADER)
             return yaml.dump(data, f, default_flow_style=False, sort_keys=False)
 
+    def create_level_gitnested_files(
+        self, git: GitRunner, flags: Flags, subdir: Path, head_commit: str, level: int = None
+    ):
+        """Create .gitnested.levelN files for nested-in-nested repositories
+
+        This allows sub-nested repositories to be pulled/pushed independently
+        even when they are nested within another nested repository.
+
+        Args:
+            git: GitRunner instance
+            flags: Command flags
+            subdir: The subdirectory being cloned/pulled
+            head_commit: The parent commit (will be used as parent for level files)
+            level: The nesting level (auto-detected if None)
+        """
+        # Auto-detect the level based on existing .gitnested.level* files in subdir
+        if level is None:
+            # Check what level files exist in the subdir itself
+            existing_levels = []
+            all_files = git.check_output(['ls-files', '--', subdir], may_fail=True)
+            if all_files:
+                for line in all_files.splitlines():
+                    if '.gitnested.level' in line and line.startswith(f'{subdir}/.gitnested.level'):
+                        # Extract level number
+                        parts = line.split('.gitnested.level')
+                        if len(parts) == 2 and parts[1].isdigit():
+                            existing_levels.append(int(parts[1]))
+
+            # Start at level 2 (first sub-nested), or one above the highest existing level
+            level = max(existing_levels) + 1 if existing_levels else 2
+
+        # Find all .gitnested files within the subdirectory (excluding the subdir's own .gitnested)
+        all_files = git.check_output(['ls-files', '--', subdir], may_fail=True)
+        if not all_files:
+            return
+
+        gitnested_files = [
+            line for line in all_files.splitlines() if line.endswith('.gitnested') and line != f'{subdir}/.gitnested'
+        ]
+
+        for gitnested_path in gitnested_files:
+            gitnested_file = Path(gitnested_path)
+            level_file = gitnested_file.parent / f'.gitnested.level{level}'
+
+            self.verbose(f"Creating {level_file} for sub-nested repository", flags)
+
+            # Copy the .gitnested content to .gitnested.levelN, but clear the parent field
+            # The parent field from the intermediate repo doesn't apply in this context
+            # It will be set correctly on the first pull/push operation
+            if gitnested_file.exists():
+                data = self._read_yaml_config(gitnested_file)
+                # Clear the parent field - it will be set on first pull/push
+                if 'nested' in data:
+                    data['nested']['parent'] = ''
+
+                # Write the modified config to .gitnested.levelN
+                self._write_yaml_config(level_file, data)
+                # Add the level file to git
+                git.run(['add', '-f', '--', str(level_file)])
+
+                # Recursively check for deeper nesting with incremented level
+                sub_subdir = gitnested_file.parent
+                self.create_level_gitnested_files(git, flags, sub_subdir, head_commit, level + 1)
+
+    def update_level_gitnested_parents(self, git: GitRunner, flags: Flags, subdir: Path):
+        """Update parent field in .gitnested.levelN files after commit is created"""
+        self.verbose("Updating parent field in .gitnested.levelN files", flags)
+
+        # Get the current HEAD commit (the commit we just created)
+        new_commit = git.check_output(['rev-parse', 'HEAD'])
+
+        # Find all .gitnested.level* files within the subdirectory
+        all_files = git.check_output(['ls-files', '--', subdir], may_fail=True)
+        if not all_files:
+            return
+
+        level_files = [Path(line) for line in all_files.splitlines() if '.gitnested.level' in line]
+
+        for level_file in level_files:
+            if level_file.exists():
+                data = self._read_yaml_config(level_file)
+                if 'nested' in data:
+                    data['nested']['parent'] = new_commit
+                    self._write_yaml_config(level_file, data)
+                    git.run(['add', '-f', '--', str(level_file)])
+
+        # Amend the commit if we modified any files
+        if level_files:
+            result = git.run(['diff', '--cached', '--quiet'], may_fail=True)
+            if result.returncode != 0:
+                # There are staged changes, amend the commit
+                git.run(['commit', '--amend', '--no-edit'])
+
     def create_nested_ref(self, git: GitRunner, subref: str, ref_type: str, commit: str):
         """Create a git ref pointing to commit"""
         ref_name = f'refs/nested/{subref}/{ref_type}'
@@ -381,7 +474,11 @@ class GitNestedRepo:
             if method == 'rebase':
                 git.run(['rebase', refs_fetch, branch], cwd=subdir_worktree, print_error=False)
             else:
-                git.run(['merge', refs_fetch], cwd=subdir_worktree, print_error=False)
+                # If parent is empty, allow unrelated histories (for nested-in-nested repos)
+                merge_cmd = ['merge', refs_fetch]
+                if not config.parent:
+                    merge_cmd.append('--allow-unrelated-histories')
+                git.run(merge_cmd, cwd=subdir_worktree, print_error=False)
         except GitNestedError as e:
             # Merge/rebase failed - return failure with error message
             error_msg = f'The "git {method}" command failed:\n{e.message}'
@@ -729,11 +826,15 @@ class GitNestedRepo:
         self.verbose(f"Put remote nested content into '{subdir}/'.", flags)
 
         subdirs = [subdir] if not config.filter else [f'{subdir}/{p}' for p in config.filter]
-        for subdir in subdirs:
-            git.run(['read-tree', f'--prefix={subdir}', '-u', nested_commit_ref])
+        for subdir_path in subdirs:
+            git.run(['read-tree', f'--prefix={subdir_path}', '-u', nested_commit_ref])
+
+        # Create .gitnested.levelN files for nested-in-nested repositories
+        # Level will be auto-detected based on existing level files
+        self.create_level_gitnested_files(git, flags, subdir, head_commit)
 
         # Finally, update .gitnested file
-        self.verbose(f"Put info into '{subdir}/.gitnested' file.", flags)
+        self.verbose(f"Put info into '{gitnested}' file.", flags)
         self.update_gitrepo_file(
             git=git,
             flags=flags,
@@ -745,6 +846,24 @@ class GitNestedRepo:
             command=command,
         )
         git.run(['add', '-f', '--', gitnested])
+
+        # If this is a .gitnested.levelN file, also update the regular .gitnested
+        # so that when the nested repo is operated on directly, it has current info
+        if '.gitnested.level' in str(gitnested):
+            regular_gitnested = gitnested.parent / '.gitnested'
+            if regular_gitnested.exists():
+                self.verbose(f"Also updating {regular_gitnested} for consistency", flags)
+                self.update_gitrepo_file(
+                    git=git,
+                    flags=flags,
+                    config=config,
+                    gitnested=regular_gitnested,
+                    upstream_head_commit=upstream_head_commit,
+                    nested_commit_ref=nested_commit_ref,
+                    head_commit=head_commit,
+                    command=command,
+                )
+                git.run(['add', '-f', '--', regular_gitnested])
 
         # Check if there are changes to commit
         result = git.run(['diff', '--cached', '--quiet'], may_fail=True)
@@ -1747,7 +1866,19 @@ class GitNestedCommand:
             self.usage_error(f"The subdir '{subdir}' should not be absolute path.")
 
         subref = self.repo.sanitize_subref(self.git, str(subdir))
+
+        # Determine the appropriate .gitnested file to use by detecting existing level files
         gitnested = subdir / '.gitnested'
+
+        # Search for .gitnested.levelN files to determine the correct level
+        level_files = sorted([
+            f for f in subdir.glob('.gitnested.level*') if f.is_file() and f.name.startswith('.gitnested.level')
+        ])
+
+        if level_files:
+            # Use the highest level file found (for deeply nested repos)
+            gitnested = level_files[-1]
+            self.verbose(f"Using {gitnested} for nested repository (detected from existing level files)", flags)
 
         # Check for existing worktree
         if not flags.force:
