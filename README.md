@@ -26,9 +26,17 @@ This allows you to run subsequent commands (pull, push, etc.) on the copied code
 - **Flexible**: Different branches can have different nested repos in different states
 - **Safe**: Easy to try and reset without breaking anything
 
+### Nested-in-Nested Support
+
+git-nested now supports nested repositories within nested repositories (recursive nesting) through `.gitnested.levelN` files:
+
+- When you clone a nested repository that itself contains nested repositories, git-nested automatically creates `.gitnested.level2`, `.gitnested.level3`, etc. files
+- These level files allow you to pull/push sub-nested repositories directly from the parent repository
+- The nesting level is automatically detected based on existing level files in the repository
+- Example: `parent/nested1/nested2` can be pulled directly with `git nested pull nested1/nested2` using its `.gitnested.level2` file
+
 ### Limitations
 
-- git-nested cannot handle nested-in-nested repositories as the `.gitnested` file contains upstream commits. They would not exist if git-nested works with temporary worktrees.
 - git-nested squashes the commits during a `git nested pull` into one commit. Otherwise the tool cannot determine at a later point of time, that the commit was pulled or not. This feature might be added in future, so that the commit message is adapted to indicate that a commit has been pulled via git-nested.
 
 ## Quick Start

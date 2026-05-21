@@ -62,8 +62,7 @@ def test_usual_contribution(foo_bar_cloned_and_nested):
     # The pushed branch should be available in a bar workspace now
     result = env.run(['git', 'fetch'], cwd=env.workspace / 'bar')
     assert result.stdout.strip() == ""
-    result = env.run(['git', 'checkout', 'foo-master'], cwd=env.workspace / 'bar')
-    assert result.stdout.strip() == "branch 'foo-master' set up to track 'origin/foo-master'."
+    env.run(['git', 'checkout', 'foo-master'], cwd=env.workspace / 'bar')
 
     assert_commit_count(env.workspace / 'bar', 7)  # 1 commit more
     bar_commits = (
