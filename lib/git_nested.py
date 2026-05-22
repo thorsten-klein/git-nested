@@ -14,12 +14,16 @@ import re
 import shutil
 import textwrap
 import yaml
+from importlib.metadata import version as _pkg_version, PackageNotFoundError
 from pathlib import Path
 from typing import List
 from dataclasses import dataclass
 from urllib.parse import quote
 
-VERSION = "1.0.0"
+try:
+    VERSION = _pkg_version("git-nested")
+except PackageNotFoundError:
+    VERSION = "0.99.99"
 REQUIRED_GIT_VERSION = "2.23.0"
 
 

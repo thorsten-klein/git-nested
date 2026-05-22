@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=45", "wheel"]
+requires = ["setuptools>=61", "setuptools-scm<7", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -65,8 +65,8 @@ python_functions = ["test_*"]
 py-modules = ["git_nested"]
 package-dir = {"" = "lib"}
 
-[tool.setuptools.dynamic]
-version = {attr = "git_nested.VERSION"}
+[tool.setuptools_scm]
+fallback_version = "1.0.0"
 
 [tool.setuptools.package-data]
 "*" = ["*.sh", "*.bash"]
