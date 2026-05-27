@@ -1,9 +1,12 @@
 """Tests extraction of a nested repository"""
 
 import textwrap
+
+import pytest
 import yaml
 
 from conftest import assert_commit_count, clone_repo, cmd_git_nested, create_upstream_repo, tree
+from git_nested import GitNestedError
 
 
 def test_consumer_with_filter(foo_bar_cloned):
@@ -137,3 +140,115 @@ def test_filter_pull(foo_bar_cloned):
         │   └── somefile
         ├── .gitnested
         └── rootfile""")
+
+
+def test_filter_regex(foo_bar_cloned):
+    """Test that filter patterns are interpreted as regex when they don't match a literal path"""
+    env = foo_bar_cloned
+
+    create_upstream_repo(env.upstream / 'leg')
+    clone_repo(str(env.upstream / 'leg'), env.workspace / 'leg')
+
+    env.add_new_files('subdirA/file1', cwd=env.workspace / 'leg')
+    env.add_new_files('subdirA/file2', cwd=env.workspace / 'leg')
+    env.add_new_files('subdirB/file1', cwd=env.workspace / 'leg')
+    env.add_new_files('subdirB/file2', cwd=env.workspace / 'leg')
+    env.add_new_files('subdirC/file1', cwd=env.workspace / 'leg')
+    env.add_new_files('subdirC/file2', cwd=env.workspace / 'leg')
+    env.add_new_files('docs/readme.md', cwd=env.workspace / 'leg')
+    env.add_new_files('docs/notes.txt', cwd=env.workspace / 'leg')
+    env.run(['git', 'push'], cwd=env.workspace / 'leg')
+
+    # clone with regex filters:
+    #   - subdir[AC]/.* selects everything under subdirA and subdirC
+    #   - docs/.*\.md selects only markdown files under docs
+    cmd_git_nested(
+        ['clone', f'{env.upstream}/leg', 'leg', '--filter=subdir[AC]/.*', '--filter=docs/.*\\.md'],
+        cwd=env.workspace / 'foo',
+    )
+    assert tree(env.workspace / 'foo' / 'leg') == textwrap.dedent("""\
+        ├── docs
+        │   └── readme.md
+        ├── subdirA
+        │   ├── file1
+        │   └── file2
+        ├── subdirC
+        │   ├── file1
+        │   └── file2
+        └── .gitnested""")
+
+    # change the regex filter in .gitnested so that only docs/*\.md and the
+    # subdirA contents are kept, and verify the next pull applies it
+    gitnested_path = env.workspace / 'foo' / 'leg' / '.gitnested'
+    data = yaml.safe_load(gitnested_path.read_text())
+    data['nested']['filter'] = ['docs/.*\\.md', 'subdirA/.*']
+    with gitnested_path.open('w') as f:
+        yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+    env.run(['git', 'add', 'leg/.gitnested'], cwd=env.workspace / 'foo')
+    env.run(['git', 'commit', '-m', 'narrow regex filter in leg/.gitnested'], cwd=env.workspace / 'foo')
+
+    # add a new upstream commit so that pull is triggered
+    env.add_new_files('subdirA/file3', cwd=env.workspace / 'leg')
+    env.run(['git', 'push'], cwd=env.workspace / 'leg')
+
+    cmd_git_nested('pull leg', cwd=env.workspace / 'foo')
+    assert tree(env.workspace / 'foo' / 'leg') == textwrap.dedent("""\
+        ├── docs
+        │   └── readme.md
+        ├── subdirA
+        │   ├── file1
+        │   ├── file2
+        │   └── file3
+        └── .gitnested""")
+
+
+def test_filter_invalid_regex(foo_bar_cloned):
+    """Invalid regex in --filter must raise GitNestedError with a clear message"""
+    env = foo_bar_cloned
+
+    create_upstream_repo(env.upstream / 'leg')
+    clone_repo(str(env.upstream / 'leg'), env.workspace / 'leg')
+
+    env.add_new_files('subdirA/file1', cwd=env.workspace / 'leg')
+    env.run(['git', 'push'], cwd=env.workspace / 'leg')
+
+    # '[unclosed' is neither a tree, a blob, nor a valid regex
+    with pytest.raises(GitNestedError, match=r"Invalid filter pattern '\[unclosed'"):
+        cmd_git_nested(
+            ['clone', f'{env.upstream}/leg', 'leg', '--filter=[unclosed'],
+            cwd=env.workspace / 'foo',
+        )
+
+
+def test_filter_regex_overlaps_literal(foo_bar_cloned):
+    """A regex filter that also matches files already added by a literal filter must skip them"""
+    env = foo_bar_cloned
+
+    create_upstream_repo(env.upstream / 'leg')
+    clone_repo(str(env.upstream / 'leg'), env.workspace / 'leg')
+
+    env.add_new_files('subdirA/file1', cwd=env.workspace / 'leg')
+    env.add_new_files('subdirA/file2', cwd=env.workspace / 'leg')
+    env.add_new_files('subdirB/file1', cwd=env.workspace / 'leg')
+    env.add_new_files('subdirB/file2', cwd=env.workspace / 'leg')
+    env.add_new_files('subdirC/file1', cwd=env.workspace / 'leg')
+    env.add_new_files('subdirC/file2', cwd=env.workspace / 'leg')
+    env.run(['git', 'push'], cwd=env.workspace / 'leg')
+
+    # Literal 'subdirA' pulls in subdirA/file1 and subdirA/file2 via read-tree.
+    # The regex 'subdir.*/file1' also matches subdirA/file1 (already present →
+    # exercises the file_path.exists() skip branch) and adds subdirB/file1 and
+    # subdirC/file1.
+    cmd_git_nested(
+        ['clone', f'{env.upstream}/leg', 'leg', '--filter=subdirA', '--filter=subdir.*/file1'],
+        cwd=env.workspace / 'foo',
+    )
+    assert tree(env.workspace / 'foo' / 'leg') == textwrap.dedent("""\
+        ├── subdirA
+        │   ├── file1
+        │   └── file2
+        ├── subdirB
+        │   └── file1
+        ├── subdirC
+        │   └── file1
+        └── .gitnested""")

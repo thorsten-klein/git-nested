@@ -832,6 +832,7 @@ class GitNestedRepo:
         if not config.filter:
             git.run(['read-tree', f'--prefix={subdir}', '-u', nested_commit_ref])
         else:
+            regex_patterns = []
             for p in config.filter:
                 obj_type = git.check_output(['cat-file', '-t', f'{nested_commit_ref}:{p}'], may_fail=True)
                 if obj_type == 'tree':
@@ -840,6 +841,26 @@ class GitNestedRepo:
                     file_path = subdir / p
                     file_path.parent.mkdir(parents=True, exist_ok=True)
                     content = git.run(['cat-file', 'blob', f'{nested_commit_ref}:{p}']).stdout
+                    file_path.write_text(content)
+                    git.run(['add', '-f', '--', str(file_path)])
+                else:
+                    try:
+                        regex_patterns.append(re.compile(p))
+                    except re.error as e:
+                        raise GitNestedError(f"Invalid filter pattern '{p}': {e}")
+
+            if regex_patterns:
+                all_blobs = (
+                    git.check_output(['ls-tree', '-r', '--name-only', nested_commit_ref], may_fail=True) or ''
+                ).splitlines()
+                for blob_path in all_blobs:
+                    if not any(pattern.fullmatch(blob_path) for pattern in regex_patterns):
+                        continue
+                    file_path = subdir / blob_path
+                    if file_path.exists():
+                        continue
+                    file_path.parent.mkdir(parents=True, exist_ok=True)
+                    content = git.run(['cat-file', 'blob', f'{nested_commit_ref}:{blob_path}']).stdout
                     file_path.write_text(content)
                     git.run(['add', '-f', '--', str(file_path)])
 
