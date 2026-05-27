@@ -110,13 +110,29 @@ def test_filter_pull(foo_bar_cloned):
     env.add_new_files('rootfile', cwd=env.workspace / 'leg')
     env.run(['git', 'push'], cwd=env.workspace / 'leg')
 
-    cmd_git_nested('pull leg --force', cwd=env.workspace / 'foo')
+    cmd_git_nested('pull leg', cwd=env.workspace / 'foo')
     assert tree(env.workspace / 'foo' / 'leg') == textwrap.dedent("""\
         ├── subdirA
         │   ├── file3
         │   ├── otherfile
         │   └── somefile
         ├── subdirC
+        │   ├── otherfile
+        │   └── somefile
+        ├── .gitnested
+        └── rootfile""")
+
+    data['nested']['filter'] = ['subdirA', 'rootfile']
+    with gitnested_path.open('w') as f:
+        yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+    env.run(['git', 'add', 'leg/.gitnested'], cwd=env.workspace / 'foo')
+    env.run(['git', 'commit', '-m', 'modify filter in leg/.gitnested'], cwd=env.workspace / 'foo')
+
+    # pull removes files when filters have changed
+    cmd_git_nested('pull leg', cwd=env.workspace / 'foo')
+    assert tree(env.workspace / 'foo' / 'leg') == textwrap.dedent("""\
+        ├── subdirA
+        │   ├── file3
         │   ├── otherfile
         │   └── somefile
         ├── .gitnested
