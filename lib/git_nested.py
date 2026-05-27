@@ -829,9 +829,19 @@ class GitNestedRepo:
 
         self.verbose(f"Put remote nested content into '{subdir}/'.", flags)
 
-        subdirs = [subdir] if not config.filter else [f'{subdir}/{p}' for p in config.filter]
-        for subdir_path in subdirs:
-            git.run(['read-tree', f'--prefix={subdir_path}', '-u', nested_commit_ref])
+        if not config.filter:
+            git.run(['read-tree', f'--prefix={subdir}', '-u', nested_commit_ref])
+        else:
+            for p in config.filter:
+                obj_type = git.check_output(['cat-file', '-t', f'{nested_commit_ref}:{p}'], may_fail=True)
+                if obj_type == 'tree':
+                    git.run(['read-tree', f'--prefix={subdir}/{p}', '-u', f'{nested_commit_ref}:{p}'])
+                elif obj_type == 'blob':
+                    file_path = subdir / p
+                    file_path.parent.mkdir(parents=True, exist_ok=True)
+                    content = git.run(['cat-file', 'blob', f'{nested_commit_ref}:{p}']).stdout
+                    file_path.write_text(content)
+                    git.run(['add', '-f', '--', str(file_path)])
 
         # Create .gitnested.levelN files for nested-in-nested repositories
         # Level will be auto-detected based on existing level files
@@ -1611,7 +1621,7 @@ class GitNestedCommand:
         subdir, gitnested, subref, config = self.setup_command('pull', flags, subdir, upstream)
 
         if flags.force:
-            _, config, _, _ = self.repo.do_clone(
+            up_to_date, config, nested_commit_ref, upstream_head_commit = self.repo.do_clone(
                 git=self.git,
                 flags=flags,
                 config=config,
@@ -1619,6 +1629,19 @@ class GitNestedCommand:
                 gitnested=gitnested,
                 subref=subref,
             )
+            if not up_to_date:
+                self.repo.commit_nested_branch(
+                    git=self.git,
+                    flags=flags,
+                    config=config,
+                    subdir=subdir,
+                    gitnested=gitnested,
+                    nested_commit_ref=nested_commit_ref,
+                    upstream_head_commit=upstream_head_commit,
+                    head_commit=head_commit,
+                    subdir_worktree=None,
+                    command='clone',
+                )
             self.say(f"Nested repository '{subdir}' pulled from '{config.remote}' ({config.branch}).", flags)
             return
 

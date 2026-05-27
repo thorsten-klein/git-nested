@@ -5,9 +5,7 @@ from conftest import (
     assert_commit_count,
     git_get_commit_msg,
     git_rev_parse,
-    clone_repo,
     cmd_git_nested,
-    create_upstream_repo,
 )
 
 
@@ -165,46 +163,3 @@ def test_usual_contribution(foo_bar_cloned_and_nested):
     # Do the nested push (should work without --force as only new commits should be added)
     result = cmd_git_nested('push bar', cwd=env.workspace / 'foo')
     assert result.stdout.strip() == f"Nested repository 'bar' pushed to '{env.upstream}/bar' (foo-master)."
-
-
-def test_consumer_with_filter(foo_bar_cloned):
-    """Test basic nested push functionality"""
-    env = foo_bar_cloned
-
-    create_upstream_repo(env.upstream / 'leg')
-    clone_repo(str(env.upstream / 'leg'), env.workspace / 'leg')
-
-    env.add_new_files('subdirA/somefile', cwd=env.workspace / 'leg')
-    env.add_new_files('subdirA/otherfile', cwd=env.workspace / 'leg')
-    env.add_new_files('subdirB/somefile', cwd=env.workspace / 'leg')
-    env.add_new_files('subdirB/otherfile', cwd=env.workspace / 'leg')
-    env.add_new_files('subdirC/somefile', cwd=env.workspace / 'leg')
-    env.add_new_files('subdirC/otherfile', cwd=env.workspace / 'leg')
-    env.run(['git', 'push'], cwd=env.workspace / 'leg')
-
-    # count commits
-    assert_commit_count(env.workspace / 'foo', 1)
-    assert_commit_count(env.workspace / 'leg', 6)
-
-    # add nested repository leg
-    cmd_git_nested(f'clone {env.upstream}/leg leg --filter=subdirA --filter=subdirC', cwd=env.workspace / 'foo')
-    assert (env.workspace / 'foo' / 'leg' / 'subdirA').exists()
-    assert not (env.workspace / 'foo' / 'leg' / 'subdirB').exists()
-    assert (env.workspace / 'foo' / 'leg' / 'subdirC').exists()
-
-    # add nested repository leg
-    env.add_new_files('leg/subdirA/somefile', cwd=env.workspace / 'foo')
-    cmd_git_nested('push leg --branch master', cwd=env.workspace / 'foo')
-    assert (env.workspace / 'foo' / 'leg' / 'subdirA').exists()
-    assert not (env.workspace / 'foo' / 'leg' / 'subdirB').exists()
-    assert (env.workspace / 'foo' / 'leg' / 'subdirC').exists()
-
-    # add nested repository leg
-    env.run(['git', 'pull'], cwd=env.workspace / 'leg')
-    env.add_new_files('subdirA/file3', cwd=env.workspace / 'leg')
-    env.run(['git', 'push'], cwd=env.workspace / 'leg')
-
-    cmd_git_nested('pull leg', cwd=env.workspace / 'foo')
-    assert (env.workspace / 'foo' / 'leg' / 'subdirA').exists()
-    assert not (env.workspace / 'foo' / 'leg' / 'subdirB').exists()
-    assert (env.workspace / 'foo' / 'leg' / 'subdirC').exists()

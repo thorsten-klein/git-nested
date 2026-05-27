@@ -586,3 +586,22 @@ def cmd_git_nested(args: list[str] | str, cwd, check: bool = True):
     retval.stdout = stdout_buf.getvalue()
     retval.stderr = stderr_buf.getvalue()
     return retval
+
+
+# ============================================================================
+# General utilities
+# ============================================================================
+
+
+def tree(path: Path, prefix="") -> str:
+    lines = []
+    entries = sorted(path.iterdir(), key=lambda p: (p.is_file(), p.name))
+    for i, entry in enumerate(entries):
+        connector = "└── " if i == len(entries) - 1 else "├── "
+        lines.append(prefix + connector + entry.name)
+        if entry.is_dir():
+            indent = "    " if i == len(entries) - 1 else "│   "
+            sub = tree(entry, prefix + indent)
+            if sub:
+                lines.extend(sub.split("\n"))
+    return "\n".join(lines)
