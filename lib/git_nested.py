@@ -1314,7 +1314,7 @@ class GitNestedRepo:
         remote_branches = git.check_output(['ls-remote', '--symref', config.remote], may_fail=True)
         if not remote_branches:
             raise GitNestedError(f"Command failed: 'git ls-remote --symref {config.remote}'.")
-        upstream_branch = re.search(r"[0-9a-f]\s+refs/heads/(\S+)", remote_branches)
+        upstream_branch = re.search(r"^ref:\s+refs/heads/(\S+)\s+HEAD", remote_branches, re.MULTILINE)
         if not upstream_branch:
             raise GitNestedError("Problem finding remote default head branch.")
         return upstream_branch.group(1)
