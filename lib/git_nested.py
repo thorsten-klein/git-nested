@@ -12,6 +12,7 @@ import subprocess
 import argparse
 import re
 import shutil
+import tempfile
 import textwrap
 import yaml
 from importlib.metadata import version as _pkg_version, PackageNotFoundError
@@ -474,12 +475,22 @@ class GitNestedRepo:
         method = flags.method or config.method
         refs_fetch = f'refs/nested/{subref}/fetch'
 
+        merge_target = refs_fetch
+        if config.filter:
+            # The local nested branch only ever contained the filtered subset of
+            # files. Merging the raw (unfiltered) upstream fetch against it makes
+            # git see files that were "deleted" locally (because they were never
+            # pulled in) as delete/modify conflicts whenever upstream touches
+            # them. Build a filtered view of the fetched commit so only files
+            # that actually matter to the local checkout can conflict.
+            merge_target = self.build_filtered_commit(git, subdir_worktree, config, upstream_head_commit)
+
         try:
             if method == 'rebase':
-                git.run(['rebase', refs_fetch, branch], cwd=subdir_worktree, print_error=False)
+                git.run(['rebase', merge_target, branch], cwd=subdir_worktree, print_error=False)
             else:
                 # If parent is empty, allow unrelated histories (for nested-in-nested repos)
-                merge_cmd = ['merge', refs_fetch]
+                merge_cmd = ['merge', merge_target]
                 if not config.parent:
                     merge_cmd.append('--allow-unrelated-histories')
                 git.run(merge_cmd, cwd=subdir_worktree, print_error=False)
@@ -491,6 +502,61 @@ class GitNestedRepo:
         self.create_nested_ref(git, subref, 'branch', branch)
 
         return True, nested_commit_ref, subdir_worktree, None
+
+    def build_filtered_commit(self, git: GitRunner, cwd: Path, config: NestedConfig, commit: str) -> str:
+        """Build a throwaway commit whose tree only contains the paths matched by
+        config.filter, applying the exact same literal/regex rules used when the
+        filtered content is written into the working tree.
+
+        The new commit keeps `commit` as its sole parent so its ancestry (and
+        thus merge-base detection against the local nested branch) is unaffected.
+
+        Returns:
+            sha of the filtered commit
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            index_file = Path(tmp) / 'index'
+            env = os.environ.copy()
+            env['GIT_INDEX_FILE'] = str(index_file)
+
+            git.run(['read-tree', '--empty'], cwd=cwd, env=env)
+
+            def already_indexed(path: str) -> bool:
+                return bool(git.check_output(['ls-files', '--stage', '--', path], cwd=cwd, env=env, may_fail=True))
+
+            regex_patterns = []
+            for p in config.filter:
+                obj_type = git.check_output(['cat-file', '-t', f'{commit}:{p}'], may_fail=True, cwd=cwd)
+                if obj_type == 'tree':
+                    git.run(['read-tree', f'--prefix={p}', f'{commit}:{p}'], cwd=cwd, env=env)
+                elif obj_type == 'blob':
+                    mode = git.check_output(['ls-tree', commit, '--', p]).split()[0]
+                    blob_sha = git.check_output(['rev-parse', f'{commit}:{p}'], cwd=cwd)
+                    git.run(['update-index', '--add', '--cacheinfo', f'{mode},{blob_sha},{p}'], cwd=cwd, env=env)
+                else:
+                    try:
+                        regex_patterns.append(re.compile(p))
+                    except re.error as e:
+                        raise GitNestedError(f"Invalid filter pattern '{p}': {e}")
+
+            if regex_patterns:
+                tree_listing = git.check_output(['ls-tree', '-r', commit], may_fail=True, cwd=cwd) or ''
+                for line in tree_listing.splitlines():
+                    meta, blob_path = line.split('\t', 1)
+                    if not any(pattern.fullmatch(blob_path) for pattern in regex_patterns):
+                        continue
+                    if already_indexed(blob_path):
+                        continue
+                    mode, _obj_type, blob_sha = meta.split()
+                    git.run(
+                        ['update-index', '--add', '--cacheinfo', f'{mode},{blob_sha},{blob_path}'], cwd=cwd, env=env
+                    )
+
+            filtered_tree = git.check_output(['write-tree'], cwd=cwd, env=env)
+            filtered_commit = git.check_output(
+                ['commit-tree', '-p', commit, '-m', 'git-nested: filtered view for merge', filtered_tree], cwd=cwd
+            )
+            return filtered_commit
 
     def do_push(
         self,

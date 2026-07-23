@@ -52,6 +52,39 @@ def test_consumer_with_filter(foo_bar_cloned):
     assert (env.workspace / 'foo' / 'leg' / 'subdirC').exists()
 
 
+def test_pull_conflicts_on_change_to_filtered_out_file(foo_bar_cloned):
+    """Reproduces bug: pulling upstream changes to a file excluded by --filter
+    causes a merge conflict, even though the file was never present locally.
+    """
+    env = foo_bar_cloned
+
+    create_upstream_repo(env.upstream / 'leg')
+    clone_repo(str(env.upstream / 'leg'), env.workspace / 'leg')
+
+    env.add_new_files('subdirA/somefile', cwd=env.workspace / 'leg')
+    env.add_new_files('subdirB/somefile', cwd=env.workspace / 'leg')
+    env.run(['git', 'push'], cwd=env.workspace / 'leg')
+
+    # clone leg with a filter that excludes subdirB entirely
+    cmd_git_nested(f'clone {env.upstream}/leg leg --filter=subdirA', cwd=env.workspace / 'foo')
+    assert (env.workspace / 'foo' / 'leg' / 'subdirA').exists()
+    assert not (env.workspace / 'foo' / 'leg' / 'subdirB').exists()
+
+    # upstream modifies a file inside the *excluded* subdirB - the local clone
+    # never had this file, so this change should not conflict with anything
+    env.modify_files('subdirB/somefile', cwd=env.workspace / 'leg')
+    env.run(['git', 'push'], cwd=env.workspace / 'leg')
+
+    # pulling should succeed cleanly since subdirB is filtered out locally
+    result = cmd_git_nested('pull leg', cwd=env.workspace / 'foo', check=False)
+    assert result.returncode == 0, (
+        f"Expected pull of a change to a filtered-out file to succeed without conflicts, "
+        f"but it failed:\n{result.stdout}\n{result.stderr}"
+    )
+    assert (env.workspace / 'foo' / 'leg' / 'subdirA').exists()
+    assert not (env.workspace / 'foo' / 'leg' / 'subdirB').exists()
+
+
 def test_filter_pull(foo_bar_cloned):
     """Test that a filter added to .gitnested is applied on the next pull"""
     env = foo_bar_cloned
