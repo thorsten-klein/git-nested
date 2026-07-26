@@ -3,7 +3,7 @@ function __fish_git_nested_subdirs
 end
 
 complete -c git-nested -f
-complete -c git-nested -n '__fish_use_subcommand' -a 'branch clean clone commit config fetch init pull push status version'
+complete -c git-nested -n '__fish_use_subcommand' -a 'branch clean clone commit config diff fetch init pull push status version'
 complete -c git-nested -s h -d 'Show the command summary'
 complete -c git-nested -l version -d 'Print the git-nested version number'
 complete -c git-nested -l all -s a -d 'Perform command on all current nesteds'
@@ -27,6 +27,7 @@ complete -c git-nested -n '__fish_seen_subcommand_from branch' -a '(__fish_git_n
 complete -c git-nested -n '__fish_seen_subcommand_from clean' -a '(__fish_git_nested_subdirs)'
 complete -c git-nested -n '__fish_seen_subcommand_from commit' -a '(__fish_git_nested_subdirs)'
 complete -c git-nested -n '__fish_seen_subcommand_from config' -a '(__fish_git_nested_subdirs)'
+complete -c git-nested -n '__fish_seen_subcommand_from diff' -a '(__fish_git_nested_subdirs)'
 complete -c git-nested -n '__fish_seen_subcommand_from fetch' -a '(__fish_git_nested_subdirs)'
 complete -c git-nested -n '__fish_seen_subcommand_from pull' -a '(__fish_git_nested_subdirs)'
 complete -c git-nested -n '__fish_seen_subcommand_from push' -a '(__fish_git_nested_subdirs)'

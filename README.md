@@ -169,6 +169,22 @@ Fetch remote content for a nested repository.
 git nested fetch --help
 ```
 
+#### `git nested diff`
+
+Show the local diff of a nested repo compared to upstream. Fetches the latest upstream
+content first, so it always compares against the freshest available state. Requires that
+there are no uncommitted changes in the outer repository.
+
+```bash
+git nested diff --help
+```
+
+**Example:**
+```bash
+git nested diff ext/lib
+git nested diff --all  # Diff all nested repos
+```
+
 #### `git nested branch`
 
 Create a branch with local nested commits for manual conflict resolution.

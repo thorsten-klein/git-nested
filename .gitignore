@@ -9,5 +9,7 @@ build/
 .pytest_cache/
 .coverage
 htmlcov/
+coverage.xml
+junit.xml
 *.whl
 *.tar.gz

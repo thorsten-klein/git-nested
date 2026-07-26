@@ -32,7 +32,7 @@ _git-nested() {
 
     case $state in
     subcmd)
-        compadd branch clean clone commit config fetch init pull push status version
+        compadd branch clean clone commit config diff fetch init pull push status version
     ;;
 
     args)
@@ -51,7 +51,7 @@ _git-nested() {
                 esac
         ;;
 
-        branch|clean|commit|config|fetch|pull|push|status)
+        branch|clean|commit|config|diff|fetch|pull|push|status)
             _compadd_subdirs
         ;;
 
