@@ -16,6 +16,49 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
+# Path to a standalone git-nested executable (see scripts/create-python-exe.sh)
+# to run the whole suite against instead of the git_nested module in this
+# checkout. Every test drives git-nested through cmd_git_nested(), so pointing
+# this at the frozen binary tests the artifact that is actually released --
+# including everything only the freeze can break: a module PyInstaller did not
+# collect, missing package metadata, a data file that is not in the archive.
+#
+#   GIT_NESTED_EXE=dist/git-nested uv run pytest
+#
+# Unset (the normal case) nothing changes: the tests run in-process, which is
+# faster and is what the coverage numbers come from.
+GIT_NESTED_EXE = os.getenv('GIT_NESTED_EXE') or None
+if GIT_NESTED_EXE:
+    GIT_NESTED_EXE = Path(GIT_NESTED_EXE).resolve()
+    if not os.access(GIT_NESTED_EXE, os.X_OK):
+        raise RuntimeError(f"GIT_NESTED_EXE={GIT_NESTED_EXE} is not an executable file")
+    # `git nested ...` is git looking up a 'git-nested' on PATH, so the name of
+    # the file decides whether the tests reach it at all.
+    if GIT_NESTED_EXE.name != 'git-nested':
+        raise RuntimeError(f"GIT_NESTED_EXE={GIT_NESTED_EXE} must be named 'git-nested'")
+
+
+def _version_under_test() -> str:
+    """The version the git-nested being tested reports
+
+    Asked of the binary rather than read from this checkout's git_nested: the
+    binary carries the version frozen into it at build time, and a mismatch
+    with the installed module (a build from another commit, a dirty tree) must
+    show up as a failing version test, not as every .gitnested assertion in
+    the suite failing at once.
+    """
+    if not GIT_NESTED_EXE:
+        return git_nested.VERSION
+
+    out = subprocess.run([GIT_NESTED_EXE, '--version'], capture_output=True, text=True, check=True).stdout
+    match = re.search(r'^git-nested Version:\s*(\S+)', out, re.MULTILINE)
+    if not match:
+        raise RuntimeError(f"cannot parse a version out of `{GIT_NESTED_EXE} --version`:\n{out}")
+    return match.group(1)
+
+
+VERSION = _version_under_test()
+
 # ============================================================================
 # Test Environment
 # ============================================================================
@@ -289,7 +332,9 @@ def env(tmp_path):
         'HOME': str(test_env.test_home),
         'GIT_CONFIG_GLOBAL': str(test_env.test_home / '.gitconfig'),
         'GIT_CONFIG_SYSTEM': '/dev/null',
-        'PATH': f"{root_dir / 'lib'}:{os.getenv('PATH')}",
+        # lib/ holds the 'git-nested' launcher `git nested` dispatches to --
+        # replaced by the directory of the frozen binary when testing that.
+        'PATH': f"{GIT_NESTED_EXE.parent if GIT_NESTED_EXE else root_dir / 'lib'}:{os.getenv('PATH')}",
     }
 
     with update_env(env_vars):
@@ -376,7 +421,7 @@ def assert_gitnested_field(
         data = yaml.safe_load(f) or {}
 
     if version is None:
-        version = git_nested.VERSION
+        version = VERSION
 
     def assert_field(nested_data, field, value: str | None):
         if value is None:
@@ -548,20 +593,41 @@ def git_config(key: str, cwd, file=None):
 
 
 def cmd_git_nested_subprocess(args, cwd, check: bool = True):
-    """Run a git nested command as subprocess and return the result"""
-    if isinstance(args, str):
-        cmd = f'git nested {args}'
-        shell = True
-    else:
-        cmd = ['git', 'nested'] + args
-        shell = False
+    """Run a git nested command as subprocess and return the result
 
-    result = subprocess.run(cmd, shell=shell, cwd=cwd, capture_output=True, text=True, check=check)
+    Invoked as `git nested`, not as the executable directly: that is how users
+    run it, and it only works if git finds a 'git-nested' on PATH -- which the
+    env fixture points at either lib/ or the frozen binary.
+    """
+    args = shlex.split(args) if isinstance(args, str) else [str(a) for a in args]
+
+    # `git nested --help` never reaches git-nested: git answers every
+    # '--help'/'-h' itself by opening man git-nested, which is not installed
+    # and exits 16. Only the help output is unreachable that way, so those
+    # calls go straight to the executable -- which is also what git's own man
+    # page tells users to do when there is no manual entry.
+    cmd = ['git-nested'] if {'--help', '-h'} & set(args) else ['git', 'nested']
+
+    result = subprocess.run(cmd + args, cwd=cwd, capture_output=True, text=True, check=False)
+    if check and result.returncode:
+        # GitNestedError rather than a bare Exception: in-process the app's own
+        # error type propagates out of app.main(), and tests match on it. The
+        # message is the stderr the command produced, so `match=` keeps working;
+        # print_to_stderr would duplicate it into the captured output.
+        raise git_nested.GitNestedError(
+            f"Command failed with exit code {result.returncode}: {shlex.join(cmd + args)}\n{result.stderr}",
+            print_to_stderr=False,
+        )
     return result
 
 
 def cmd_git_nested(args: list[str] | str, cwd, check: bool = True):
     """Run a git nested command and return the result"""
+    # Against the frozen binary there is no in-process path to take: it is a
+    # separate program, so the same command goes through a subprocess instead.
+    if GIT_NESTED_EXE:
+        return cmd_git_nested_subprocess(args, cwd, check=check)
+
     stdout_buf = io.StringIO()
     stderr_buf = io.StringIO()
 

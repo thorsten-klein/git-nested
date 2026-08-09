@@ -7,6 +7,24 @@ on:
     branches: ['*']
 
 jobs:
+  # Builds the standalone executable with the very script the release uses
+  # (scripts/create-python-exe.sh), so a change that breaks the freeze -- a new
+  # import, a moved data file -- fails here rather than on release day. The
+  # script smoke-tests the binary it produces; release-binary.yml additionally
+  # runs it across distros before attaching it to a release.
+  binary:
+    uses: ./.github/workflows/build-binary.yml
+    with:
+      artifact: git-nested-binary-ci
+
+  # ... and then runs the full pytest suite through that executable, so a
+  # binary that builds but does not work still fails the PR.
+  binary-test:
+    needs: binary
+    uses: ./.github/workflows/test-binary.yml
+    with:
+      artifact: git-nested-binary-ci
+
   test:
     runs-on: ${{ matrix.os }}
     strategy:

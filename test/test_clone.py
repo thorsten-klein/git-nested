@@ -1,8 +1,7 @@
 """Tests for git nested clone command"""
 
-from conftest import assert_gitnested_field, git_rev_parse, cmd_git_nested
+from conftest import VERSION, assert_gitnested_field, git_rev_parse, cmd_git_nested
 import textwrap
-import git_nested
 
 
 def test_clone_into_empty_repo(env):
@@ -57,7 +56,7 @@ def test_basic_clone(foo_bar_cloned):
         commit=bar_head_commit,
         parent=foo_clone_commit,
         method='merge',
-        version=git_nested.VERSION,
+        version=VERSION,
     )
 
     # Make sure status is clean

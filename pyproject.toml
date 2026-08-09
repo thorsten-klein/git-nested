@@ -88,6 +88,12 @@ lint = "ruff check ."
 flakefinder = "pytest -n=auto -W error --flake-finder --flake-runs=200"
 test = {cmd = "pytest -v -n=auto -W error --cov-config=pyproject.toml --cov=git_nested --junitxml=junit.xml -o junit_family=legacy --cov-report=term --cov-report=html --cov-report=xml", env = {PYTHONIOENCODING = "utf-8"}}
 
+# Build the standalone executable, then run the whole suite through it
+# (GIT_NESTED_EXE makes conftest drive `git nested` on PATH instead of the
+# module). Same two steps CI runs; see scripts/create-python-exe.sh.
+exe = "scripts/create-python-exe.sh"
+test-exe = ["exe", {cmd = "pytest -v -n=auto -W error", env = {PYTHONIOENCODING = "utf-8", GIT_NESTED_EXE = "dist/git-nested"}}]
+
 clean = "rm -rf dist/ build/ *.egg-info lib/*.egg-info"
 build = ["clean", {cmd = "uv build"}]
 publish-test = {cmd = "uv publish --publish-url https://test.pypi.org/legacy/"}

@@ -1,5 +1,4 @@
-import git_nested
-from conftest import cmd_git_nested
+from conftest import VERSION, cmd_git_nested
 
 
 def test_version_command(env):
@@ -8,7 +7,7 @@ def test_version_command(env):
 
     result = cmd_git_nested('version', cwd=env.workspace / 'init')
     assert result.returncode == 0
-    assert f'git-nested Version: {git_nested.VERSION}' in result.stdout
+    assert f'git-nested Version: {VERSION}' in result.stdout
     assert 'Copyright' in result.stdout
     assert 'Git Version:' in result.stdout
     assert result.stderr.strip() == ""

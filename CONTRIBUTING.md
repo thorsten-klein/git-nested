@@ -65,6 +65,31 @@ uv run poe test -vv
 uv run pytest
 ```
 
+### Testing the Standalone Executable
+
+Releases ship a single-file executable built with PyInstaller
+(`scripts/create-python-exe.sh`). Freezing can break things the module tests
+never see — an import PyInstaller did not collect, missing package metadata —
+so the whole suite can be run *through* the binary instead:
+
+```bash
+# Build dist/git-nested and run every test against it
+uv run poe test-exe
+
+# Just build it
+uv run poe exe
+
+# Or point the tests at any executable you already have
+GIT_NESTED_EXE=dist/git-nested uv run pytest
+```
+
+With `GIT_NESTED_EXE` set, `cmd_git_nested()` in `test/conftest.py` runs
+`git nested ...` as a subprocess against that binary rather than calling the
+module in-process; without it, nothing changes. CI does both: `test.yml` builds
+the binary and runs the suite against it on every PR, and `release-binary.yml`
+repeats that plus a run across six distro images before attaching the asset to
+a release.
+
 ### Code Quality
 
 We use [Ruff](https://github.com/astral-sh/ruff) for both linting and formatting:

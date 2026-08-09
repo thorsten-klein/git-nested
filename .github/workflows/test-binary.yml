@@ -1,0 +1,78 @@
+name: Test binary
+
+# Runs the *whole* pytest suite against the standalone executable instead of
+# against the git_nested module in the checkout: conftest's GIT_NESTED_EXE
+# routes every cmd_git_nested() call through `git nested ...` on PATH, so the
+# ~130 tests drive the frozen binary as a user would. That is what catches the
+# failures unique to freezing -- a module PyInstaller did not collect, package
+# metadata missing so the version is wrong, a data file left out of the archive
+# -- none of which the module tests can see.
+#
+# Called by test.yml (every push/PR) and by release-binary.yml (before the
+# asset is attached). release-binary.yml additionally runs the binary across
+# distro images, which is the other half: this job proves the binary is
+# complete, that one proves it is portable.
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Commit/tag/branch whose tests to run. Empty: whatever triggered the caller.'
+        type: string
+        required: false
+        default: ''
+      artifact:
+        description: 'Name of the artifact holding the built binary'
+        type: string
+        required: false
+        default: git-nested-binary
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          # no fetch-depth: 0 needed -- the version under test is read out of
+          # the binary (conftest's _version_under_test), not derived from the
+          # tags of this checkout.
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.13'
+          enable-cache: true
+
+      # for pytest, pytest-xdist and the git_nested import conftest still needs
+      # for its helpers -- the code under test comes from the binary.
+      - name: Setup project
+        run: uv sync --frozen
+
+      - name: git config
+        run: |
+          git config --global user.email "you@example.com";
+          git config --global user.name "Your Name";
+          git config --global init.defaultBranch "master";
+          git config --global --add safe.directory "$PWD";
+          git config --global --add safe.directory "$PWD.git";
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact }}
+
+      # into its own directory: the env fixture puts the binary's directory on
+      # PATH, and the repo root is not a good thing to put there.
+      - name: Unpack the binary
+        run: |
+          mkdir -p bin
+          tar -C bin -xf git-nested_x64_Linux.tar.xz
+          bin/git-nested --version
+
+      # no coverage flags: the code being executed lives in another process
+      # inside the frozen archive, so there is nothing here for coverage to
+      # measure. test.yml's module run is what the coverage numbers come from.
+      - name: Run the suite against the binary
+        env:
+          GIT_NESTED_EXE: ${{ github.workspace }}/bin/git-nested
+          PYTHONIOENCODING: utf-8
+        run: uv run pytest -v -n=auto -W error
