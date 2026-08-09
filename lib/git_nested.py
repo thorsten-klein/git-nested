@@ -668,6 +668,30 @@ class GitNestedRepo:
 
         return True, branch_name, subdir_worktree, branch_created, new_commit
 
+    def get_diff(self, git: GitRunner, flags: Flags, config: NestedConfig, subdir: Path, subref: str) -> str:
+        """Compute the diff between the local nested repository content and the
+        freshly fetched upstream content.
+
+        Returns:
+            diff text (empty string if there are no differences)
+        """
+        upstream_head_commit = self.do_fetch(git, flags, config, subref)
+
+        local_tree = git.check_output(['rev-parse', f'HEAD:{subdir}'])
+
+        if config.filter:
+            upstream_target = self.build_filtered_commit(git, Path.cwd(), config, upstream_head_commit)
+        else:
+            upstream_target = upstream_head_commit
+
+        return git.check_output([
+            'diff',
+            local_tree,
+            upstream_target,
+            '--',
+            ':(exclude,glob)**/.gitnested*',
+        ])
+
     def do_fetch(self, git: GitRunner, flags: Flags, config: NestedConfig, subref: str) -> str:
         """Fetch upstream content
 
@@ -1291,7 +1315,7 @@ class GitNestedRepo:
 
     def check_worktree_clean(self, git: GitRunner, command: str):
         """Ensure working copy has no uncommitted changes"""
-        if command not in ['clone', 'init', 'pull', 'push', 'branch', 'commit']:
+        if command not in ['clone', 'init', 'pull', 'push', 'branch', 'commit', 'diff']:
             return
 
         pwd = Path.cwd()
@@ -1496,6 +1520,7 @@ class GitNestedCommand:
             'clean': ['ALL', 'all', 'force'],
             'clone': ['branch', 'filter', 'force', 'message', 'method', 'filter'],
             'commit': ['fetch', 'force', 'message', 'msg_file'],
+            'diff': ['all', 'branch', 'remote'],
             'fetch': ['all', 'branch', 'force', 'remote'],
             'init': ['branch', 'remote', 'method'],
             'pull': ['all', 'branch', 'force', 'message', 'method', 'remote', 'update'],
@@ -1543,7 +1568,7 @@ class GitNestedCommand:
             add_subparser_args(command_subparser, command)
 
             # Few commands also accept positional args
-            if command in ['branch', 'commit', 'fetch', 'init', 'pull', 'push']:
+            if command in ['branch', 'commit', 'diff', 'fetch', 'init', 'pull', 'push']:
                 command_subparser.add_argument('subdir', nargs='?')
             if command in ['clean']:
                 command_subparser.add_argument('subdir', nargs='?')
@@ -1630,6 +1655,7 @@ class GitNestedCommand:
             'pull': lambda: self.cmd_pull(flags, subdir, upstream, nested_commit_ref, git_tmp, head_commit),
             'push': lambda: self.cmd_push(flags, subdir, upstream, nested_commit_ref, git_tmp, head_commit),
             'fetch': lambda: self.cmd_fetch(flags, subdir, upstream),
+            'diff': lambda: self.cmd_diff(flags, subdir, upstream),
             'branch': lambda: self.cmd_branch(flags, subdir, upstream, git_tmp),
             'commit': lambda: self.cmd_commit(flags, subdir, upstream, nested_commit_ref, git_tmp, head_commit),
             'status': lambda: self.cmd_status(flags, git_tmp),
@@ -1885,6 +1911,21 @@ class GitNestedCommand:
         else:
             self.repo.do_fetch(self.git, flags, config, subref)
             self.say(f"Fetched '{subdir}' from '{config.remote}' ({config.branch}).", flags)
+
+    def cmd_diff(self, flags, subdir, upstream):
+        """Show the local diff of a nested repo compared to upstream"""
+        subdir, gitnested, subref, config = self.setup_command('diff', flags, subdir, upstream)
+
+        if config.remote == 'none':
+            self.say(f"Ignored '{subdir}', no remote.", flags)
+            return
+
+        diff_output = self.repo.get_diff(self.git, flags, config, subdir, subref)
+
+        if not diff_output:
+            self.say(f"No differences between '{subdir}' and upstream '{config.remote}' ({config.branch}).", flags)
+        else:
+            self.say(diff_output, flags)
 
     def cmd_branch(self, flags, subdir, upstream, git_tmp):
         """Create a branch containing the local nested repo commits"""

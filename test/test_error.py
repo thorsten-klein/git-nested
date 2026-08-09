@@ -65,7 +65,10 @@ def test_error_unknown_command(foo_bar_cloned):
     assert_argparse_error(cp, "git nested: error: argument command: invalid choice: 'main'")
 
     # the following text depends on the python version. The single quotes might be missing.
-    text = "(choose from 'branch', 'clean', 'clone', 'commit', 'fetch', 'init', 'pull', 'push', 'status', 'version')"
+    text = (
+        "(choose from 'branch', 'clean', 'clone', 'commit', 'diff', 'fetch', 'init', 'pull', 'push', "
+        "'status', 'version')"
+    )
     assert (text in cp.stderr) or (text.replace("'", "") in cp.stderr)
 
 
@@ -90,7 +93,7 @@ def test_error_subdir_is_absolute_path(foo_bar_cloned):
     assert_stderr(cp, "git-nested: The subdir '/home/user/bar/foo' should not be absolute path.", returncode=1)
 
 
-@pytest.mark.parametrize('cmd', ['pull', 'push', 'fetch', 'branch', 'commit', 'clean'])
+@pytest.mark.parametrize('cmd', ['pull', 'push', 'fetch', 'branch', 'commit', 'clean', 'diff'])
 def test_error_command_requires_subdir(foo_bar_cloned, cmd):
     """Test error when command is called without required subdir argument"""
     env = foo_bar_cloned

@@ -2,8 +2,8 @@
 
 _git_nested() {
     local _opts=" -h --help --version -a --all -A --ALL -b= --branch= -e --edit -f --force -F --fetch -M= --method= -m= --message= --file= --filter= -r= --remote= -s --squash -u --update -q --quiet -v --verbose -d --debug -x --DEBUG"
-    local subcommands="branch clean clone commit config fetch init pull push status version"
-    local subdircommands="branch clean commit config fetch pull push status"
+    local subcommands="branch clean clone commit config diff fetch init pull push status version"
+    local subdircommands="branch clean commit config diff fetch pull push status"
     local subcommand
     subcommand="$(__git_find_on_cmdline "$subcommands")"
 
