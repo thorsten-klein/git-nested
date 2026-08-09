@@ -1,0 +1,10 @@
+# Code owners for git-nested
+#
+# Owners listed here are automatically requested for review on pull requests
+# that touch matching files. The last matching pattern wins.
+#
+# Note: GitHub never requests a review from the author of the pull request,
+# so PRs opened by an owner get no automatic reviewer.
+
+# Default owner for everything in the repository
+* @thorsten-klein
