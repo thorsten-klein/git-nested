@@ -3,8 +3,8 @@
 import pytest
 import textwrap
 
-import git_nested
 from conftest import (
+    VERSION,
     assert_gitnested_field,
     git_get_commit_msg,
     git_rev_parse,
@@ -62,7 +62,7 @@ def test_pull(prepare_pull_test):
           branch:   "master"
           commit:   "{bar_head_commit_short}"
         git-nested:
-          version:  "{git_nested.VERSION}"''')
+          version:  "{VERSION}"''')
 
     # Check that we detect that we don't need to pull
     result = cmd_git_nested('pull bar', cwd=env.workspace / 'foo')
@@ -198,7 +198,7 @@ def test_pull_conflict(prepare_pull_test):
           branch:   "master"
           commit:   "{expected_upstream_commit}"
         git-nested:
-          version:  "{git_nested.VERSION}"''')
+          version:  "{VERSION}"''')
 
     # Test foo/bar/.gitnested file contents
     bar_head_commit = git_rev_parse(['HEAD'], cwd=env.workspace / 'bar')
@@ -528,7 +528,7 @@ def test_pull_rebase(prepare_pull_test):
           branch:   "master"
           commit:   "{bar_head_commit_short}"
         git-nested:
-          version:  "{git_nested.VERSION}"''')
+          version:  "{VERSION}"''')
 
     # Check that we detect that we don't need to pull again
     result = cmd_git_nested('pull -M rebase bar', cwd=env.workspace / 'foo')

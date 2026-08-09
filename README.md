@@ -54,7 +54,25 @@ git-nested now supports nested repositories within nested repositories (recursiv
 pip install git+https://github.com/thorsten-klein/git-nested
 ```
 
-#### Method 2: From Source with Shell Integration
+#### Method 2: Standalone Executable (no Python needed)
+
+Every [release](https://github.com/thorsten-klein/git-nested/releases) ships
+`git-nested_x64_Linux.tar.xz`: a single file with git-nested, its dependencies
+and a Python interpreter inside. Only git itself has to be installed.
+
+```bash
+curl -L https://github.com/thorsten-klein/git-nested/releases/latest/download/git-nested_x64_Linux.tar.xz | tar -xJ
+sudo install git-nested /usr/local/bin/   # any directory on PATH works
+```
+
+The file has to keep the name `git-nested` — that is how `git nested ...`
+finds it. The archive also contains the completion scripts from `share/`.
+
+Built on x86_64 with glibc 2.28, so it runs on any x86_64 Linux from that
+version onwards (Ubuntu 20.04, Debian 10, RHEL/AlmaLinux 8 and newer). Not on
+musl distros such as Alpine.
+
+#### Method 3: From Source with Shell Integration
 
 Adds git-nested to PATH and enables tab completion:
 
@@ -64,7 +82,7 @@ echo 'source /path/to/git-nested/.rc' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-#### Method 3: From Source (Manual)
+#### Method 4: From Source (Manual)
 
 ```bash
 git clone https://github.com/thorsten-klein/git-nested /path/to/git-nested
