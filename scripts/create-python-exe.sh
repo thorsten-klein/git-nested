@@ -7,11 +7,11 @@
 #
 #   scripts/create-python-exe.sh [--output DIR] [--python PYTHON] [--no-archive]
 #
-# Output (default dist/): the executable 'git-nested' plus
-# git-nested_x64_Linux.tar.xz holding it, which is what the release workflow
-# attaches to the release. The executable has to keep that exact name on the
-# target machine: `git nested ...` works by git looking up a 'git-nested' on
-# PATH.
+# Output (default dist/): the executable 'git-nested' plus a
+# git-nested-<version>-x64-linux.tar.xz holding it, which is what the release
+# workflow attaches to the release. The executable has to keep that exact
+# name on the target machine: `git nested ...` works by git looking up a
+# 'git-nested' on PATH.
 #
 # PORTABILITY: a PyInstaller binary bundles the interpreter but still links
 # the *build machine's* glibc, and glibc is only backward compatible -- so the
@@ -30,9 +30,10 @@ set -euo pipefail
 # executable.
 PYINSTALLER_VERSION="6.16.0"
 
-# The asset name the release workflow uploads; x64/Linux is not a guess but
-# what this build is -- PyInstaller freezes for the running platform only.
-ARCHIVE_NAME="git-nested_x64_Linux.tar.xz"
+# The asset name the release workflow uploads follows
+# git-nested-<version>-x64-linux.tar.xz; x64/Linux is not a guess but what
+# this build is -- PyInstaller freezes for the running platform only. The
+# version is filled in once it's known, after freezing (see below).
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTPUT_DIR="$REPO_ROOT/dist"
@@ -138,7 +139,8 @@ EXE="$BUILD_DIR/dist/git-nested"
 # throwaway repo with its own HOME so a developer's git config (hooks,
 # templates, a signing key) cannot decide whether this passes.
 echo ">>> smoke-testing $EXE"
-"$EXE" --version
+VERSION_OUTPUT="$("$EXE" --version | head -1)"
+echo "$VERSION_OUTPUT"
 "$EXE" --help >/dev/null
 SMOKE_DIR="$BUILD_DIR/smoke"
 mkdir -p "$SMOKE_DIR/repo/doc"
@@ -154,22 +156,33 @@ mkdir -p "$SMOKE_DIR/repo/doc"
     test -f "$SMOKE_DIR/repo/doc/.gitnested" || { echo "ERROR: 'git-nested init doc' wrote no .gitnested" >&2; exit 1; }
 )
 
+# 'git-nested Version: X.Y.Z' -> X.Y.Z; see git_nested.py's cmd_version for
+# what it prints.
+VERSION="${VERSION_OUTPUT#git-nested Version: }"
+ARCHIVE_NAME="git-nested-${VERSION}-x64-linux.tar.xz"
+
 mkdir -p "$OUTPUT_DIR"
 cp "$EXE" "$OUTPUT_DIR/git-nested"
 
 if [ "$ARCHIVE" = 1 ]; then
+    # The tarball holds the versioned binary plus a 'git-nested' symlink to
+    # it, so it can be dropped anywhere on PATH under a name that doesn't
+    # change release to release, while the file itself still names the
+    # version it is -- e.g. for side-by-side installs of more than one
+    # release.
+    cp "$EXE" "$BUILD_DIR/dist/git-nested-$VERSION"
+    ln -sf "git-nested-$VERSION" "$BUILD_DIR/dist/git-nested"
     # LICENSE and the completion scripts ride along: the tarball is a
     # redistribution of git-nested in binary form, so MIT asks for the notice
     # to travel with it, and share/ is the only way a user who never installs
     # the package gets completion at all.
     cp "$REPO_ROOT/LICENSE" "$BUILD_DIR/dist/LICENSE"
     cp -r "$REPO_ROOT/share" "$BUILD_DIR/dist/share"
-    XZ_OPT=-9 tar -C "$BUILD_DIR/dist" -caf "$OUTPUT_DIR/$ARCHIVE_NAME" git-nested LICENSE share
+    XZ_OPT=-9 tar -C "$BUILD_DIR/dist" -caf "$OUTPUT_DIR/$ARCHIVE_NAME" "git-nested-$VERSION" git-nested LICENSE share
 fi
 
 echo
-# head -1 of --version: the rest is copyright, homepage and the git version.
-echo ">>> $("$OUTPUT_DIR/git-nested" --version | head -1) -> $OUTPUT_DIR/git-nested ($(du -h "$OUTPUT_DIR/git-nested" | cut -f1))"
+echo ">>> $VERSION_OUTPUT -> $OUTPUT_DIR/git-nested ($(du -h "$OUTPUT_DIR/git-nested" | cut -f1))"
 if [ "$ARCHIVE" = 1 ]; then
     echo ">>> $OUTPUT_DIR/$ARCHIVE_NAME ($(du -h "$OUTPUT_DIR/$ARCHIVE_NAME" | cut -f1))"
 fi

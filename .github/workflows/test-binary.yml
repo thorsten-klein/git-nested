@@ -61,11 +61,14 @@ jobs:
           name: ${{ inputs.artifact }}
 
       # into its own directory: the env fixture puts the binary's directory on
-      # PATH, and the repo root is not a good thing to put there.
+      # PATH, and the repo root is not a good thing to put there. Named
+      # git-nested-<version>-x64-linux.tar.xz, so matched by glob. 'git-nested'
+      # inside is a symlink to the versioned binary, so both land in bin/
+      # together.
       - name: Unpack the binary
         run: |
           mkdir -p bin
-          tar -C bin -xf git-nested_x64_Linux.tar.xz
+          tar -C bin -xf git-nested-*-x64-linux.tar.xz
           bin/git-nested --version
 
       # no coverage flags: the code being executed lives in another process
