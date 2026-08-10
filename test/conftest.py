@@ -29,7 +29,10 @@ import yaml
 # faster and is what the coverage numbers come from.
 GIT_NESTED_EXE = os.getenv('GIT_NESTED_EXE') or None
 if GIT_NESTED_EXE:
-    GIT_NESTED_EXE = Path(GIT_NESTED_EXE).resolve()
+    # .absolute(), not .resolve(): the released archive's 'git-nested' is a
+    # symlink to a versioned binary (see create-python-exe.sh), and .resolve()
+    # would follow it before the name check below ever saw 'git-nested'.
+    GIT_NESTED_EXE = Path(GIT_NESTED_EXE).absolute()
     if not os.access(GIT_NESTED_EXE, os.X_OK):
         raise RuntimeError(f"GIT_NESTED_EXE={GIT_NESTED_EXE} is not an executable file")
     # `git nested ...` is git looking up a 'git-nested' on PATH, so the name of
