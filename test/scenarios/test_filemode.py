@@ -1,13 +1,12 @@
 """Tests that file permissions (executable bit) are preserved through pull/push"""
 
-import os
 import stat
 
 from conftest import assert_commit_count, clone_repo, cmd_git_nested, create_upstream_repo
 
 
 def _is_executable(path):
-    return bool(os.stat(path).st_mode & stat.S_IXUSR)
+    return bool(path.stat().st_mode & stat.S_IXUSR)
 
 
 def test_filemode_preserved_through_pull_and_push(foo_bar_cloned):
@@ -20,9 +19,9 @@ def test_filemode_preserved_through_pull_and_push(foo_bar_cloned):
     # Create an executable script and a regular file in the upstream nested repo
     leg = env.workspace / 'leg'
     (leg / 'run.sh').write_text("#!/bin/sh\necho hi\n")
-    os.chmod(leg / 'run.sh', 0o755)
+    (leg / 'run.sh').chmod(0o755)
     (leg / 'data.txt').write_text("plain\n")
-    os.chmod(leg / 'data.txt', 0o644)
+    (leg / 'data.txt').chmod(0o644)
     env.run(['git', 'add', 'run.sh', 'data.txt'], cwd=leg)
     env.run(['git', 'commit', '-m', 'add executable run.sh and data.txt'], cwd=leg)
     env.run(['git', 'push'], cwd=leg)
@@ -38,8 +37,8 @@ def test_filemode_preserved_through_pull_and_push(foo_bar_cloned):
 
     # Add an executable file inside foo/leg and toggle data.txt to executable, then push
     (foo_leg / 'build.sh').write_text("#!/bin/sh\necho build\n")
-    os.chmod(foo_leg / 'build.sh', 0o755)
-    os.chmod(foo_leg / 'data.txt', 0o755)
+    (foo_leg / 'build.sh').chmod(0o755)
+    (foo_leg / 'data.txt').chmod(0o755)
     env.run(['git', 'add', 'leg/build.sh', 'leg/data.txt'], cwd=env.workspace / 'foo')
     env.run(['git', 'commit', '-m', 'add executable build.sh and make data.txt executable'], cwd=env.workspace / 'foo')
 
@@ -53,7 +52,7 @@ def test_filemode_preserved_through_pull_and_push(foo_bar_cloned):
 
     # Make another upstream change (also executable) and pull back into foo
     (leg / 'deploy.sh').write_text("#!/bin/sh\necho deploy\n")
-    os.chmod(leg / 'deploy.sh', 0o755)
+    (leg / 'deploy.sh').chmod(0o755)
     env.run(['git', 'add', 'deploy.sh'], cwd=leg)
     env.run(['git', 'commit', '-m', 'add executable deploy.sh'], cwd=leg)
     env.run(['git', 'push'], cwd=leg)

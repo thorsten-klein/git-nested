@@ -1,8 +1,8 @@
 """Tests for git nested status command"""
 
-from conftest import cmd_git_nested, git_rev_parse
-
 import textwrap
+
+from conftest import cmd_git_nested, git_rev_parse
 
 
 def test_status(foo_bar_cloned):
@@ -66,7 +66,7 @@ def test_status(foo_bar_cloned):
           Tracking Branch: master
           Pulled Commit:   {bar_upstream}
           Pull Parent:     {pull_parent2}
-          
+
         Git nested repository 'lib/bar/foo':
           Remote URL:      {env.upstream}/foo
           Upstream Ref:    {foo_upstream}

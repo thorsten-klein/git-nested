@@ -1,7 +1,8 @@
 """Tests for git nested clone command"""
 
-from conftest import VERSION, assert_gitnested_field, git_rev_parse, cmd_git_nested
 import textwrap
+
+from conftest import VERSION, assert_gitnested_field, cmd_git_nested, git_rev_parse
 
 
 def test_clone_into_empty_repo(env):

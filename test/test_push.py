@@ -2,11 +2,11 @@
 
 from conftest import (
     assert_commit,
-    assert_gitnested_field,
     assert_commit_count,
+    assert_gitnested_field,
+    cmd_git_nested,
     git_get_commit_msg,
     git_rev_parse,
-    cmd_git_nested,
 )
 
 
@@ -199,7 +199,7 @@ def test_push_pull_multiple_nested(foo_bar_cloned_and_nested):
     # Make a change to the foo1 nested repository and push it
     msg_foo1 = "foo1 initial add to nested"
     readme_path = foo1_dir / 'bar' / 'readme'
-    with open(readme_path, 'a') as f:
+    with readme_path.open('a') as f:
         f.write(f"{msg_foo1}\n")
     env.run(['git', 'add', 'bar/readme'], cwd=foo1_dir)
     env.run(['git', 'commit', '-m', msg_foo1], cwd=foo1_dir)
@@ -216,7 +216,7 @@ def test_push_pull_multiple_nested(foo_bar_cloned_and_nested):
     # Make a local change to the foo2 nested and push it
     readme_path = foo2_dir / 'bar' / 'readme'
     msg_foo2 = "foo2 initial add to nested"
-    with open(readme_path, 'a') as f:
+    with readme_path.open('a') as f:
         f.write(f"{msg_foo2}\n")
     env.run(['git', 'add', 'bar/readme'], cwd=foo2_dir)
     env.run(['git', 'commit', '-m', msg_foo2], cwd=foo2_dir)
@@ -247,7 +247,7 @@ def test_push_pull_feature_branch(foo_bar_cloned_and_nested):
     env.run(['git', 'commit', '-m', 'feature added'], cwd=foo_dir)
 
     # Commit directly to bar
-    with open(bar_dir / 'Bar', 'a') as f:
+    with (bar_dir / 'Bar').open('a') as f:
         f.write("direct change in bar\n")
     env.run(['git', 'commit', '-a', '-m', 'direct change in bar'], cwd=bar_dir)
 
@@ -255,7 +255,7 @@ def test_push_pull_feature_branch(foo_bar_cloned_and_nested):
     cmd_git_nested('pull bar', cwd=foo_dir)
 
     # Commit directly to bar
-    with open(bar_dir / 'Bar', 'a') as f:
+    with (bar_dir / 'Bar').open('a') as f:
         f.write("another direct change in bar\n")
     env.run(['git', 'commit', '-a', '-m', 'another direct change in bar'], cwd=bar_dir)
     env.run(['git', 'push'], cwd=bar_dir)

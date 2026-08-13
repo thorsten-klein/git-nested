@@ -1,25 +1,34 @@
 #!/usr/bin/env python3
-"""
-git-nested - Git Submodule Alternative
+"""git-nested - Git Submodule Alternative.
 
 Copyright 2026 - Thorsten Klein <thorsten.klein.git@gmail.com>
 """
 
-import contextlib
-import sys
-import os
-import subprocess
+# PEP 604 `X | Y` unions appear throughout this module's annotations (e.g.
+# Flags' fields below), but requires-python floors at 3.9, where that syntax
+# only works at class-body evaluation time from 3.10 on. Postponed evaluation
+# (PEP 563) makes every annotation a lazily-parsed string instead, so `X | Y`
+# is never actually evaluated at import time on 3.9 -- without this, importing
+# this module on 3.9 raises TypeError before a single command runs.
+from __future__ import annotations
+
 import argparse
+import contextlib
+import os
 import re
 import shutil
+import subprocess
+import sys
 import tempfile
 import textwrap
-import yaml
-from importlib.metadata import version as _pkg_version, PackageNotFoundError
-from pathlib import Path
-from typing import List
+from collections.abc import Sequence
 from dataclasses import dataclass
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
+from pathlib import Path
 from urllib.parse import quote
+
+import yaml
 
 try:
     VERSION = _pkg_version("git-nested")
@@ -30,13 +39,13 @@ REQUIRED_GIT_VERSION = "2.23.0"
 
 @contextlib.contextmanager
 def chdir(path):
-    """
-    Backport of contextlib.chdir stdlib class added in Python 3.11.
+    """Backport of contextlib.chdir stdlib class added in Python 3.11.
+
     The current working directory is temporarily changed to given path
     for the duration of the `with` block. When the block exits, the
     working directory is restored to its original value.
     """
-    oldpwd = os.getcwd()
+    oldpwd = Path.cwd()
     os.chdir(path)
     try:
         yield
@@ -45,9 +54,10 @@ def chdir(path):
 
 
 class GitNestedError(Exception):
-    """Base exception for git-nested errors"""
+    """Base exception for git-nested errors."""
 
     def __init__(self, message, print_to_stderr=True):
+        """Store the message and optionally print it to stderr immediately."""
         self.message = message
         if print_to_stderr:
             print(f"git-nested: {message}", file=sys.stderr)
@@ -56,7 +66,7 @@ class GitNestedError(Exception):
 
 @dataclass
 class Flags:
-    """Command-line flags"""
+    """Command-line flags."""
 
     all: bool = False
     ALL: bool = False
@@ -77,7 +87,7 @@ class Flags:
 
 @dataclass
 class NestedConfig:
-    """Nested configuration from .gitnested file"""
+    """Nested configuration from .gitnested file."""
 
     remote: str = ''
     branch: str = ''
@@ -87,8 +97,8 @@ class NestedConfig:
     method: str = 'merge'
 
     @classmethod
-    def from_file(cls, filepath: str):
-        """Read config from .gitnested YAML file"""
+    def from_file(cls, filepath: str | Path):
+        """Read config from .gitnested YAML file."""
         path = Path(filepath)
         if not path.is_file():
             raise GitNestedError(f"No '{filepath}' file.")
@@ -114,21 +124,24 @@ class NestedConfig:
 
 
 class GitRunner:
-    """Simplified git command execution"""
+    """Simplified git command execution."""
 
     def __init__(self):
+        """Check the environment and record the detected git version."""
         self.check()
         self.version = self.get_version()
 
-    def run(self, args: List[str], may_fail=False, print_error=True, **kwargs) -> subprocess.CompletedProcess:
-        """Run git command"""
+    def run(
+        self, args: Sequence[str | Path], may_fail=False, print_error=True, **kwargs
+    ) -> subprocess.CompletedProcess:
+        """Run git command."""
         # Convert any Path objects to strings
         cmd = ['git'] + [str(arg) for arg in args]
         result = subprocess.run(cmd, capture_output=True, text=True, check=False, **kwargs)
         if result.returncode != 0:
             if not may_fail:
                 raise GitNestedError(
-                    f"Command failed: '{' '.join(cmd)}'.\n{str(result.stderr)}", print_to_stderr=print_error
+                    f"Command failed: '{' '.join(cmd)}'.\n{result.stderr!s}", print_to_stderr=print_error
                 )
 
             # Exception occurred but may_fail=True: Create a fake CompletedProcess for exception case
@@ -137,31 +150,32 @@ class GitRunner:
         # Command succeeded
         return result
 
-    def check_output(self, args: List[str], may_fail=False, **kwargs) -> str:
+    def check_output(self, args: Sequence[str | Path], may_fail=False, **kwargs) -> str:
+        """Run git command and return its stripped stdout."""
         result = self.run(args=args, may_fail=may_fail, **kwargs)
         return result.stdout.strip()
 
     def is_tracked(self, path: Path) -> bool:
-        """Check if given path is tracked by git"""
+        """Check if given path is tracked by git."""
         result = self.run(['ls-files', '--', path], may_fail=True)
         return result.returncode == 0
 
     def rev_exists(self, rev: str) -> bool:
-        """Check if revision exists"""
+        """Check if revision exists."""
         result = self.run(['rev-list', rev, '-1'], may_fail=True)
         return result.returncode == 0
 
     def branch_exists(self, branch: str) -> bool:
-        """Check if branch exists"""
+        """Check if branch exists."""
         return self.rev_exists(f'refs/heads/{branch}')
 
     def commit_in_rev_list(self, commit: str, list_head: str) -> bool:
-        """Check if commit is in rev-list (i.e., is an ancestor)"""
+        """Check if commit is in rev-list (i.e., is an ancestor)."""
         result = self.run(['merge-base', '--is-ancestor', commit, list_head], may_fail=True)
         return result.returncode == 0
 
     def check(self):
-        """Check that environment is suitable"""
+        """Check that environment is suitable."""
         if not shutil.which('git'):
             raise GitNestedError("Can't find 'git' in PATH env variable.")
         version = self.get_version()
@@ -173,6 +187,7 @@ class GitRunner:
             raise GitNestedError(f"Requires git version {REQUIRED_GIT_VERSION} or higher; you have '{version}'.")
 
     def get_version(self):
+        """Return the installed git version string (e.g. '2.43.0')."""
         git_version = self.check_output(['--version'])
         m = re.search(r'(\d+\.\d+\.\d+)', git_version)
         if not m:
@@ -181,22 +196,22 @@ class GitRunner:
 
 
 class GitNestedRepo:
-    """Handles repository operations and business logic"""
+    """Handles repository operations and business logic."""
 
     def __init__(self):
-        pass
+        """No state to initialize; all methods operate on their arguments."""
 
     # -------------------------------------
     # Logging helpers (delegated to maintain separation)
     # -------------------------------------
 
     def verbose(self, msg: str, flags: Flags):
-        """Print verbose messages"""
+        """Print verbose messages."""
         if flags.verbose:
             print(f"* {msg}")
 
     def say(self, msg: str, flags: Flags):
-        """Print message unless quiet"""
+        """Print message unless quiet."""
         if not flags.quiet:
             print(msg)
 
@@ -205,12 +220,12 @@ class GitNestedRepo:
     # -------------------------------------
 
     def _read_yaml_config(self, filepath: Path) -> dict:
-        """Read YAML configuration file"""
+        """Read YAML configuration file."""
         with filepath.open('r') as f:
             return yaml.safe_load(f) or {}
 
-    def _write_yaml_config(self, filepath: Path, data: dict) -> str:
-        """Write YAML configuration file with header"""
+    def _write_yaml_config(self, filepath: Path, data: dict) -> None:
+        """Write YAML configuration file with header."""
         GITREPO_HEADER = textwrap.dedent("""\
             # This subdirectory is managed by "git nested".
             # Refer to: https://github.com/thorsten-klein/git-nested#readme
@@ -218,12 +233,12 @@ class GitNestedRepo:
             """)
         with filepath.open('w') as f:
             f.write(GITREPO_HEADER)
-            return yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+            yaml.dump(data, f, default_flow_style=False, sort_keys=False)
 
     def create_level_gitnested_files(
-        self, git: GitRunner, flags: Flags, subdir: Path, head_commit: str, level: int = None
+        self, git: GitRunner, flags: Flags, subdir: Path, head_commit: str, level: int | None = None
     ):
-        """Create .gitnested.levelN files for nested-in-nested repositories
+        """Create .gitnested.levelN files for nested-in-nested repositories.
 
         This allows sub-nested repositories to be pulled/pushed independently
         even when they are nested within another nested repository.
@@ -285,7 +300,7 @@ class GitNestedRepo:
                 self.create_level_gitnested_files(git, flags, sub_subdir, head_commit, level + 1)
 
     def update_level_gitnested_parents(self, git: GitRunner, flags: Flags, subdir: Path):
-        """Update parent field in .gitnested.levelN files after commit is created"""
+        """Update parent field in .gitnested.levelN files after commit is created."""
         self.verbose("Updating parent field in .gitnested.levelN files", flags)
 
         # Get the current HEAD commit (the commit we just created)
@@ -314,7 +329,7 @@ class GitNestedRepo:
                 git.run(['commit', '--amend', '--no-edit'])
 
     def create_nested_ref(self, git: GitRunner, subref: str, ref_type: str, commit: str):
-        """Create a git ref pointing to commit"""
+        """Create a git ref pointing to commit."""
         ref_name = f'refs/nested/{subref}/{ref_type}'
         git.run(['update-ref', ref_name, commit])
         return ref_name
@@ -331,8 +346,8 @@ class GitNestedRepo:
         subdir: Path,
         gitnested: Path,
         subref: str,
-    ) -> tuple[bool, NestedConfig, str, str]:
-        """Clone implementation
+    ) -> tuple[bool, NestedConfig, str | None, str]:
+        """Clone implementation.
 
         Returns:
             tuple: (up_to_date, updated_config, nested_commit_ref, upstream_head_commit)
@@ -393,7 +408,7 @@ class GitNestedRepo:
         head_commit: str,
         subref: str,
     ) -> str:
-        """Initialize a nested repository
+        """Initialize a nested repository.
 
         Returns:
             nested_commit_ref
@@ -440,8 +455,8 @@ class GitNestedRepo:
         gitnested: Path,
         git_tmp: Path,
         subref: str,
-    ) -> tuple[bool, str, Path, str]:
-        """Pull implementation
+    ) -> tuple[bool, str | None, Path | None, str | None]:
+        """Pull implementation.
 
         Returns:
             tuple: (success, nested_commit_ref, subdir_worktree, error_msg)
@@ -504,9 +519,10 @@ class GitNestedRepo:
         return True, nested_commit_ref, subdir_worktree, None
 
     def build_filtered_commit(self, git: GitRunner, cwd: Path, config: NestedConfig, commit: str) -> str:
-        """Build a throwaway commit whose tree only contains the paths matched by
-        config.filter, applying the exact same literal/regex rules used when the
-        filtered content is written into the working tree.
+        """Build a throwaway commit whose tree only contains the filtered paths.
+
+        Applies the exact same literal/regex rules used when the filtered
+        content is written into the working tree.
 
         The new commit keeps `commit` as its sole parent so its ancestry (and
         thus merge-base detection against the local nested branch) is unaffected.
@@ -524,6 +540,10 @@ class GitNestedRepo:
             def already_indexed(path: str) -> bool:
                 return bool(git.check_output(['ls-files', '--stage', '--', path], cwd=cwd, env=env, may_fail=True))
 
+            # Callers only reach this method when config.filter is truthy (see
+            # do_pull/commit_nested_branch's `if config.filter:` guards).
+            if config.filter is None:
+                raise AssertionError('config.filter must be set when build_filtered_commit is called')
             regex_patterns = []
             for p in config.filter:
                 obj_type = git.check_output(['cat-file', '-t', f'{commit}:{p}'], may_fail=True, cwd=cwd)
@@ -537,7 +557,7 @@ class GitNestedRepo:
                     try:
                         regex_patterns.append(re.compile(p))
                     except re.error as e:
-                        raise GitNestedError(f"Invalid filter pattern '{p}': {e}")
+                        raise GitNestedError(f"Invalid filter pattern '{p}': {e}") from e
 
             if regex_patterns:
                 tree_listing = git.check_output(['ls-tree', '-r', commit], may_fail=True, cwd=cwd) or ''
@@ -553,10 +573,9 @@ class GitNestedRepo:
                     )
 
             filtered_tree = git.check_output(['write-tree'], cwd=cwd, env=env)
-            filtered_commit = git.check_output(
+            return git.check_output(
                 ['commit-tree', '-p', commit, '-m', 'git-nested: filtered view for merge', filtered_tree], cwd=cwd
             )
-            return filtered_commit
 
     def do_push(
         self,
@@ -567,9 +586,9 @@ class GitNestedRepo:
         gitnested: Path,
         git_tmp: Path,
         subref: str,
-        branch: str = None,
-    ) -> tuple[bool, str, Path, bool, str]:
-        """Push implementation
+        branch: str | None = None,
+    ) -> tuple[bool, str, Path | None, bool, str | None]:
+        """Push implementation.
 
         Returns:
             tuple: (success, branch_name, subdir_worktree, branch_created, new_commit)
@@ -585,6 +604,7 @@ class GitNestedRepo:
             branch_name = f"{repo_name}-{config.branch}"
 
         upstream_head_commit = None
+        subdir_worktree = None
         if not branch:
             # Fetch the resulting branch automatically first
             result = git.run(['fetch', '--no-tags', '--quiet', config.remote, branch_name], may_fail=True)
@@ -638,7 +658,7 @@ class GitNestedRepo:
                 try:
                     git.run(['rebase', refs_fetch, branch], cwd=subdir_worktree)
                 except GitNestedError:
-                    return False, branch_name, subdir_worktree, True
+                    return False, branch_name, subdir_worktree, True, None
 
             branch_created = True
         else:
@@ -654,9 +674,17 @@ class GitNestedRepo:
                 self.delete_branch(git, branch, git_tmp)
             return False, branch_name, None, branch_created, new_commit
 
-        if not flags.force and not new_upstream:
-            if not git.commit_in_rev_list(upstream_head_commit, branch):
-                raise GitNestedError(f"Can't commit: '{branch}' doesn't contain upstream HEAD: {upstream_head_commit}")
+        # upstream_head_commit is only known when we auto-fetched above (branch was
+        # None on entry); when the caller passes an explicit branch we have nothing
+        # to compare ancestry against, so the safety check is skipped rather than
+        # spuriously failing against a None commit-ish.
+        if (
+            not flags.force
+            and not new_upstream
+            and upstream_head_commit is not None
+            and not git.commit_in_rev_list(upstream_head_commit, branch)
+        ):
+            raise GitNestedError(f"Can't commit: '{branch}' doesn't contain upstream HEAD: {upstream_head_commit}")
 
         cmd = ['push']
         if flags.force:
@@ -669,8 +697,7 @@ class GitNestedRepo:
         return True, branch_name, subdir_worktree, branch_created, new_commit
 
     def get_diff(self, git: GitRunner, flags: Flags, config: NestedConfig, subdir: Path, subref: str) -> str:
-        """Compute the diff between the local nested repository content and the
-        freshly fetched upstream content.
+        """Compute the diff between the local nested repository content and the freshly fetched upstream content.
 
         Returns:
             diff text (empty string if there are no differences)
@@ -693,7 +720,7 @@ class GitNestedRepo:
         ])
 
     def do_fetch(self, git: GitRunner, flags: Flags, config: NestedConfig, subref: str) -> str:
-        """Fetch upstream content
+        """Fetch upstream content.
 
         Returns:
             upstream_head_commit
@@ -729,7 +756,7 @@ class GitNestedRepo:
         subref: str,
         command: str,
     ) -> Path:
-        """Create a nested branch
+        """Create a nested branch.
 
         Returns:
             subdir_worktree
@@ -812,13 +839,12 @@ class GitNestedRepo:
                             raise GitNestedError(
                                 f"Local repository does not contain {gitrepo_commit}. Try to 'git nested fetch {subref}' or add the '-F' flag."
                             )
-                        else:
-                            raise GitNestedError(
-                                f"Upstream history has been rewritten. Commit {gitrepo_commit} is not in the upstream history. Try to 'git nested fetch {subref}' or add the '-F' flag."
-                            )
+                        raise GitNestedError(
+                            f"Upstream history has been rewritten. Commit {gitrepo_commit} is not in the upstream history. Try to 'git nested fetch {subref}' or add the '-F' flag."
+                        )
 
                 # Find parents
-                first_parent = ['-p', prev_commit] if prev_commit else []
+                first_parent: list[str] = ['-p', prev_commit] if prev_commit else []
 
                 second_parent = []
                 if not first_gitrepo_commit:
@@ -826,14 +852,13 @@ class GitNestedRepo:
                     second_parent = ['-p', gitrepo_commit]
 
                 method = flags.method or config.method
-                if method != 'rebase':
-                    if gitrepo_commit != last_gitrepo_commit:
-                        second_parent = ['-p', gitrepo_commit]
-                        last_gitrepo_commit = gitrepo_commit
+                if method != 'rebase' and gitrepo_commit != last_gitrepo_commit:
+                    second_parent = ['-p', gitrepo_commit]
+                    last_gitrepo_commit = gitrepo_commit
 
                 # Create new commit
                 result = git.run(['cat-file', '-e', f'{commit}:{subdir}'], may_fail=True)
-                has_content = True if (result.returncode == 0) else False
+                has_content = result.returncode == 0
 
                 if has_content:
                     # Extract author and committer information
@@ -856,9 +881,16 @@ class GitNestedRepo:
                         'GIT_COMMITTER_NAME': committer_name,
                     })
 
-                    tree_cmd = ['commit-tree', '-F', '-'] + first_parent + second_parent + [f'{commit}:{subdir}']
+                    tree_cmd = ['commit-tree', '-F', '-', *first_parent, *second_parent, f'{commit}:{subdir}']
                     prev_commit = git.check_output(tree_cmd, input=commit_msg, env=env)
 
+            if prev_commit is None:
+                # No commit in the parent..HEAD range ever touched subdir, so the
+                # loop above never had content to build a nested commit from.
+                raise GitNestedError(
+                    f"No commit between '{config.parent}' and HEAD touches '{subdir}'; "
+                    "can't reconstruct nested branch history."
+                )
             git.run(['branch', branch, prev_commit])
         else:
             git.run(['branch', branch, 'HEAD'])
@@ -899,10 +931,10 @@ class GitNestedRepo:
         nested_commit_ref: str,
         upstream_head_commit: str,
         head_commit: str,
-        subdir_worktree: Path,
+        subdir_worktree: Path | None,
         command: str,
     ):
-        """Commit a nested branch"""
+        """Commit a nested branch."""
         self.verbose("Checking that the nested repository commit exists.", flags)
         if not git.rev_exists(nested_commit_ref):
             raise GitNestedError(f"Commit ref '{nested_commit_ref}' does not exist.")
@@ -937,7 +969,7 @@ class GitNestedRepo:
                     try:
                         regex_patterns.append(re.compile(p))
                     except re.error as e:
-                        raise GitNestedError(f"Invalid filter pattern '{p}': {e}")
+                        raise GitNestedError(f"Invalid filter pattern '{p}': {e}") from e
 
             if regex_patterns:
                 all_blobs = (
@@ -1026,8 +1058,8 @@ class GitNestedRepo:
 
         self.create_nested_ref(git, self.sanitize_subref(git, str(subdir)), 'commit', nested_commit_ref)
 
-    def get_status(self, git: GitRunner, flags: Flags, git_tmp: Path) -> tuple[str, List[tuple[Path, NestedConfig]]]:
-        """Get nested repository status
+    def get_status(self, git: GitRunner, flags: Flags, git_tmp: Path) -> tuple[str, list[tuple[Path, NestedConfig]]]:
+        """Get nested repository status.
 
         Returns:
             tuple: (output_text, list of (subdir, config) tuples)
@@ -1102,7 +1134,7 @@ class GitNestedRepo:
         return ''.join(output), status_list
 
     def format_refs(self, git: GitRunner, subref: str) -> str:
-        """Format refs for status"""
+        """Format refs for status."""
         output = []
         show_ref = git.check_output(['show-ref'], may_fail=True) or ''
 
@@ -1128,8 +1160,8 @@ class GitNestedRepo:
             return "  Refs:\n" + ''.join(output)
         return ""
 
-    def do_clean(self, git: GitRunner, flags: Flags, subdir: Path, git_tmp: Path) -> List[str]:
-        """Clean nested branches and refs"""
+    def do_clean(self, git: GitRunner, flags: Flags, subdir: Path, git_tmp: Path) -> list[str]:
+        """Clean nested branches and refs."""
         items = []
         subref = self.sanitize_subref(git, str(subdir))
         branch = f'nested/{subref}'
@@ -1164,7 +1196,7 @@ class GitNestedRepo:
     # -------------------------------------
 
     def guess_subdir(self, remote: str) -> str:
-        """Guess subdirectory name from remote URL"""
+        """Guess subdirectory name from remote URL."""
         if not remote:
             raise GitNestedError("No remote specified for guessing subdir")
         name = Path(remote).name
@@ -1173,7 +1205,7 @@ class GitNestedRepo:
         return name
 
     def sanitize_subref(self, git: GitRunner, ref: str) -> str:
-        """Sanitize subref to be a valid git ref"""
+        """Sanitize subref to be a valid git ref."""
 
         def is_valid_ref(ref):
             result = git.run(['check-ref-format', f'nested/{ref}'], may_fail=True)
@@ -1203,7 +1235,7 @@ class GitNestedRepo:
         return sanitized
 
     def read_config(self, gitnested: Path, flags: Flags) -> NestedConfig:
-        """Read .gitnested file"""
+        """Read .gitnested file."""
         if not gitnested.is_file():
             raise GitNestedError(f"No '{gitnested}' file.")
 
@@ -1230,7 +1262,7 @@ class GitNestedRepo:
         head_commit: str,
         command: str,
     ):
-        """Update .gitnested YAML file"""
+        """Update .gitnested YAML file."""
         initial = not gitnested.exists()
 
         if initial:
@@ -1246,7 +1278,7 @@ class GitNestedRepo:
         nested = data.setdefault('nested', {})
 
         def should_update(override_value):
-            """Check if a config field should be updated"""
+            """Check if a config field should be updated."""
             return (flags.update and override_value) or (command in ['push', 'clone'] and override_value)
 
         # Update fields
@@ -1273,8 +1305,8 @@ class GitNestedRepo:
     # Checks and Validations
     # -------------------------------------
 
-    def check_repository(self, git: GitRunner, command: str) -> tuple[Path, str]:
-        """Check that repository is ready
+    def check_repository(self, git: GitRunner, command: str) -> tuple[Path | None, str | None]:
+        """Check that repository is ready.
 
         Returns:
             tuple: (git_tmp, head_commit)
@@ -1285,7 +1317,10 @@ class GitNestedRepo:
         try:
             git.run(['rev-parse', '--git-dir'])
         except GitNestedError:
-            raise GitNestedError("Not inside a git repository.")
+            # git.run() already printed the underlying git error to stderr;
+            # this is a deliberate, more user-friendly re-interpretation of
+            # it, not an incidental failure, so the chain is suppressed.
+            raise GitNestedError("Not inside a git repository.") from None
 
         git_common_dir = git.check_output(['rev-parse', '--git-common-dir'])
         git_tmp = Path(git_common_dir) / 'tmp'
@@ -1314,7 +1349,7 @@ class GitNestedRepo:
         return git_tmp, head_commit
 
     def check_worktree_clean(self, git: GitRunner, command: str):
-        """Ensure working copy has no uncommitted changes"""
+        """Ensure working copy has no uncommitted changes."""
         if command not in ['clone', 'init', 'pull', 'push', 'branch', 'commit', 'diff']:
             return
 
@@ -1343,7 +1378,7 @@ class GitNestedRepo:
             raise GitNestedError(f"Can't {command} nested repository. Index has changes. ({pwd})")
 
     def check_subdir_for_init(self, git: GitRunner, subdir: Path, gitnested: Path):
-        """Check subdir is ready for init"""
+        """Check subdir is ready for init."""
         if not subdir.exists():
             raise GitNestedError(f"'{subdir}' does not exist.")
 
@@ -1358,13 +1393,13 @@ class GitNestedRepo:
     # -------------------------------------
 
     def create_worktree(self, git: GitRunner, branch: str, git_tmp: Path) -> Path:
-        """Create a worktree for the given branch"""
+        """Create a worktree for the given branch."""
         subdir_worktree = git_tmp / branch
         git.run(['worktree', 'add', subdir_worktree, branch])
         return subdir_worktree
 
-    def remove_worktree(self, git: GitRunner, worktree: Path):
-        """Remove worktree"""
+    def remove_worktree(self, git: GitRunner, worktree: Path | None):
+        """Remove worktree."""
         if not worktree:
             return
 
@@ -1379,7 +1414,7 @@ class GitNestedRepo:
         git.run(['worktree', 'prune'])
 
     def delete_branch(self, git: GitRunner, branch: str, git_tmp: Path):
-        """Delete a branch"""
+        """Delete a branch."""
         subdir_worktree = git_tmp / branch
         self.remove_worktree(git, subdir_worktree)
         git.run(['branch', '-D', branch], may_fail=True)
@@ -1389,7 +1424,7 @@ class GitNestedRepo:
     # -------------------------------------
 
     def find_all_nested_repositories(self, git: GitRunner, flags: Flags) -> list[Path]:
-        """Find all nested repositories in repository"""
+        """Find all nested repositories in repository."""
         tracked_files = git.check_output(['ls-files'])
         gitnesteds = sorted(Path(line).parent for line in tracked_files.splitlines() if line.endswith('.gitnested'))
         if not flags.ALL:
@@ -1400,7 +1435,7 @@ class GitNestedRepo:
         return gitnesteds
 
     def get_upstream_branch(self, git: GitRunner, config: NestedConfig) -> str:
-        """Determine upstream default branch"""
+        """Determine upstream default branch."""
         remote_branches = git.check_output(['ls-remote', '--symref', config.remote], may_fail=True)
         if not remote_branches:
             raise GitNestedError(f"Command failed: 'git ls-remote --symref {config.remote}'.")
@@ -1410,7 +1445,7 @@ class GitNestedRepo:
         return upstream_branch.group(1)
 
     def get_default_branch(self, git: GitRunner) -> str:
-        """Get git's default branch name"""
+        """Get git's default branch name."""
         default_branch = git.check_output(['config', '--get', 'init.defaultbranch'], may_fail=True)
         if default_branch:
             return default_branch
@@ -1425,7 +1460,7 @@ class GitNestedRepo:
         subdir: Path,
         command: str,
     ) -> str:
-        """Generate commit message"""
+        """Generate commit message."""
         upstream_commit = 'none'
         if upstream_head_commit:
             upstream_commit = git.check_output(['rev-parse', '--short', upstream_head_commit])
@@ -1448,9 +1483,10 @@ class GitNestedRepo:
 
 
 class GitNestedCommand:
-    """Handles command-line interface and user I/O"""
+    """Handles command-line interface and user I/O."""
 
     def __init__(self):
+        """Wire up the git runner and repo/business-logic layer."""
         self.git = GitRunner()
         self.repo = GitNestedRepo()
         # For backward compatibility with tests
@@ -1460,25 +1496,25 @@ class GitNestedCommand:
     # User I/O methods
     # -------------------------------------
 
-    def verbose(self, msg: str, flags: Flags = None):
-        """Print verbose messages"""
+    def verbose(self, msg: str, flags: Flags | None = None):
+        """Print verbose messages."""
         flags = flags or self.flags
         if flags.verbose:
             self.say(f"* {msg}", flags)
 
-    def say(self, msg: str, flags: Flags = None):
-        """Print message unless quiet"""
+    def say(self, msg: str, flags: Flags | None = None):
+        """Print message unless quiet."""
         flags = flags or self.flags
         if not flags.quiet:
             print(msg)
 
     def error(self, msg: str):
-        """Print error and exit"""
+        """Print error and exit."""
         print(f"git-nested: {msg}", file=sys.stderr)
         raise GitNestedError(msg, print_to_stderr=False)
 
     def usage_error(self, msg: str):
-        """Print usage error and exit"""
+        """Print usage error and exit."""
         print(f"git-nested: {msg}", file=sys.stderr)
         sys.exit(1)
 
@@ -1487,7 +1523,7 @@ class GitNestedCommand:
     # -------------------------------------
 
     def main(self, args):
-        """Main entry point"""
+        """Main entry point."""
         command, flags, subdir, upstream, nested_commit_ref = self.parse_args(args)
         self.git.check()
         git_tmp, head_commit = self.repo.check_repository(self.git, command)
@@ -1504,12 +1540,11 @@ class GitNestedCommand:
             self.dispatch_command(command, flags, subdir, upstream, nested_commit_ref, git_tmp, head_commit)
 
     def parse_args(self, args_list):
-        """Parse command line arguments
+        """Parse command line arguments.
 
         Returns:
             tuple: (command, flags, subdir, upstream, nested_commit_ref)
         """
-
         parser = argparse.ArgumentParser(prog='git nested')
         parser.add_argument('--version', action='store_true')
         parser.add_argument('-q', '--quiet', action='store_true')
@@ -1531,10 +1566,10 @@ class GitNestedCommand:
 
         subparsers = parser.add_subparsers(dest='command')
 
-        command_subparsers = {command: subparsers.add_parser(command) for command in valid_command_options.keys()}
+        command_subparsers = {command: subparsers.add_parser(command) for command in valid_command_options}
 
         def add_subparser_args(command_subparser, command):
-            opts = valid_command_options.get(command)
+            opts = valid_command_options[command]
             if 'all' in opts:
                 command_subparser.add_argument('-a', '--all', action='store_true', dest='all_flag')
             if 'ALL' in opts:
@@ -1562,8 +1597,8 @@ class GitNestedCommand:
             if 'update' in opts:
                 command_subparser.add_argument('-u', '--update', action='store_true')
 
-        for command in valid_command_options.keys():
-            command_subparser = command_subparsers.get(command)
+        for command in valid_command_options:
+            command_subparser = command_subparsers[command]
 
             add_subparser_args(command_subparser, command)
 
@@ -1648,7 +1683,7 @@ class GitNestedCommand:
         return command, flags, subdir, upstream, nested_commit_ref
 
     def dispatch_command(self, command, flags, subdir, upstream, nested_commit_ref, git_tmp, head_commit):
-        """Dispatch to command function"""
+        """Dispatch to command function."""
         commands = {
             'clone': lambda: self.cmd_clone(flags, subdir, upstream, head_commit),
             'init': lambda: self.cmd_init(flags, subdir, upstream, head_commit),
@@ -1674,7 +1709,7 @@ class GitNestedCommand:
     # -------------------------------------
 
     def cmd_clone(self, flags, subdir, upstream, head_commit):
-        """Clone a remote repository into a local subdirectory"""
+        """Clone a remote repository into a local subdirectory."""
         subdir, gitnested, subref, config = self.setup_command('clone', flags, subdir, upstream)
 
         up_to_date, config, nested_commit_ref, upstream_head_commit = self.repo.do_clone(
@@ -1687,6 +1722,9 @@ class GitNestedCommand:
         )
 
         if not up_to_date:
+            # do_clone only returns a None nested_commit_ref together with up_to_date=True.
+            if nested_commit_ref is None:
+                raise AssertionError('do_clone returned nested_commit_ref=None with up_to_date=False')
             self.verbose(f"Commit the new '{subdir}/' content.", flags)
             self.repo.commit_nested_branch(
                 git=self.git,
@@ -1707,7 +1745,7 @@ class GitNestedCommand:
             self.say(f"Nested repository '{config.remote}' ({config.branch}) cloned into '{subdir}'.", flags)
 
     def cmd_init(self, flags, subdir, upstream, head_commit):
-        """Initialize a subdirectory as a nested repo"""
+        """Initialize a subdirectory as a nested repo."""
         subdir, gitnested, subref, config = self.setup_command('init', flags, subdir, upstream)
 
         # Set defaults
@@ -1730,7 +1768,7 @@ class GitNestedCommand:
         self.say(f"Nested repository created from '{subdir}' {remote_msg}", flags)
 
     def cmd_pull(self, flags, subdir, upstream, nested_commit_ref, git_tmp, head_commit):
-        """Pull upstream changes to the nested repo"""
+        """Pull upstream changes to the nested repo."""
         subdir, gitnested, subref, config = self.setup_command('pull', flags, subdir, upstream)
 
         if flags.force:
@@ -1743,6 +1781,9 @@ class GitNestedCommand:
                 subref=subref,
             )
             if not up_to_date:
+                # do_clone only returns a None nested_commit_ref together with up_to_date=True.
+                if nested_commit_ref is None:
+                    raise AssertionError('do_clone returned nested_commit_ref=None with up_to_date=False')
                 self.repo.commit_nested_branch(
                     git=self.git,
                     flags=flags,
@@ -1773,6 +1814,10 @@ class GitNestedCommand:
             return
 
         if not success:
+            # do_pull's only other failure path (merge/rebase conflict) always pairs a
+            # non-None nested_commit_ref, subdir_worktree, and error_msg together.
+            if error_msg is None:
+                raise AssertionError('do_pull returned error_msg=None with success=False and nested_commit_ref set')
             # Print the error message to stdout
             self.say(error_msg, flags)
             # Merge/rebase failed
@@ -1822,6 +1867,10 @@ class GitNestedCommand:
             print(msg, file=sys.stderr)
             sys.exit(1)
 
+        # success=True implies do_pull's line 519 return, which always pairs
+        # non-None nested_commit_ref and subdir_worktree together.
+        if nested_commit_ref is None or subdir_worktree is None:
+            raise AssertionError('do_pull returned success=True without nested_commit_ref/subdir_worktree set')
         self.verbose(f"Commit the new '{nested_commit_ref}' content.", flags)
         upstream_head_commit = self.git.check_output(['rev-parse', f'refs/nested/{subref}/fetch'])
         self.repo.commit_nested_branch(
@@ -1840,7 +1889,7 @@ class GitNestedCommand:
         self.say(f"Nested repository '{subdir}' pulled from '{config.remote}' ({config.branch}).", flags)
 
     def cmd_push(self, flags, subdir, upstream, nested_commit_ref, git_tmp, head_commit):
-        """Push local nested repo changes upstream"""
+        """Push local nested repo changes upstream."""
         subdir, gitnested, subref, config = self.setup_command('push', flags, subdir, upstream)
 
         self.verbose(f"Pushing {subdir} to upstream", flags)
@@ -1863,6 +1912,11 @@ class GitNestedCommand:
         if not success:
             self.say(f"Nested repository '{subdir}' has no new commits to push.", flags)
             return
+
+        # do_push only returns success=True together with a non-None new_commit
+        # (the None case is paired exclusively with success=False above).
+        if new_commit is None:
+            raise AssertionError('do_push returned success=True with new_commit=None')
 
         if branch_created:
             self.verbose(f"Remove branch 'nested/{subref}'.", flags)
@@ -1903,7 +1957,7 @@ class GitNestedCommand:
         )
 
     def cmd_fetch(self, flags, subdir, upstream):
-        """Fetch a nested repo's remote branch"""
+        """Fetch a nested repo's remote branch."""
         subdir, _, subref, config = self.setup_command('fetch', flags, subdir, upstream)
 
         if config.remote == 'none':
@@ -1913,8 +1967,8 @@ class GitNestedCommand:
             self.say(f"Fetched '{subdir}' from '{config.remote}' ({config.branch}).", flags)
 
     def cmd_diff(self, flags, subdir, upstream):
-        """Show the local diff of a nested repo compared to upstream"""
-        subdir, gitnested, subref, config = self.setup_command('diff', flags, subdir, upstream)
+        """Show the local diff of a nested repo compared to upstream."""
+        subdir, _gitnested, subref, config = self.setup_command('diff', flags, subdir, upstream)
 
         if config.remote == 'none':
             self.say(f"Ignored '{subdir}', no remote.", flags)
@@ -1928,7 +1982,7 @@ class GitNestedCommand:
             self.say(diff_output, flags)
 
     def cmd_branch(self, flags, subdir, upstream, git_tmp):
-        """Create a branch containing the local nested repo commits"""
+        """Create a branch containing the local nested repo commits."""
         subdir, gitnested, subref, config = self.setup_command('branch', flags, subdir, upstream)
 
         if flags.fetch:
@@ -1954,7 +2008,7 @@ class GitNestedCommand:
         self.say(f"Created branch '{branch}' and worktree '{subdir_worktree}'.", flags)
 
     def cmd_commit(self, flags, subdir, upstream, nested_commit_ref, git_tmp, head_commit):
-        """Commit a merged nested branch"""
+        """Commit a merged nested branch."""
         subdir, gitnested, subref, config = self.setup_command('commit', flags, subdir, upstream)
 
         if flags.fetch:
@@ -1982,19 +2036,19 @@ class GitNestedCommand:
         self.say(f"Nested commit '{nested_commit_ref}' committed as subdir '{subdir}/' to current branch.", flags)
 
     def cmd_status(self, flags, git_tmp):
-        """Get status of a nested repo (or all of them)"""
+        """Get status of a nested repo (or all of them)."""
         output, _ = self.repo.get_status(self.git, flags, git_tmp)
         self.say(output, flags)
 
     def cmd_clean(self, flags, subdir, upstream, git_tmp):
-        """Remove branches, remotes and refs for a nested repo"""
+        """Remove branches, remotes and refs for a nested repo."""
         subdir, _, _, _ = self.setup_command('clean', flags, subdir, upstream)
 
         for item in self.repo.do_clean(self.git, flags, subdir, git_tmp):
             self.say(f"Removed {item}.", flags)
 
     def cmd_version(self):
-        """Print version information"""
+        """Print version information."""
         print(f"git-nested Version: {VERSION}")
         print("Copyright 2026 Thorsten Klein <thorsten.klein.git@gmail.com>")
         print("https://github.com/thorsten-klein/git-nested")
@@ -2006,7 +2060,7 @@ class GitNestedCommand:
     # -------------------------------------
 
     def setup_command(self, command, flags, subdir, upstream):
-        """Setup command with parameters
+        """Setup command with parameters.
 
         Returns:
             tuple: (subdir, gitnested, subref, config)
@@ -2090,7 +2144,7 @@ class GitNestedCommand:
 
 
 def main():
-    """Main entry point"""
+    """Main entry point."""
     try:
         app = GitNestedCommand()
         app.main(sys.argv[1:])

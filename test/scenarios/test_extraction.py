@@ -3,9 +3,9 @@
 from conftest import (
     assert_commit,
     assert_commit_count,
+    cmd_git_nested,
     git_get_commit_msg,
     git_rev_parse,
-    cmd_git_nested,
 )
 
 

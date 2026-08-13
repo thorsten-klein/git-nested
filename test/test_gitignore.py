@@ -1,6 +1,6 @@
 """Tests for git nested with .gitignore"""
 
-from conftest import assert_gitnested_field, git_rev_parse, cmd_git_nested
+from conftest import assert_gitnested_field, cmd_git_nested, git_rev_parse
 
 
 def test_gitignore(foo_bar_cloned_and_nested):

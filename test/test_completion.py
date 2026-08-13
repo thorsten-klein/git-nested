@@ -1,6 +1,7 @@
 """Tests for shell completion functionality"""
 
 import textwrap
+
 import pytest
 
 

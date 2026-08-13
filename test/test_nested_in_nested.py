@@ -17,7 +17,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 from conftest import (
     assert_gitnested_field,
     cmd_git_nested,

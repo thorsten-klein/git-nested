@@ -1,7 +1,7 @@
 """Tests for git nested reclone"""
 
-from conftest import cmd_git_nested
 import yaml
+from conftest import cmd_git_nested
 
 
 def test_reclone(foo_bar_cloned):
@@ -22,7 +22,7 @@ def test_reclone(foo_bar_cloned):
     cmd_git_nested(f'clone --force {env.upstream}/bar --branch=refs/tags/A', cwd=env.workspace / 'foo')
 
     # Check that config has correct branch value
-    with open(env.workspace / 'foo' / 'bar' / '.gitnested') as f:
+    with (env.workspace / 'foo' / 'bar' / '.gitnested').open() as f:
         gitnested = yaml.safe_load(f)
     assert gitnested.get('nested').get('branch') == 'refs/tags/A'
 
@@ -33,6 +33,6 @@ def test_reclone(foo_bar_cloned):
     assert (env.workspace / 'foo' / 'bar' / 'bard').exists()
 
     # Check that config has correct branch value
-    with open(env.workspace / 'foo' / 'bar' / '.gitnested') as f:
+    with (env.workspace / 'foo' / 'bar' / '.gitnested').open() as f:
         gitnested = yaml.safe_load(f)
     assert gitnested.get('nested').get('branch') == 'master'

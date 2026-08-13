@@ -1,5 +1,6 @@
 import contextlib
 import io
+
 import pytest
 from git_nested import GitNested, GitNestedError
 
@@ -61,9 +62,8 @@ def test_error_prints_to_stderr():
     """Test error() prints to stderr"""
     stderr = io.StringIO()
     runner = GitNested()
-    with contextlib.redirect_stderr(stderr):
-        with pytest.raises(GitNestedError):
-            runner.error("error message")
+    with contextlib.redirect_stderr(stderr), pytest.raises(GitNestedError):
+        runner.error("error message")
     assert stderr.getvalue().strip() == "git-nested: error message"
 
 
@@ -88,9 +88,8 @@ def test_error_format():
     """Test error() output format includes 'git-nested:' prefix"""
     stderr = io.StringIO()
     runner = GitNested()
-    with contextlib.redirect_stderr(stderr):
-        with pytest.raises(GitNestedError):
-            runner.error("test")
+    with contextlib.redirect_stderr(stderr), pytest.raises(GitNestedError):
+        runner.error("test")
     output = stderr.getvalue()
     assert output.startswith("git-nested:")
     assert "test" in output
@@ -100,9 +99,8 @@ def test_usage_error_prints_to_stderr():
     """Test usage_error() prints to stderr"""
     stderr = io.StringIO()
     runner = GitNested()
-    with contextlib.redirect_stderr(stderr):
-        with pytest.raises(SystemExit):
-            runner.usage_error("usage error message")
+    with contextlib.redirect_stderr(stderr), pytest.raises(SystemExit):
+        runner.usage_error("usage error message")
     assert stderr.getvalue().strip() == "git-nested: usage error message"
 
 
@@ -118,9 +116,8 @@ def test_usage_error_format():
     """Test usage_error() output format includes 'git-nested:' prefix"""
     stderr = io.StringIO()
     runner = GitNested()
-    with contextlib.redirect_stderr(stderr):
-        with pytest.raises(SystemExit):
-            runner.usage_error("invalid option")
+    with contextlib.redirect_stderr(stderr), pytest.raises(SystemExit):
+        runner.usage_error("invalid option")
     output = stderr.getvalue()
     assert output.startswith("git-nested:")
     assert "invalid option" in output

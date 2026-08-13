@@ -92,14 +92,31 @@ a release.
 
 ### Code Quality
 
-We use [Ruff](https://github.com/astral-sh/ruff) for both linting and formatting:
+`uv run poe all` runs the full gate CI enforces: repo hygiene, linting,
+formatting, static typing, security, dependency, and complexity checks, then
+the test suite. Each has its own `poe` task if you want to run just one:
 
 ```bash
-# Check code quality
-uv run poe lint
+# Repo-wide hygiene (whitespace, YAML/TOML/JSON parseability, shebangs, ...)
+uv run poe pre-commit
 
-# Auto-format code
+# Lint and auto-format with Ruff (https://github.com/astral-sh/ruff)
+uv run poe lint
 uv run poe format
+
+# Static typing -- mypy and pyright are both run since they catch
+# different things; passing both is required
+uv run poe mypy
+uv run poe pyright
+
+# Security linting (bandit) and dependency vulnerability scanning (pip-audit)
+uv run poe bandit
+uv run poe pip-audit
+
+# Cognitive complexity (complexipy); threshold is set in pyproject.toml's
+# [tool.complexipy] to catch complexity creep in new code, not to demand
+# every existing function be simple
+uv run poe complexity
 ```
 
 Make sure all checks pass before submitting your PR.

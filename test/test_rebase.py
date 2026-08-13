@@ -1,8 +1,8 @@
 """Tests for git nested with rebase"""
 
-from conftest import cmd_git_nested
-
 import textwrap
+
+from conftest import cmd_git_nested
 
 
 def test_rebase(foo_bar_cloned):

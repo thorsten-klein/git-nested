@@ -1,14 +1,14 @@
 """Tests for git nested pull command"""
 
-import pytest
 import textwrap
 
+import pytest
 from conftest import (
     VERSION,
     assert_gitnested_field,
+    cmd_git_nested,
     git_get_commit_msg,
     git_rev_parse,
-    cmd_git_nested,
 )
 
 
@@ -126,9 +126,9 @@ def create_pull_conflict(env):
             You will need to finish the pull by hand. A new working tree has been
             created at .git/tmp/nested/bar so that you can resolve the conflicts
             shown in the output above.
-            
+
             This is the common conflict resolution workflow:
-            
+
               1. cd .git/tmp/nested/bar
               2. Resolve the conflicts (see "git status").
               3. "git add" the resolved files.
@@ -136,13 +136,13 @@ def create_pull_conflict(env):
               5. If there are more conflicts, restart at step 2.
               6. cd {env.workspace}/foo
               7. git nested commit bar
-            
+
             See "git help merge" for details.
-            
+
             Alternatively, you can abort the pull and reset back to where you started:
-            
+
               1. git nested clean bar
-            
+
             See "git help nested" for more help.''')
 
 
@@ -458,7 +458,7 @@ def test_pull_after_merge(foo_bar_cloned_and_nested):
     env.run(['git', 'checkout', env.defaultbranch], cwd=env.workspace / 'foo')
 
     # Commit directly to bar
-    with open(env.workspace / 'bar' / 'Bar', 'w') as f:
+    with (env.workspace / 'bar' / 'Bar').open('w') as f:
         f.write("direct change in bar\n")
     env.run(['git', 'commit', '-a', '-m', 'direct change in bar'], cwd=env.workspace / 'bar')
     env.run(['git', 'push'], cwd=env.workspace / 'bar')
@@ -467,7 +467,7 @@ def test_pull_after_merge(foo_bar_cloned_and_nested):
     cmd_git_nested('pull bar', cwd=env.workspace / 'foo')
 
     # Commit directly to bar
-    with open(env.workspace / 'bar' / 'Bar', 'a') as f:
+    with (env.workspace / 'bar' / 'Bar').open('a') as f:
         f.write("another direct change in bar\n")
     env.run(['git', 'commit', '-a', '-m', 'another direct change in bar'], cwd=env.workspace / 'bar')
     env.run(['git', 'push'], cwd=env.workspace / 'bar')

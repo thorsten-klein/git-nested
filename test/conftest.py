@@ -1,7 +1,5 @@
 """Pytest configuration and fixtures for git-nested tests"""
 
-import git_nested
-
 import contextlib
 import io
 import os
@@ -13,6 +11,7 @@ import textwrap
 from pathlib import Path
 from types import SimpleNamespace
 
+import git_nested
 import pytest
 import yaml
 
@@ -84,9 +83,8 @@ class TestEnvironment:
             return subprocess.run(
                 cmd, shell=True, cwd=cwd, capture_output=capture_output, text=text, check=check, **kwargs
             )
-        else:
-            cmd = [str(a) for a in cmd]  # convert all arguments to str
-            return subprocess.run(cmd, cwd=cwd, capture_output=capture_output, text=text, check=check, **kwargs)
+        cmd = [str(a) for a in cmd]  # convert all arguments to str
+        return subprocess.run(cmd, cwd=cwd, capture_output=capture_output, text=text, check=check, **kwargs)
 
     def clone_foo(self, path=None):
         path = path or self.workspace / 'foo'
@@ -126,7 +124,7 @@ class TestEnvironment:
         text = text or 'a new line\n'
         for file in files:
             file_path = Path(cwd) / file if cwd else Path(file)
-            with open(file_path, 'a') as f:
+            with file_path.open('a') as f:
                 f.write(f'{text}\n')
             subprocess.run(['git', 'add', str(file)], cwd=cwd, check=True)
 
@@ -400,7 +398,7 @@ def assert_gitnested_comment_block(gitnested_path):
         #"""
     )
 
-    with open(gitnested_path, 'r') as f:
+    with Path(gitnested_path).open() as f:
         content = f.read()
 
     comment_lines = [line for line in content.split('\n') if line.startswith('#')]
@@ -420,7 +418,7 @@ def assert_gitnested_field(
 ):
     """Assert that according fields in .gitnested YAML file have the expected value"""
     assert Path(gitnested_path).exists()
-    with open(gitnested_path, 'r') as f:
+    with Path(gitnested_path).open() as f:
         data = yaml.safe_load(f) or {}
 
     if version is None:
@@ -448,14 +446,14 @@ def assert_gitnested_field(
 def assert_commit(
     cwd,
     ref: str = 'HEAD',
-    commit_title: str = None,
-    commit_msg: str = None,
-    author_name: str = None,
-    author_email: str = None,
-    committer_name: str = None,
-    committer_email: str = None,
-    author_date: str = None,
-    committer_date: str = None,
+    commit_title: str | None = None,
+    commit_msg: str | None = None,
+    author_name: str | None = None,
+    author_email: str | None = None,
+    committer_name: str | None = None,
+    committer_email: str | None = None,
+    author_date: str | None = None,
+    committer_date: str | None = None,
     changed_files=None,
 ):
     """Assert commit metadata matches expected values
@@ -566,10 +564,10 @@ def assert_output_unlike(output: str, pattern: str, description: str = ""):
 # ============================================================================
 
 
-def git_get_commit_msg(cwd, args: list[str] = None):
+def git_get_commit_msg(cwd, args: list[str] | None = None):
     """Get the commit message for a git commit"""
     args = args or ['--format=%B', '-1']
-    result = subprocess.run(['git', 'log'] + args, cwd=cwd, capture_output=True, text=True, check=True)
+    result = subprocess.run(['git', 'log', *args], cwd=cwd, capture_output=True, text=True, check=True)
     return result.stdout
 
 
@@ -580,7 +578,7 @@ def git_read_head(cwd: Path):
 
 def git_rev_parse(args: list[str], cwd) -> str:
     """Get the commit SHA for a git ref"""
-    result = subprocess.run(['git', 'rev-parse'] + args, cwd=cwd, capture_output=True, text=True, check=True)
+    result = subprocess.run(['git', 'rev-parse', *args], cwd=cwd, capture_output=True, text=True, check=True)
     return result.stdout.strip()
 
 
@@ -646,7 +644,7 @@ def cmd_git_nested(args: list[str] | str, cwd, check: bool = True):
         except SystemExit as e:
             retval.returncode = e.code
             if check and e.code:
-                raise Exception('Command failed with exit code {e.code}')
+                raise Exception(f'Command failed with exit code {e.code}') from e
         except Exception as e:
             retval.returncode = 1
             if check:
