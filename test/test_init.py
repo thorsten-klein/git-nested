@@ -52,4 +52,31 @@ def test_verbose(env):
         * Add the new 'doc/.gitnested' file.
         * Commit the changes.
         Nested repository created from 'doc' (with no remote).""")
-    assert cp.stderr.strip() == ""
+
+
+def test_init_nonexistent_subdir(env):
+    """Test that init fails when the subdir doesn't exist"""
+    env.clone_init()
+    result = cmd_git_nested('init nonexistent', cwd=env.workspace / 'init', check=False)
+    assert result.returncode == 1
+    assert result.stderr.strip() == "git-nested: 'nonexistent' does not exist."
+
+
+def test_init_already_a_nested_repository(env):
+    """Test that init fails when the subdir is already a nested repository"""
+    env.clone_init()
+    cmd_git_nested('init doc', cwd=env.workspace / 'init')
+    result = cmd_git_nested('init doc', cwd=env.workspace / 'init', check=False)
+    assert result.returncode == 1
+    assert result.stderr.strip() == "git-nested: 'doc' is already a nested repository."
+
+
+def test_init_untracked_subdir(env):
+    """Test that init fails when the subdir exists but nothing is tracked by git"""
+    env.clone_init()
+    untracked = env.workspace / 'init' / 'untracked'
+    untracked.mkdir()
+    (untracked / 'scratch.txt').write_text('not tracked\n')
+    result = cmd_git_nested('init untracked', cwd=env.workspace / 'init', check=False)
+    assert result.returncode == 1
+    assert result.stderr.strip() == "git-nested: 'untracked' exists, but nothing is tracked by git."

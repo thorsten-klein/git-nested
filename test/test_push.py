@@ -495,3 +495,58 @@ def test_push_rebase_conflict(foo_bar_cloned_and_nested):
     result = cmd_git_nested('push bar --branch=master --force', cwd=env.workspace / 'foo')
     assert result.stdout.strip() == f"Nested repository 'bar' pushed to '{env.upstream}/bar' (master)."
     assert result.stderr.strip() == ""
+
+
+def test_push_explicit_branch_does_not_exist(foo_bar_cloned_and_nested):
+    """Test that pushing an explicit local branch that doesn't exist errors clearly"""
+    env = foo_bar_cloned_and_nested
+
+    result = cmd_git_nested('push bar nonexistent-branch --branch=master', cwd=env.workspace / 'foo', check=False)
+    assert result.returncode == 1
+    assert result.stderr.strip() == "git-nested: No nested branch 'nonexistent-branch' to push."
+
+
+def test_push_squash_with_explicit_branch_errors(foo_bar_cloned_and_nested):
+    """Test that --squash can't be combined with an explicit branch parameter"""
+    env = foo_bar_cloned_and_nested
+
+    result = cmd_git_nested('push bar somebranch --squash --branch=master', cwd=env.workspace / 'foo', check=False)
+    assert result.returncode == 1
+    assert result.stderr.strip() == "git-nested: Squash option (-s) can't be used with branch parameter"
+
+
+def test_push_rebase_conflict_during_branch_creation(foo_bar_cloned_and_nested):
+    """Test that a push (method=rebase) whose internal branch-creation rebase conflicts
+    against an already-fetched upstream reports the rebase failure, not a generic error"""
+    env = foo_bar_cloned_and_nested
+
+    # Someone else pushes a conflicting change upstream, and we fetch it -- this is what
+    # populates refs/nested/bar/fetch, the ref the internal rebase step replays onto.
+    env.modify_files('Bar', text='change from bar upstream', cwd=env.workspace / 'bar')
+    env.run(['git', 'push'], cwd=env.workspace / 'bar')
+    cmd_git_nested('fetch bar', cwd=env.workspace / 'foo')
+
+    # We make a conflicting local edit to the same file.
+    env.modify_files('bar/Bar', text='change from foo', cwd=env.workspace / 'foo')
+
+    # --force skips the "pull first" ancestry check; the internal rebase against the
+    # already-fetched upstream then conflicts while (re)building the nested branch.
+    result = cmd_git_nested('push -M rebase --force bar --branch=master', cwd=env.workspace / 'foo', check=False)
+    assert result.returncode == 1
+    assert result.stdout.strip() == 'The "git rebase" command failed'
+
+
+def test_push_commit_with_message_file(foo_bar_cloned_and_nested):
+    """Test that `push --commit --file` uses the given commit message file"""
+    env = foo_bar_cloned_and_nested
+
+    env.add_new_files('bar/FooBar', cwd=env.workspace / 'foo')
+
+    msg_file = env.workspace / 'foo' / 'commit_msg.txt'
+    msg_file.write_text('Custom push commit message\n')
+
+    result = cmd_git_nested(f'push bar --branch=master --commit --file={msg_file}', cwd=env.workspace / 'foo')
+    assert result.stdout.strip() == f"Nested repository 'bar' pushed to '{env.upstream}/bar' (master)."
+
+    last_msg = env.run(['git', 'log', '-1', '--format=%B'], cwd=env.workspace / 'foo').stdout
+    assert last_msg.strip() == 'Custom push commit message'

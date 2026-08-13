@@ -31,10 +31,16 @@ from urllib.parse import quote
 
 import yaml
 
-try:
-    VERSION = _pkg_version("git-nested")
-except PackageNotFoundError:
-    VERSION = "0.99.99"
+
+def _detect_version() -> str:
+    """Return the installed 'git-nested' package version, or a placeholder when unpackaged."""
+    try:
+        return _pkg_version("git-nested")
+    except PackageNotFoundError:
+        return "0.99.99"
+
+
+VERSION = _detect_version()
 REQUIRED_GIT_VERSION = "2.23.0"
 
 
@@ -157,9 +163,13 @@ class GitRunner:
         return result.stdout.strip()
 
     def is_tracked(self, path: Path) -> bool:
-        """Check if given path is tracked by git."""
+        """Check if given path is tracked by git.
+
+        'git ls-files' exits 0 regardless of whether it matched anything, so the presence
+        of output -- not the exit code -- is what actually answers the question.
+        """
         result = self.run(['ls-files', '--', path], may_fail=True)
-        return result.returncode == 0
+        return bool(result.stdout.strip())
 
     def rev_exists(self, rev: str) -> bool:
         """Check if revision exists."""
@@ -317,44 +327,6 @@ class GitNestedRepo:
         # Recursively check for deeper nesting with incremented level
         sub_subdir = gitnested_file.parent
         self.create_level_gitnested_files(git, flags, sub_subdir, head_commit, level + 1)
-
-    def update_level_gitnested_parents(self, git: GitRunner, flags: Flags, subdir: Path):
-        """Update parent field in .gitnested.levelN files after commit is created."""
-        self.verbose("Updating parent field in .gitnested.levelN files", flags)
-
-        # Get the current HEAD commit (the commit we just created)
-        new_commit = git.check_output(['rev-parse', 'HEAD'])
-
-        # Find all .gitnested.level* files within the subdirectory
-        all_files = git.check_output(['ls-files', '--', subdir], may_fail=True)
-        if not all_files:
-            return
-
-        level_files = [Path(line) for line in all_files.splitlines() if '.gitnested.level' in line]
-
-        for level_file in level_files:
-            self._update_one_level_parent(git, level_file, new_commit)
-
-        if level_files:
-            self._amend_if_staged_changes(git)
-
-    def _amend_if_staged_changes(self, git: GitRunner) -> None:
-        """Amend HEAD if there are staged changes waiting to be folded in."""
-        result = git.run(['diff', '--cached', '--quiet'], may_fail=True)
-        if result.returncode != 0:
-            # There are staged changes, amend the commit
-            git.run(['commit', '--amend', '--no-edit'])
-
-    def _update_one_level_parent(self, git: GitRunner, level_file: Path, new_commit: str) -> None:
-        """Set the parent field in a single .gitnested.levelN file to new_commit."""
-        if not level_file.exists():
-            return
-        data = self._read_yaml_config(level_file)
-        if 'nested' not in data:
-            return
-        data['nested']['parent'] = new_commit
-        self._write_yaml_config(level_file, data)
-        git.run(['add', '-f', '--', str(level_file)])
 
     def create_nested_ref(self, git: GitRunner, subref: str, ref_type: str, commit: str):
         """Create a git ref pointing to commit."""
@@ -536,10 +508,8 @@ class GitNestedRepo:
         """
         upstream_head_commit = self.do_fetch(git, flags, config, subref)
 
-        if flags.force:
-            # Force reclone - handled by caller
-            return True, None, None, None
-
+        # Force reclone is handled entirely by the caller (cmd_pull), which
+        # never calls do_pull() when flags.force is set.
         if upstream_head_commit == config.commit and not flags.update:
             return False, None, None, None
 
@@ -630,7 +600,9 @@ class GitNestedRepo:
             # Callers only reach this method when config.filter is truthy (see
             # do_pull/commit_nested_branch's `if config.filter:` guards).
             if config.filter is None:
-                raise AssertionError('config.filter must be set when build_filtered_commit is called')
+                raise AssertionError(
+                    'config.filter must be set when build_filtered_commit is called'
+                )  # pragma: no cover -- invariant guard, unreachable via the public API
             regex_patterns: list[re.Pattern] = []
             for p in config.filter:
                 self._index_literal_filter_entry(git, cwd, env, commit, p, regex_patterns)
@@ -1176,9 +1148,6 @@ class GitNestedRepo:
         Returns:
             subdir_worktree
         """
-        if branch is None:
-            branch = f'nested/{subref}'
-
         self.verbose(f"Check if the '{branch}' branch already exists.", flags)
         if git.branch_exists(branch):
             return git_tmp / branch
@@ -1235,7 +1204,7 @@ class GitNestedRepo:
         )
 
         self._finalize_commit(
-            git, flags, config, subdir, nested_commit_ref, upstream_head_commit, head_commit, subdir_worktree, command
+            git, flags, config, subdir, nested_commit_ref, upstream_head_commit, subdir_worktree, command
         )
 
     def _verify_commit_ref(
@@ -1312,7 +1281,9 @@ class GitNestedRepo:
         # Callers only reach this method when config.filter is truthy (see
         # commit_nested_branch's `if not config.filter: ... else:` guard).
         if config.filter is None:
-            raise AssertionError('config.filter must be set when _place_filtered_content is called')
+            raise AssertionError(
+                'config.filter must be set when _place_filtered_content is called'
+            )  # pragma: no cover -- invariant guard, unreachable via the public API
         regex_patterns: list[re.Pattern] = []
         for p in config.filter:
             self._place_literal_filter_entry(git, subdir, nested_commit_ref, p, regex_patterns)
@@ -1365,29 +1336,19 @@ class GitNestedRepo:
         )
         git.run(['add', '-f', '--', regular_gitnested])
 
-    def _commit_to_branch(self, git: GitRunner, flags: Flags, msg: str) -> None:
-        """Commit the staged .gitnested update directly onto the current branch."""
+    def _commit_gitnested_update(self, git: GitRunner, flags: Flags, msg: str) -> None:
+        """Commit the staged .gitnested update directly onto the current branch.
+
+        By the time this runs, check_repository()/check_worktree_clean() have already
+        guaranteed a non-empty outer repo for every command that reaches here (clone's own
+        do_clone() separately rejects an empty repo before any commit logic runs), so a
+        plain 'git commit' -- which needs no pre-existing HEAD anyway -- always applies.
+        """
+        self.verbose("Commit .gitnested update to the current branch.", flags)
         if flags.message_file:
             git.run(['commit', '--file', flags.message_file])
         else:
             git.run(['commit', '-m', msg])
-
-    def _commit_via_commit_tree(self, git: GitRunner, flags: Flags, msg: str) -> None:
-        """Commit the staged .gitnested update via commit-tree, then hard-reset onto it."""
-        tree = git.check_output(['write-tree'])
-        if flags.message_file:
-            commit_sha = git.check_output(['commit-tree', '--file', flags.message_file, tree])
-        else:
-            commit_sha = git.check_output(['commit-tree', '-m', msg, tree])
-        git.run(['reset', '--hard', commit_sha])
-
-    def _commit_gitnested_update(self, git: GitRunner, flags: Flags, msg: str, head_commit: str) -> None:
-        """Commit (or commit-tree + reset) the staged .gitnested update."""
-        self.verbose("Commit .gitnested update to the current branch.", flags)
-        if head_commit != 'none':
-            self._commit_to_branch(git, flags, msg)
-        else:
-            self._commit_via_commit_tree(git, flags, msg)
 
     def _finalize_commit(
         self,
@@ -1397,7 +1358,6 @@ class GitNestedRepo:
         subdir: Path,
         nested_commit_ref: str,
         upstream_head_commit: str,
-        head_commit: str,
         subdir_worktree: Path | None,
         command: str,
     ) -> None:
@@ -1415,7 +1375,7 @@ class GitNestedRepo:
                 subdir=subdir,
                 command=command,
             )
-            self._commit_gitnested_update(git, flags, msg, head_commit)
+            self._commit_gitnested_update(git, flags, msg)
         else:
             self.verbose("No changes to commit for .gitnested update", flags)
 
@@ -1809,7 +1769,7 @@ class GitNestedRepo:
             # This may happen when cloning into an empty repository
             return
 
-        result = git.run(['rev-parse', '--verify', 'HEAD'])
+        result = git.run(['rev-parse', '--verify', 'HEAD'], may_fail=True)
         if result.returncode != 0:
             raise GitNestedError(f"HEAD cannot be verified ({pwd})")
 
@@ -2068,7 +2028,7 @@ class GitNestedCommand:
             'fetch': ['all', 'branch', 'force', 'remote'],
             'init': ['branch', 'remote', 'method'],
             'pull': ['all', 'branch', 'force', 'message', 'method', 'remote', 'update'],
-            'push': ['all', 'branch', 'commit', 'force', 'message', 'method', 'remote', 'squash', 'update'],
+            'push': ['all', 'branch', 'commit', 'force', 'message', 'method', 'msg_file', 'remote', 'squash', 'update'],
             'status': ['ALL', 'all', 'fetch'],
             'version': [],
         }
@@ -2092,7 +2052,9 @@ class GitNestedCommand:
         """
         upstream = getattr(args, 'upstream', None)
         subdir = getattr(args, 'subdir', None)
-        nested_commit_ref = getattr(args, 'nested_commit_ref', None)
+        # 'commit's positional is named nested_commit_ref, 'push's is nested_branch --
+        # only one of the two is ever present on args, depending on the subcommand.
+        nested_commit_ref = getattr(args, 'nested_commit_ref', None) or getattr(args, 'nested_branch', None)
 
         if upstream and not subdir:
             subdir = self.repo.guess_subdir(upstream)
@@ -2209,7 +2171,9 @@ class GitNestedCommand:
         if not up_to_date:
             # do_clone only returns a None nested_commit_ref together with up_to_date=True.
             if nested_commit_ref is None:
-                raise AssertionError('do_clone returned nested_commit_ref=None with up_to_date=False')
+                raise AssertionError(
+                    'do_clone returned nested_commit_ref=None with up_to_date=False'
+                )  # pragma: no cover -- invariant guard, unreachable via the public API
             self.verbose(f"Commit the new '{subdir}/' content.", flags)
             self.repo.commit_nested_branch(
                 git=self.git,
@@ -2265,7 +2229,9 @@ class GitNestedCommand:
         if not up_to_date:
             # do_clone only returns a None nested_commit_ref together with up_to_date=True.
             if nested_commit_ref is None:
-                raise AssertionError('do_clone returned nested_commit_ref=None with up_to_date=False')
+                raise AssertionError(
+                    'do_clone returned nested_commit_ref=None with up_to_date=False'
+                )  # pragma: no cover -- invariant guard, unreachable via the public API
             self.repo.commit_nested_branch(
                 git=self.git,
                 flags=flags,
@@ -2350,8 +2316,8 @@ class GitNestedCommand:
         if not success:
             # do_pull's only other failure path (merge/rebase conflict) always pairs a
             # non-None nested_commit_ref, subdir_worktree, and error_msg together.
+            # _handle_pull_conflict() never returns: it always exits or raises.
             self._handle_pull_conflict(subdir, subdir_worktree, error_msg, config, flags, subref)
-            return
 
         self._finalize_successful_pull(
             flags, subdir, gitnested, subref, config, nested_commit_ref, subdir_worktree, head_commit
@@ -2360,7 +2326,9 @@ class GitNestedCommand:
     def _handle_pull_conflict(self, subdir, subdir_worktree, error_msg, config, flags, subref) -> None:
         """Report a pull's merge/rebase conflict and exit, per do_pull's failure path."""
         if error_msg is None:
-            raise AssertionError('do_pull returned error_msg=None with success=False and nested_commit_ref set')
+            raise AssertionError(
+                'do_pull returned error_msg=None with success=False and nested_commit_ref set'
+            )  # pragma: no cover -- invariant guard, unreachable via the public API
         # Print the error message to stdout
         self.say(error_msg, flags)
         # Merge/rebase failed
@@ -2377,7 +2345,9 @@ class GitNestedCommand:
         do_pull's success path always pairs non-None nested_commit_ref and subdir_worktree.
         """
         if nested_commit_ref is None or subdir_worktree is None:
-            raise AssertionError('do_pull returned success=True without nested_commit_ref/subdir_worktree set')
+            raise AssertionError(
+                'do_pull returned success=True without nested_commit_ref/subdir_worktree set'
+            )  # pragma: no cover -- invariant guard, unreachable via the public API
         self.verbose(f"Commit the new '{nested_commit_ref}' content.", flags)
         upstream_head_commit = self.git.check_output(['rev-parse', f'refs/nested/{subref}/fetch'])
         self.repo.commit_nested_branch(
@@ -2416,7 +2386,9 @@ class GitNestedCommand:
         # do_push only returns success=True together with a non-None new_commit
         # (the None case is paired exclusively with success=False above).
         if new_commit is None:
-            raise AssertionError('do_push returned success=True with new_commit=None')
+            raise AssertionError(
+                'do_push returned success=True with new_commit=None'
+            )  # pragma: no cover -- invariant guard, unreachable via the public API
 
         if branch_created:
             self.verbose(f"Remove branch 'nested/{subref}'.", flags)
@@ -2698,5 +2670,5 @@ def main():
 GitNested = GitNestedCommand
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover -- exercised only when run as a script, not on import
     main()
