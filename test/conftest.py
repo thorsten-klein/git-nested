@@ -407,6 +407,17 @@ def assert_gitnested_comment_block(gitnested_path):
     assert actual == expected, f"Comment block mismatch.\nExpected:\n{expected}\nActual:\n{actual}"
 
 
+def _assert_yaml_field(nested_data: dict, field: str, value: str | None):
+    """Assert that nested_data[field] matches value ('' and None are interchangeable)"""
+    if value is None:
+        return  # skip
+    actual_value = nested_data.get(field)
+    expected_values = [value]
+    if value == '':
+        expected_values.append(None)  # can be empty or None
+    assert actual_value in expected_values
+
+
 def assert_gitnested_field(
     gitnested_path: Path | str,
     remote: str | None = None,
@@ -424,23 +435,40 @@ def assert_gitnested_field(
     if version is None:
         version = VERSION
 
-    def assert_field(nested_data, field, value: str | None):
-        if value is None:
-            return  # skip
-        actual_value = nested_data.get(field, None)
-        expected_values = [value]
-        if value == '':
-            expected_values.append(None)  # can be empty or None
-        assert actual_value in expected_values
-
     assert_gitnested_comment_block(gitnested_path)
     nested_data = data.get('nested', {})
-    assert_field(nested_data, 'remote', remote)
-    assert_field(nested_data, 'branch', branch)
-    assert_field(nested_data, 'commit', commit)
-    assert_field(nested_data, 'parent', parent)
-    assert_field(nested_data, 'method', method)
-    assert_field(nested_data, 'cmdver', version)
+    _assert_yaml_field(nested_data, 'remote', remote)
+    _assert_yaml_field(nested_data, 'branch', branch)
+    _assert_yaml_field(nested_data, 'commit', commit)
+    _assert_yaml_field(nested_data, 'parent', parent)
+    _assert_yaml_field(nested_data, 'method', method)
+    _assert_yaml_field(nested_data, 'cmdver', version)
+
+
+def _get_commit_info(cwd, ref: str, format_str: str) -> str:
+    """Get one piece of commit info via `git log --format=...`"""
+    result = subprocess.run(
+        ['git', 'log', '-1', f'--format={format_str}', ref], cwd=cwd, capture_output=True, text=True, check=True
+    )
+    return result.stdout.strip()
+
+
+def _assert_changed_files(cwd, ref: str, changed_files) -> None:
+    """Assert that ref's changed files match changed_files (list=ordered, set=unordered)"""
+    result = subprocess.run(
+        ['git', 'diff-tree', '--no-commit-id', '--name-only', '-r', ref],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    actual_files = result.stdout.strip().split('\n') if result.stdout.strip() else []
+
+    # Support both list (ordered) and set (unordered) comparison
+    if isinstance(changed_files, set):
+        assert set(actual_files) == changed_files
+    else:
+        assert actual_files == list(changed_files)
 
 
 def assert_commit(
@@ -471,73 +499,25 @@ def assert_commit(
         committer_date: Expected committer date
         changed_files: Expected list of changed files (paths). Can be exact list or set for unordered comparison.
     """
+    # (expected value, git log format string) -- commit_msg's expected value is
+    # compared as-is: _get_commit_info() already strips stdout, so re-stripping
+    # it (as the old inline check did) never changed the comparison.
+    checks = [
+        (commit_title, '%s'),
+        (commit_msg, '%B'),
+        (author_name, '%an'),
+        (author_email, '%ae'),
+        (committer_name, '%cn'),
+        (committer_email, '%ce'),
+        (author_date, '%ad'),
+        (committer_date, '%cd'),
+    ]
+    for expected, format_str in checks:
+        if expected is not None:
+            assert _get_commit_info(cwd, ref, format_str) == expected
 
-    def get_commit_info(format_str):
-        """Helper to get commit info with a format string"""
-        result = subprocess.run(
-            ['git', 'log', '-1', f'--format={format_str}', ref], cwd=cwd, capture_output=True, text=True, check=True
-        )
-        return result.stdout.strip()
-
-    # Check commit title (subject)
-    if commit_title is not None:
-        actual_title = get_commit_info('%s')
-        assert actual_title == commit_title
-
-    # Check full commit message
-    if commit_msg is not None:
-        actual_msg = get_commit_info('%B').strip()
-        assert actual_msg == commit_msg
-
-    # Check author name
-    if author_name is not None:
-        actual_author_name = get_commit_info('%an')
-        assert actual_author_name == author_name
-
-    # Check author email
-    if author_email is not None:
-        actual_author_email = get_commit_info('%ae')
-        assert actual_author_email == author_email
-
-    # Check committer name
-    if committer_name is not None:
-        actual_committer_name = get_commit_info('%cn')
-        assert actual_committer_name == committer_name
-
-    # Check committer email
-    if committer_email is not None:
-        actual_committer_email = get_commit_info('%ce')
-        assert actual_committer_email == committer_email
-
-    # Check author date
-    if author_date is not None:
-        actual_author_date = get_commit_info('%ad')
-        assert actual_author_date == author_date
-
-    # Check committer date
-    if committer_date is not None:
-        actual_committer_date = get_commit_info('%cd')
-        assert actual_committer_date == committer_date
-
-    # Check changed files
     if changed_files is not None:
-        # Get the list of changed files using diff-tree
-        result = subprocess.run(
-            ['git', 'diff-tree', '--no-commit-id', '--name-only', '-r', ref],
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        actual_files = result.stdout.strip().split('\n') if result.stdout.strip() else []
-
-        # Support both list (ordered) and set (unordered) comparison
-        if isinstance(changed_files, set):
-            actual_files_set = set(actual_files)
-            assert actual_files_set == changed_files
-        else:
-            # List comparison (order matters)
-            assert actual_files == list(changed_files)
+        _assert_changed_files(cwd, ref, changed_files)
 
 
 def assert_commit_count(repo_path, expected_count: int, ref: str = 'HEAD'):
@@ -593,6 +573,20 @@ def git_config(key: str, cwd, file=None):
     return result.stdout.strip() if result.returncode == 0 else None
 
 
+def _raise_if_failed(cmd_and_args: list[str], result, check: bool):
+    """Raise GitNestedError if the subprocess failed and check is set"""
+    if not (check and result.returncode):
+        return
+    # GitNestedError rather than a bare Exception: in-process the app's own
+    # error type propagates out of app.main(), and tests match on it. The
+    # message is the stderr the command produced, so `match=` keeps working;
+    # print_to_stderr would duplicate it into the captured output.
+    raise git_nested.GitNestedError(
+        f"Command failed with exit code {result.returncode}: {shlex.join(cmd_and_args)}\n{result.stderr}",
+        print_to_stderr=False,
+    )
+
+
 def cmd_git_nested_subprocess(args, cwd, check: bool = True):
     """Run a git nested command as subprocess and return the result
 
@@ -610,29 +604,28 @@ def cmd_git_nested_subprocess(args, cwd, check: bool = True):
     cmd = ['git-nested'] if {'--help', '-h'} & set(args) else ['git', 'nested']
 
     result = subprocess.run(cmd + args, cwd=cwd, capture_output=True, text=True, check=False)
-    if check and result.returncode:
-        # GitNestedError rather than a bare Exception: in-process the app's own
-        # error type propagates out of app.main(), and tests match on it. The
-        # message is the stderr the command produced, so `match=` keeps working;
-        # print_to_stderr would duplicate it into the captured output.
-        raise git_nested.GitNestedError(
-            f"Command failed with exit code {result.returncode}: {shlex.join(cmd + args)}\n{result.stderr}",
-            print_to_stderr=False,
-        )
+    _raise_if_failed(cmd + args, result, check)
     return result
 
 
-def cmd_git_nested(args: list[str] | str, cwd, check: bool = True):
-    """Run a git nested command and return the result"""
-    # Against the frozen binary there is no in-process path to take: it is a
-    # separate program, so the same command goes through a subprocess instead.
-    if GIT_NESTED_EXE:
-        return cmd_git_nested_subprocess(args, cwd, check=check)
+def _handle_system_exit(e: SystemExit, retval, check: bool):
+    """Record a SystemExit's code on retval, re-raising as Exception if check is set"""
+    retval.returncode = e.code
+    if check and e.code:
+        raise Exception(f'Command failed with exit code {e.code}') from e
 
+
+def _handle_run_exception(e: Exception, retval, check: bool):
+    """Record a failure on retval, re-raising it if check is set"""
+    retval.returncode = 1
+    if check:
+        raise e
+
+
+def _run_inprocess(args: list[str], cwd, check: bool):
+    """Run a git nested command in-process and return a result-like namespace"""
     stdout_buf = io.StringIO()
     stderr_buf = io.StringIO()
-
-    args = shlex.split(args) if isinstance(args, str) else args
 
     retval = SimpleNamespace()
     retval.returncode = 0
@@ -642,17 +635,24 @@ def cmd_git_nested(args: list[str] | str, cwd, check: bool = True):
             app = git_nested.GitNestedCommand()
             app.main(args)
         except SystemExit as e:
-            retval.returncode = e.code
-            if check and e.code:
-                raise Exception(f'Command failed with exit code {e.code}') from e
+            _handle_system_exit(e, retval, check)
         except Exception as e:
-            retval.returncode = 1
-            if check:
-                raise e
+            _handle_run_exception(e, retval, check)
 
     retval.stdout = stdout_buf.getvalue()
     retval.stderr = stderr_buf.getvalue()
     return retval
+
+
+def cmd_git_nested(args: list[str] | str, cwd, check: bool = True):
+    """Run a git nested command and return the result"""
+    # Against the frozen binary there is no in-process path to take: it is a
+    # separate program, so the same command goes through a subprocess instead.
+    if GIT_NESTED_EXE:
+        return cmd_git_nested_subprocess(args, cwd, check=check)
+
+    args = shlex.split(args) if isinstance(args, str) else args
+    return _run_inprocess(args, cwd, check)
 
 
 # ============================================================================
@@ -660,15 +660,22 @@ def cmd_git_nested(args: list[str] | str, cwd, check: bool = True):
 # ============================================================================
 
 
+def _tree_entry_lines(entry: Path, prefix: str, is_last: bool) -> list[str]:
+    """Build the tree-drawing lines for one entry, plus its recursive subtree if a dir"""
+    connector = "└── " if is_last else "├── "
+    lines = [prefix + connector + entry.name]
+    if not entry.is_dir():
+        return lines
+    indent = "    " if is_last else "│   "
+    sub = tree(entry, prefix + indent)
+    if sub:
+        lines.extend(sub.split("\n"))
+    return lines
+
+
 def tree(path: Path, prefix="") -> str:
     lines = []
     entries = sorted(path.iterdir(), key=lambda p: (p.is_file(), p.name))
     for i, entry in enumerate(entries):
-        connector = "└── " if i == len(entries) - 1 else "├── "
-        lines.append(prefix + connector + entry.name)
-        if entry.is_dir():
-            indent = "    " if i == len(entries) - 1 else "│   "
-            sub = tree(entry, prefix + indent)
-            if sub:
-                lines.extend(sub.split("\n"))
+        lines.extend(_tree_entry_lines(entry, prefix, i == len(entries) - 1))
     return "\n".join(lines)
