@@ -1,13 +1,14 @@
 """Tests for git nested branch command"""
 
 import time
+
 from conftest import (
     assert_commit,
     assert_commit_count,
     cmd_git_nested,
     git_get_commit_msg,
-    git_rev_parse,
     git_read_head,
+    git_rev_parse,
 )
 
 
@@ -63,7 +64,7 @@ def test_branch(foo_bar_cloned_and_nested):
 
     # Check that correct branch is checked out in the tmp worktree
     result = env.run(['git', 'branch'], cwd=tmp_worktree)
-    current_branch = [line for line in result.stdout.split('\n') if line.startswith('*')][0]
+    current_branch = next(line for line in result.stdout.split('\n') if line.startswith('*'))
     assert current_branch.strip() == '* nested/bar'
 
     # Check that branch commits are correct

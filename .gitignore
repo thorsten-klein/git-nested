@@ -10,6 +10,7 @@ build/
 .coverage
 htmlcov/
 coverage.xml
+.coverage*
 junit.xml
 *.whl
 *.tar.gz

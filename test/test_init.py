@@ -1,7 +1,8 @@
 """Tests for git nested init command"""
 
-from conftest import assert_gitnested_field, cmd_git_nested
 import textwrap
+
+from conftest import assert_gitnested_field, cmd_git_nested
 
 
 def test_init_no_remote(env):

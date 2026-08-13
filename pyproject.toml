@@ -39,7 +39,14 @@ Issues = "https://github.com/thorsten-klein/git-nested/issues"
 
 [dependency-groups]
 lint = [
+    "bandit>=1.8.0",
+    "complexipy>=7.0.0",
+    "mypy~=1.14",
+    "pip-audit>=2.9.0",
+    "pre-commit>=4.3.0",
+    "pyright~=1.1",
     "ruff~=0.13",
+    "types-pyyaml>=6.0.12.20250915",
 ]
 test = [
     "coverage>=7.10",
@@ -75,16 +82,61 @@ fallback_version = "1.0.0"
 line-length = 120
 indent-width = 4
 
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "PTH", "RET", "ARG", "C4", "RUF", "D"]
+ignore = [
+    "E501", # line length is enforced by the formatter, not the linter
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# unused fixture/mock-callback arguments are idiomatic pytest, not a smell;
+# a test's own name is its documentation, so docstrings aren't required.
+"test/*" = ["ARG001", "ARG002", "ARG005", "D"]
+
 [tool.ruff.format]
 quote-style = "preserve"
 line-ending = "lf"
 # Enable preview mode for Github Annotations added in 0.13.3
 preview = true
 
+[tool.complexipy]
+paths = ["lib", "test"]
+max-complexity-allowed = 60
+failed = true
+color = "auto"
+sort = "asc"
+
+[tool.mypy]
+python_version = "3.9"
+files = ["lib"]
+
+[tool.pyright]
+pythonVersion = "3.9"
+include = ["lib"]
+
+[tool.bandit]
+# git-nested's whole job is orchestrating git as a subprocess -- these fire on
+# every single one of those call sites:
+#   B404 -- merely importing subprocess
+#   B603 -- subprocess.run called with a list argv and no shell=True (that's
+#           the *safe* pattern these checks exist to push people towards)
+#   B607 -- invoking a PATH-resolved executable ("git") rather than a
+#           hardcoded absolute path, which would break on every dev machine
+skips = ["B404", "B603", "B607"]
+
 [tool.poe.tasks]
-all = ["lint", "format", "test"]
+all = ["pre-commit", "lint", "format", "mypy", "pyright", "bandit", "pip-audit", "complexity", "test"]
+"pre-commit" = "pre-commit run --all-files --show-diff-on-failure"
 format = "ruff format ."
 lint = "ruff check ."
+mypy = "mypy"
+pyright = "pyright"
+bandit = "bandit -c pyproject.toml -r lib"
+"pip-audit" = "pip-audit --skip-editable"
+complexity = "complexipy"
 flakefinder = "pytest -n=auto -W error --flake-finder --flake-runs=200"
 test = {cmd = "pytest -v -n=auto -W error --cov-config=pyproject.toml --cov=git_nested --junitxml=junit.xml -o junit_family=legacy --cov-report=term --cov-report=html --cov-report=xml", env = {PYTHONIOENCODING = "utf-8"}}
 
