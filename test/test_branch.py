@@ -281,3 +281,11 @@ def test_branch_with_force(foo_bar_cloned_and_nested):
 
     branch_commits_2 = git_get_commit_msg(tmp_worktree, args=['--pretty=format:"%h %s"']).strip().splitlines()
     assert branch_commits_2[2:] == branch_commits_1
+
+
+def test_branch_fetch_flag_refreshes_upstream_ref_first(foo_bar_cloned_and_nested):
+    """Test that `branch --fetch` refreshes the upstream ref before building the branch"""
+    env = foo_bar_cloned_and_nested
+
+    result = cmd_git_nested('branch bar --fetch', cwd=env.workspace / 'foo')
+    assert result.stdout.strip() == "Created branch 'nested/bar' and worktree '.git/tmp/nested/bar'."

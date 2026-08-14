@@ -68,6 +68,10 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+
 [tool.setuptools]
 py-modules = ["git_nested"]
 package-dir = {"" = "lib"}
