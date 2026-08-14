@@ -15,8 +15,9 @@ from git_nested import Flags, GitNestedError, GitNestedRepo, NestedConfig
 def test_do_fetch_raises_when_remote_is_none():
     repo = GitNestedRepo()
     config = NestedConfig(remote='none', branch='main')
+    flags = Flags()
     with pytest.raises(GitNestedError, match="Remote is 'none'"):
-        repo.do_fetch(git=None, flags=Flags(), config=config, subref='sub')
+        repo.do_fetch(git=None, flags=flags, config=config, subref='sub')
 
 
 # ============================================================================
@@ -247,15 +248,17 @@ def test_status_detail_lines_appends_refs_when_verbose():
 def test_verify_commit_ref_raises_when_commit_missing():
     repo = GitNestedRepo()
     git = FakeGit().respond('rev-list', returncode=1)
+    flags = Flags()
     with pytest.raises(GitNestedError, match="does not exist"):
-        repo._verify_commit_ref(git, Flags(), 'deadbeef', 'upstream')
+        repo._verify_commit_ref(git, flags, 'deadbeef', 'upstream')
 
 
 def test_verify_commit_ref_raises_when_missing_upstream_head():
     repo = GitNestedRepo()
     git = FakeGit().respond('rev-list', 'deadbeef', returncode=0).respond('merge-base', '--is-ancestor', returncode=1)
+    flags = Flags(force=False)
     with pytest.raises(GitNestedError, match="doesn't contain upstream HEAD"):
-        repo._verify_commit_ref(git, Flags(force=False), 'deadbeef', 'upstream')
+        repo._verify_commit_ref(git, flags, 'deadbeef', 'upstream')
 
 
 # ============================================================================
@@ -290,10 +293,11 @@ def test_create_branch_from_parent_raises_when_no_commit_touches_subdir():
     repo = GitNestedRepo()
     git = FakeGit().respond('merge-base', '--is-ancestor', returncode=0).respond('rev-list', '--reverse', stdout='')
     config = NestedConfig(remote='x', branch='main', parent='deadbeef')
+    flags = Flags()
+    subdir = Path('sub')
+    gitnested = Path('sub/.gitnested')
     with pytest.raises(GitNestedError, match="can't reconstruct nested branch history"):
-        repo._create_branch_from_parent(
-            git, Flags(), config, Path('sub'), Path('sub/.gitnested'), 'sub', 'pull', 'nested/sub'
-        )
+        repo._create_branch_from_parent(git, flags, config, subdir, gitnested, 'sub', 'pull', 'nested/sub')
 
 
 # ============================================================================
@@ -335,10 +339,9 @@ def test_check_rebase_safety_raises_when_gitrepo_commit_unreachable_locally():
 def test_push_check_ancestry_raises_when_branch_missing_upstream_head():
     repo = GitNestedRepo()
     git = FakeGit().respond('merge-base', '--is-ancestor', returncode=1)
+    flags = Flags(force=False)
     with pytest.raises(GitNestedError, match="doesn't contain upstream HEAD"):
-        repo._push_check_ancestry(
-            git, Flags(force=False), new_upstream=False, upstream_head_commit='deadbeef', branch='nested/sub'
-        )
+        repo._push_check_ancestry(git, flags, new_upstream=False, upstream_head_commit='deadbeef', branch='nested/sub')
 
 
 # ============================================================================

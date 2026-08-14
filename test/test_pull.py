@@ -20,7 +20,7 @@ def prepare_pull_test(foo_bar_cloned_and_nested):
     env.add_new_files('Bar2', cwd=env.workspace / 'bar')
     env.run(['git', 'push'], cwd=env.workspace / 'bar')
 
-    yield env
+    return env
 
 
 def test_pull(prepare_pull_test):

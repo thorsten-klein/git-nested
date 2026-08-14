@@ -318,7 +318,7 @@ def update_env(env_vars: dict[str, str]):
         os.environ.update(original_env)
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture
 def env(tmp_path):
     """Setup isolated test environment with git repos"""
     root_dir = Path(__file__).parent.parent
@@ -357,14 +357,14 @@ def foo_bar_cloned(env):
     """Setup foo and bar repos with bar nested into foo"""
     env.clone_foo()
     env.clone_bar()
-    yield env
+    return env
 
 
 @pytest.fixture
 def foo_bar_cloned_and_nested(foo_bar_cloned):
     env = foo_bar_cloned
     cmd_git_nested(['clone', str(env.upstream / 'bar')], env.workspace / 'foo')
-    yield env
+    return env
 
 
 # ============================================================================

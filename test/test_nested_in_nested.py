@@ -96,7 +96,7 @@ def nested_in_nested_repos(env):
     # Create level1 with nested level2 (which contains level3)
     create_upstream_level1_with_nested(env)
 
-    yield env
+    return env
 
 
 def test_nested_in_nested_basic(nested_in_nested_repos):
