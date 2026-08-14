@@ -43,6 +43,11 @@ def _detect_version() -> str:
 VERSION = _detect_version()
 REQUIRED_GIT_VERSION = "2.23.0"
 
+GITNESTED_FILENAME = '.gitnested'
+GITNESTED_LEVEL_PREFIX = '.gitnested.level'
+FETCH_HEAD_REV = 'FETCH_HEAD^0'
+GIT_LOG_DATE_DEFAULT_FLAG = '--date=default'
+
 
 @contextlib.contextmanager
 def chdir(path):
@@ -76,7 +81,7 @@ class Flags:
     """Command-line flags."""
 
     all: bool = False
-    ALL: bool = False
+    all_deep: bool = False
     branch: None | str = None
     commit: bool = False
     filter: None | list[str] = None
@@ -191,16 +196,19 @@ class GitRunner:
             raise GitNestedError("Can't find 'git' in PATH env variable.")
         version = self.get_version()
 
-        def Version(v):
+        def version_tuple(v):
             return tuple(map(int, (v.split("."))))
 
-        if not Version(version) >= Version(REQUIRED_GIT_VERSION):
+        if version_tuple(version) < version_tuple(REQUIRED_GIT_VERSION):
             raise GitNestedError(f"Requires git version {REQUIRED_GIT_VERSION} or higher; you have '{version}'.")
 
     def get_version(self):
         """Return the installed git version string (e.g. '2.43.0')."""
         git_version = self.check_output(['--version'])
-        m = re.search(r'(\d+\.\d+\.\d+)', git_version)
+        # Bounded digit groups (rather than unbounded `\d+`) keep this linear: an
+        # unbounded run of digits with no dot would otherwise make re.search()
+        # backtrack quadratically while probing every start position.
+        m = re.search(r'(\d{1,6}\.\d{1,6}\.\d{1,6})', git_version)
         if not m:
             raise GitNestedError("Can't determine git version")
         return m.group(1)
@@ -275,7 +283,7 @@ class GitNestedRepo:
 
     def _is_nested_gitnested_file(self, line: str, subdir: Path) -> bool:
         """Check whether line is a tracked .gitnested file other than subdir's own."""
-        return line.endswith('.gitnested') and line != f'{subdir}/.gitnested'
+        return line.endswith(GITNESTED_FILENAME) and line != f'{subdir}/{GITNESTED_FILENAME}'
 
     def _detect_next_level(self, git: GitRunner, subdir: Path) -> int:
         """Auto-detect the next .gitnested.levelN number for subdir from existing level files."""
@@ -292,10 +300,10 @@ class GitNestedRepo:
 
     def _extract_level_number(self, line: str, subdir: Path) -> int | None:
         """Extract the N from a `.gitnested.levelN` git-tracked path, or None if line isn't one."""
-        if not ('.gitnested.level' in line and line.startswith(f'{subdir}/.gitnested.level')):
+        if not (GITNESTED_LEVEL_PREFIX in line and line.startswith(f'{subdir}/{GITNESTED_LEVEL_PREFIX}')):
             return None
         # Extract level number
-        parts = line.split('.gitnested.level')
+        parts = line.split(GITNESTED_LEVEL_PREFIX)
         if len(parts) != 2 or not parts[1].isdigit():
             return None
         return int(parts[1])
@@ -305,7 +313,7 @@ class GitNestedRepo:
     ) -> None:
         """Write one .gitnested.levelN file (parent field cleared) and recurse into it."""
         gitnested_file = Path(gitnested_path)
-        level_file = gitnested_file.parent / f'.gitnested.level{level}'
+        level_file = gitnested_file.parent / f'{GITNESTED_LEVEL_PREFIX}{level}'
 
         self.verbose(f"Creating {level_file} for sub-nested repository", flags)
 
@@ -727,7 +735,7 @@ class GitNestedRepo:
             raise GitNestedError(f"There are new changes upstream ({branch_name}), you need to pull first.")
         # Force mode: fetch original branch to be based on correct commit
         git.run(['fetch', '--no-tags', '--quiet', config.remote, config.branch])
-        return git.check_output(['rev-parse', 'FETCH_HEAD^0'])
+        return git.check_output(['rev-parse', FETCH_HEAD_REV])
 
     def _push_fetch_upstream(
         self, git: GitRunner, flags: Flags, config: NestedConfig, branch_name: str
@@ -740,7 +748,7 @@ class GitNestedRepo:
         result = git.run(['fetch', '--no-tags', '--quiet', config.remote, branch_name], may_fail=True)
         if result.returncode != 0:
             return self._push_fetch_missing_upstream(result.stderr), None
-        upstream = git.check_output(['rev-parse', 'FETCH_HEAD^0'])
+        upstream = git.check_output(['rev-parse', FETCH_HEAD_REV])
         upstream = self._push_verify_or_refetch(git, flags, config, branch_name, upstream)
         return False, upstream
 
@@ -914,9 +922,9 @@ class GitNestedRepo:
         git.run(cmd)
 
         self.verbose("Get the upstream nested HEAD commit.", flags)
-        upstream_head_commit = git.check_output(['rev-parse', 'FETCH_HEAD^0'])
+        upstream_head_commit = git.check_output(['rev-parse', FETCH_HEAD_REV])
 
-        self.create_nested_ref(git, subref, 'fetch', 'FETCH_HEAD^0')
+        self.create_nested_ref(git, subref, 'fetch', FETCH_HEAD_REV)
 
         return upstream_head_commit
 
@@ -999,13 +1007,13 @@ class GitNestedRepo:
         self, git: GitRunner, commit: str, subdir: Path, first_parent: list[str], second_parent: list[str]
     ) -> str:
         """Create one nested commit-tree entry, preserving the original author/committer/date."""
-        author_date = git.check_output(['log', '-1', '--date=default', '--format=%ad', commit])
-        author_email = git.check_output(['log', '-1', '--date=default', '--format=%ae', commit])
-        author_name = git.check_output(['log', '-1', '--date=default', '--format=%an', commit])
-        committer_date = git.check_output(['log', '-1', '--date=default', '--format=%cd', commit])
-        committer_email = git.check_output(['log', '-1', '--date=default', '--format=%ce', commit])
-        committer_name = git.check_output(['log', '-1', '--date=default', '--format=%cn', commit])
-        commit_msg = git.check_output(['log', '-1', '--date=default', '--format=%B', commit])
+        author_date = git.check_output(['log', '-1', GIT_LOG_DATE_DEFAULT_FLAG, '--format=%ad', commit])
+        author_email = git.check_output(['log', '-1', GIT_LOG_DATE_DEFAULT_FLAG, '--format=%ae', commit])
+        author_name = git.check_output(['log', '-1', GIT_LOG_DATE_DEFAULT_FLAG, '--format=%an', commit])
+        committer_date = git.check_output(['log', '-1', GIT_LOG_DATE_DEFAULT_FLAG, '--format=%cd', commit])
+        committer_email = git.check_output(['log', '-1', GIT_LOG_DATE_DEFAULT_FLAG, '--format=%ce', commit])
+        committer_name = git.check_output(['log', '-1', GIT_LOG_DATE_DEFAULT_FLAG, '--format=%cn', commit])
+        commit_msg = git.check_output(['log', '-1', GIT_LOG_DATE_DEFAULT_FLAG, '--format=%B', commit])
 
         # Set author and committer info for deterministic commits
         env = os.environ.copy()
@@ -1318,9 +1326,9 @@ class GitNestedRepo:
 
         # If this is a .gitnested.levelN file, also update the regular .gitnested
         # so that when the nested repo is operated on directly, it has current info
-        if '.gitnested.level' not in str(gitnested):
+        if GITNESTED_LEVEL_PREFIX not in str(gitnested):
             return
-        regular_gitnested = gitnested.parent / '.gitnested'
+        regular_gitnested = gitnested.parent / GITNESTED_FILENAME
         if not regular_gitnested.exists():
             return
         self.verbose(f"Also updating {regular_gitnested} for consistency", flags)
@@ -1430,7 +1438,7 @@ class GitNestedRepo:
         subdir = subdir if isinstance(subdir, Path) else Path(subdir)
         subref = self.sanitize_subref(git, str(subdir))
 
-        gitrepo = subdir / '.gitnested'
+        gitrepo = subdir / GITNESTED_FILENAME
         if not gitrepo.is_file():
             return [f"'{subdir}' is not a nested repository\n"], []
 
@@ -1563,7 +1571,7 @@ class GitNestedRepo:
 
     def _ref_matches_clean_target(self, ref: str, suffix: str) -> bool:
         """Check whether a ref name is one a force-clean of `suffix` should delete."""
-        return ref.startswith(f'refs/nested/{suffix}') or ref.startswith(f'refs/original/refs/heads/nested/{suffix}')
+        return ref.startswith((f'refs/nested/{suffix}', f'refs/original/refs/heads/nested/{suffix}'))
 
     def _force_clean_refs(self, git: GitRunner, suffix: str) -> None:
         """Delete every ref matching the nested/<suffix> prefix (the --force sweep)."""
@@ -1849,8 +1857,10 @@ class GitNestedRepo:
     def find_all_nested_repositories(self, git: GitRunner, flags: Flags) -> list[Path]:
         """Find all nested repositories in repository."""
         tracked_files = git.check_output(['ls-files'])
-        gitnesteds = sorted(Path(line).parent for line in tracked_files.splitlines() if line.endswith('.gitnested'))
-        if not flags.ALL:
+        gitnesteds = sorted(
+            Path(line).parent for line in tracked_files.splitlines() if line.endswith(GITNESTED_FILENAME)
+        )
+        if not flags.all_deep:
             # Filter the paths to contain only outermost nested repository paths
             gitnesteds = self._outermost_paths(gitnesteds)
         return gitnesteds
@@ -2085,7 +2095,7 @@ class GitNestedCommand:
         """Build a Flags object from parsed args, applying per-command option support rules."""
         flags = Flags()
         flags.all = getattr(args, 'all_flag', False)
-        flags.ALL = getattr(args, 'ALL_flag', False)
+        flags.all_deep = getattr(args, 'ALL_flag', False)
         flags.commit = getattr(args, 'commit', False)
         flags.filter = getattr(args, 'filter', [])
         flags.force = getattr(args, 'force', False)
@@ -2095,7 +2105,7 @@ class GitNestedCommand:
         flags.quiet = getattr(args, 'quiet', False)
         flags.verbose = getattr(args, 'verbose', 0)
 
-        if flags.ALL:
+        if flags.all_deep:
             flags.all = True
 
         self._apply_supported_options(args, flags, valid_command_options)
@@ -2291,15 +2301,19 @@ class GitNestedCommand:
             """
         )
 
-    def cmd_pull(self, flags, subdir, upstream, nested_commit_ref, git_tmp, head_commit):
-        """Pull upstream changes to the nested repo."""
+    def cmd_pull(self, flags, subdir, upstream, _nested_commit_ref, git_tmp, head_commit):
+        """Pull upstream changes to the nested repo.
+
+        _nested_commit_ref is unused: unlike push/commit, pull has no positional argument
+        that populates it, but dispatch_command() calls every cmd_* with the same signature.
+        """
         subdir, gitnested, subref, config = self.setup_command('pull', flags, subdir, upstream)
 
         if flags.force:
             self._pull_forced(flags, subdir, gitnested, subref, config, head_commit)
             return
 
-        success, nested_commit_ref, subdir_worktree, error_msg = self.repo.do_pull(
+        success, pulled_commit_ref, subdir_worktree, error_msg = self.repo.do_pull(
             git=self.git,
             flags=flags,
             config=config,
@@ -2309,18 +2323,18 @@ class GitNestedCommand:
             subref=subref,
         )
 
-        if not success and nested_commit_ref is None:
+        if not success and pulled_commit_ref is None:
             self.say(f"Nested repository '{subdir}' is up to date with upstream branch '{config.branch}'.", flags)
             return
 
         if not success:
             # do_pull's only other failure path (merge/rebase conflict) always pairs a
-            # non-None nested_commit_ref, subdir_worktree, and error_msg together.
+            # non-None pulled_commit_ref, subdir_worktree, and error_msg together.
             # _handle_pull_conflict() never returns: it always exits or raises.
             self._handle_pull_conflict(subdir, subdir_worktree, error_msg, config, flags, subref)
 
         self._finalize_successful_pull(
-            flags, subdir, gitnested, subref, config, nested_commit_ref, subdir_worktree, head_commit
+            flags, subdir, gitnested, subref, config, pulled_commit_ref, subdir_worktree, head_commit
         )
 
     def _handle_pull_conflict(self, subdir, subdir_worktree, error_msg, config, flags, subref) -> None:
@@ -2589,11 +2603,13 @@ class GitNestedCommand:
 
     def _resolve_gitnested_file(self, subdir: Path, flags: Flags) -> Path:
         """Determine the .gitnested (or highest .gitnested.levelN) file to use for subdir."""
-        gitnested = subdir / '.gitnested'
+        gitnested = subdir / GITNESTED_FILENAME
 
         # Search for .gitnested.levelN files to determine the correct level
         level_files = sorted([
-            f for f in subdir.glob('.gitnested.level*') if f.is_file() and f.name.startswith('.gitnested.level')
+            f
+            for f in subdir.glob(f'{GITNESTED_LEVEL_PREFIX}*')
+            if f.is_file() and f.name.startswith(GITNESTED_LEVEL_PREFIX)
         ])
 
         if level_files:
