@@ -13,202 +13,44 @@ import argparse
 import os
 import re
 import shutil
-import subprocess
 import sys
 import tempfile
 import textwrap
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from contextlib import chdir
-from dataclasses import dataclass
-from importlib.metadata import PackageNotFoundError
-from importlib.metadata import version as _pkg_version
 from pathlib import Path
 from typing import ClassVar
 from urllib.parse import quote
 
 import yaml
 
+from ._version import VERSION
+from .constants import (
+    FETCH_HEAD_REV,
+    GIT_LOG_DATE_DEFAULT_FLAG,
+    GITNESTED_FILENAME,
+    GITNESTED_LEVEL_PREFIX,
+)
+from .errors import GitNestedError
+from .git import GitRunner
+from .models import Flags, NestedConfig
 
-def _detect_version() -> str:
-    """Return the installed 'git-nested' package version, or a placeholder when unpackaged."""
-    try:
-        return _pkg_version("git-nested")
-    except PackageNotFoundError:
-        return "0.99.99"
-
-
-VERSION = _detect_version()
-REQUIRED_GIT_VERSION = "2.23.0"
-
-GITNESTED_FILENAME = '.gitnested'
-GITNESTED_LEVEL_PREFIX = '.gitnested.level'
-FETCH_HEAD_REV = 'FETCH_HEAD^0'
-GIT_LOG_DATE_DEFAULT_FLAG = '--date=default'
-
-
-class GitNestedError(Exception):
-    """Base exception for git-nested errors."""
-
-    def __init__(self, message, print_to_stderr=True):
-        """Store the message and optionally print it to stderr immediately."""
-        self.message = message
-        if print_to_stderr:
-            print(f"git-nested: {message}", file=sys.stderr)
-        super().__init__(self.message)
-
-
-@dataclass
-class Flags:
-    """Command-line flags."""
-
-    all: bool = False
-    all_deep: bool = False
-    branch: None | str = None
-    commit: bool = False
-    filter: None | list[str] = None
-    force: bool = False
-    fetch: bool = False
-    message: None | str = None
-    message_file: None | str = None
-    method: None | str = None
-    remote: None | str = None
-    squash: bool = False
-    update: bool = False
-    quiet: bool = False
-    verbose: int = 0
-
-
-@dataclass
-class NestedConfig:
-    """Nested configuration from .gitnested file."""
-
-    remote: str = ''
-    branch: str = ''
-    commit: str = ''
-    filter: None | list[str] = None
-    parent: str = ''
-    method: str = 'merge'
-
-    @classmethod
-    def from_file(cls, filepath: str | Path):
-        """Read config from .gitnested YAML file."""
-        path = Path(filepath)
-        if not path.is_file():
-            raise GitNestedError(f"No '{filepath}' file.")
-        with path.open('r') as f:
-            data = yaml.safe_load(f) or {}
-        nested_data = data.get('nested', {})
-
-        config = cls()
-        config.remote = nested_data.get('remote', '')
-        config.branch = nested_data.get('branch', '')
-        config.commit = nested_data.get('commit', '')
-        config.filter = nested_data.get('filter', None)
-        config.parent = nested_data.get('parent', '')
-        method = nested_data.get('method', 'merge')
-        config.method = 'rebase' if method == 'rebase' else 'merge'
-
-        if not config.remote:
-            raise GitNestedError(f"Missing required 'remote' in '{filepath}'.")
-        if not config.branch:
-            raise GitNestedError(f"Missing required 'branch' in '{filepath}'.")
-
-        return config
-
-
-def _git_env(env: dict[str, str] | None) -> dict[str, str]:
-    """``env`` for a git subprocess, with git's slowest footgun defused.
-
-    `git filter-branch` prints its "glut of gotchas" warning and then sleeps
-    for ten seconds unless FILTER_BRANCH_SQUELCH_WARNING is set. git-nested
-    calls filter-branch on the pull/push/branch/commit paths, so without this
-    every one of those operations costs the user a flat ten seconds waiting
-    out a warning about a command they did not choose to run and cannot act
-    on. setdefault, so an explicit value from the environment still wins.
-    """
-    merged = dict(os.environ if env is None else env)
-    merged.setdefault('FILTER_BRANCH_SQUELCH_WARNING', '1')
-    return merged
-
-
-class GitRunner:
-    """Simplified git command execution."""
-
-    def __init__(self):
-        """Check the environment and record the detected git version."""
-        self.check()
-        self.version = self.get_version()
-
-    def run(
-        self, args: Sequence[str | Path], may_fail=False, print_error=True, **kwargs
-    ) -> subprocess.CompletedProcess:
-        """Run git command."""
-        # Convert any Path objects to strings
-        cmd = ['git'] + [str(arg) for arg in args]
-        kwargs['env'] = _git_env(kwargs.get('env'))
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False, **kwargs)
-        if result.returncode != 0:
-            if not may_fail:
-                raise GitNestedError(
-                    f"Command failed: '{' '.join(cmd)}'.\n{result.stderr!s}", print_to_stderr=print_error
-                )
-
-            # Exception occurred but may_fail=True: Create a fake CompletedProcess for exception case
-            return subprocess.CompletedProcess(args=cmd, returncode=-1, stdout=result.stdout, stderr=result.stderr)
-
-        # Command succeeded
-        return result
-
-    def check_output(self, args: Sequence[str | Path], may_fail=False, **kwargs) -> str:
-        """Run git command and return its stripped stdout."""
-        result = self.run(args=args, may_fail=may_fail, **kwargs)
-        return result.stdout.strip()
-
-    def is_tracked(self, path: Path) -> bool:
-        """Check if given path is tracked by git.
-
-        'git ls-files' exits 0 regardless of whether it matched anything, so the presence
-        of output -- not the exit code -- is what actually answers the question.
-        """
-        result = self.run(['ls-files', '--', path], may_fail=True)
-        return bool(result.stdout.strip())
-
-    def rev_exists(self, rev: str) -> bool:
-        """Check if revision exists."""
-        result = self.run(['rev-list', rev, '-1'], may_fail=True)
-        return result.returncode == 0
-
-    def branch_exists(self, branch: str) -> bool:
-        """Check if branch exists."""
-        return self.rev_exists(f'refs/heads/{branch}')
-
-    def commit_in_rev_list(self, commit: str, list_head: str) -> bool:
-        """Check if commit is in rev-list (i.e., is an ancestor)."""
-        result = self.run(['merge-base', '--is-ancestor', commit, list_head], may_fail=True)
-        return result.returncode == 0
-
-    def check(self):
-        """Check that environment is suitable."""
-        if not shutil.which('git'):
-            raise GitNestedError("Can't find 'git' in PATH env variable.")
-        version = self.get_version()
-
-        def version_tuple(v):
-            return tuple(map(int, (v.split("."))))
-
-        if version_tuple(version) < version_tuple(REQUIRED_GIT_VERSION):
-            raise GitNestedError(f"Requires git version {REQUIRED_GIT_VERSION} or higher; you have '{version}'.")
-
-    def get_version(self):
-        """Return the installed git version string (e.g. '2.43.0')."""
-        git_version = self.check_output(['--version'])
-        # Bounded digit groups (rather than unbounded `\d+`) keep this linear: an
-        # unbounded run of digits with no dot would otherwise make re.search()
-        # backtrack quadratically while probing every start position.
-        m = re.search(r'(\d{1,6}\.\d{1,6}\.\d{1,6})', git_version)
-        if not m:
-            raise GitNestedError("Can't determine git version")
-        return m.group(1)
+# The package's public surface. Names are re-exported here so that
+# `from git_nested import X` keeps working as the internals are split up --
+# note that this means monkeypatching git_nested.X patches the re-export, not
+# the definition, so tests must reach for the defining module instead.
+__all__ = [
+    'VERSION',
+    'Flags',
+    'GitNested',
+    'GitNestedCommand',
+    'GitNestedError',
+    'GitNestedRepo',
+    'GitRunner',
+    'NestedConfig',
+    'chdir',
+    'main',
+]
 
 
 class GitNestedRepo:

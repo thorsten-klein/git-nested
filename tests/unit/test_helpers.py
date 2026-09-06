@@ -5,9 +5,11 @@ import io
 import subprocess
 import sys
 
-import git_nested
 import pytest
-from git_nested import Flags, GitNestedError, GitNestedRepo, GitRunner, NestedConfig
+
+import git_nested
+from git_nested import Flags, GitNestedError, GitNestedRepo, GitRunner, NestedConfig, _version
+from git_nested import git as git_module
 
 # ============================================================================
 # Version detection
@@ -18,15 +20,15 @@ def test_detect_version_falls_back_when_package_not_installed(monkeypatch):
     """_detect_version() returns the placeholder when the package isn't installed"""
 
     def raise_not_found(name):
-        raise git_nested.PackageNotFoundError(name)
+        raise _version.PackageNotFoundError(name)
 
-    monkeypatch.setattr(git_nested, "_pkg_version", raise_not_found)
-    assert git_nested._detect_version() == "0.99.99"
+    monkeypatch.setattr(_version, "_pkg_version", raise_not_found)
+    assert _version._detect_version() == "0.99.99"
 
 
 def test_detect_version_returns_installed_version():
     """_detect_version() returns whatever importlib.metadata reports when installed"""
-    assert git_nested._detect_version() == git_nested._pkg_version("git-nested")
+    assert _version._detect_version() == _version._pkg_version("git-nested")
 
 
 # ============================================================================
@@ -53,13 +55,20 @@ def test_nested_config_from_file_missing_branch(tmp_path):
         NestedConfig.from_file(gitnested)
 
 
+def test_dunder_main_is_wired_to_the_package_entry_point():
+    """`python -m git_nested` must reach the same main() the console script does."""
+    import git_nested.__main__ as dunder_main
+
+    assert dunder_main.main is git_nested.main
+
+
 # ============================================================================
 # GitRunner
 # ============================================================================
 
 
 def test_git_runner_raises_when_git_not_on_path(monkeypatch):
-    monkeypatch.setattr(git_nested.shutil, "which", lambda name: None)
+    monkeypatch.setattr(git_module.shutil, "which", lambda name: None)
     with pytest.raises(GitNestedError, match="Can't find 'git' in PATH"):
         GitRunner()
 
@@ -79,7 +88,7 @@ def test_git_runner_squelches_the_filter_branch_warning(monkeypatch):
         return subprocess.CompletedProcess(args=cmd, returncode=0, stdout='', stderr='')
 
     runner = object.__new__(GitRunner)
-    monkeypatch.setattr(git_nested.subprocess, "run", fake_run)
+    monkeypatch.setattr(git_module.subprocess, "run", fake_run)
     runner.run(['status'])
     assert seen['FILTER_BRANCH_SQUELCH_WARNING'] == '1'
 
@@ -93,7 +102,7 @@ def test_git_runner_keeps_a_caller_supplied_env(monkeypatch):
         return subprocess.CompletedProcess(args=cmd, returncode=0, stdout='', stderr='')
 
     runner = object.__new__(GitRunner)
-    monkeypatch.setattr(git_nested.subprocess, "run", fake_run)
+    monkeypatch.setattr(git_module.subprocess, "run", fake_run)
     runner.run(['status'], env={'GIT_INDEX_FILE': '/tmp/idx'})
     assert seen['GIT_INDEX_FILE'] == '/tmp/idx'
     assert seen['FILTER_BRANCH_SQUELCH_WARNING'] == '1'
