@@ -34,7 +34,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # SonarCloud's blame-based analysis (new-code detection, issue
           # authorship) needs real history, not the default shallow, tagless
@@ -58,7 +58,7 @@ jobs:
         run: uv run poe all
       - name: Upload coverage reports to Codecov
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: Upload test results to Codecov
@@ -68,6 +68,6 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: SonarCloud Scan
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
-        uses: SonarSource/sonarqube-scan-action@v4
+        uses: SonarSource/sonarqube-scan-action@v8
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

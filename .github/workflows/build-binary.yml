@@ -43,7 +43,7 @@ jobs:
       - name: Install build prerequisites
         run: dnf -y install python3.12 python3.12-pip git tar xz
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
           # the version frozen into the binary comes from the tags, and the
@@ -71,7 +71,7 @@ jobs:
       # by create-python-exe.sh, so the version can't be spelled out here --
       # matched by glob instead (see steps.build.outputs.version for callers
       # that need the exact name).
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.artifact }}
           path: dist/git-nested-*-x64-linux.tar.xz

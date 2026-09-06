@@ -81,7 +81,7 @@ jobs:
           - image: archlinux:latest
             install: pacman -Sy --noconfirm git
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: git-nested-binary
 
@@ -150,7 +150,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: git-nested-binary
 
