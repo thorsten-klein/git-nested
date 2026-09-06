@@ -92,18 +92,153 @@ SUPPORTED_OPT_ATTRS: list[tuple[str, str]] = [
     ('msg_file', 'message_file'),
 ]
 
+# Most commands take the same first positional, so it gets the same text.
+_SUBDIR_HELP = "the nested repository to act on"
+
 # Positional arguments, in the order argparse must see them. A command
 # absent from this table takes none.
 POSITIONALS: dict[str, list[tuple[str, dict]]] = {
-    'branch': [('subdir', {'nargs': '?'})],
-    'clean': [('subdir', {'nargs': '?'})],
-    'clone': [('upstream', {}), ('subdir', {'nargs': '?'})],
-    'commit': [('subdir', {'nargs': '?'}), ('nested_commit_ref', {'nargs': '?'})],
-    'completion': [('shell', {'nargs': '?', 'choices': list(COMPLETION_SHELLS)})],
-    'config': [('subdir', {'nargs': '?'}), ('key', {'nargs': '?'}), ('value', {'nargs': '?'})],
-    'diff': [('subdir', {'nargs': '?'})],
-    'fetch': [('subdir', {'nargs': '?'})],
-    'init': [('subdir', {'nargs': '?'})],
-    'pull': [('subdir', {'nargs': '?'})],
-    'push': [('subdir', {'nargs': '?'}), ('nested_branch', {'nargs': '?'})],
+    'branch': [('subdir', {'nargs': '?', 'help': _SUBDIR_HELP})],
+    'clean': [('subdir', {'nargs': '?', 'help': _SUBDIR_HELP})],
+    'clone': [
+        ('upstream', {'help': "URL or path of the repository to clone"}),
+        ('subdir', {'nargs': '?', 'help': "where to put it; defaults to the name of the upstream"}),
+    ],
+    'commit': [
+        ('subdir', {'nargs': '?', 'help': _SUBDIR_HELP}),
+        ('nested_commit_ref', {'nargs': '?', 'help': "branch or commit to add; defaults to nested/<subdir>"}),
+    ],
+    'completion': [
+        ('shell', {'nargs': '?', 'choices': list(COMPLETION_SHELLS), 'help': "shell to print the script for"})
+    ],
+    'config': [
+        ('subdir', {'nargs': '?', 'help': _SUBDIR_HELP}),
+        ('key', {'nargs': '?', 'help': "field to read or write; omit to print them all"}),
+        ('value', {'nargs': '?', 'help': "new value for the field; omit to read it"}),
+    ],
+    'diff': [('subdir', {'nargs': '?', 'help': _SUBDIR_HELP})],
+    'fetch': [('subdir', {'nargs': '?', 'help': _SUBDIR_HELP})],
+    'init': [('subdir', {'nargs': '?', 'help': "subdirectory to turn into a nested repository"})],
+    'pull': [('subdir', {'nargs': '?', 'help': _SUBDIR_HELP})],
+    'push': [
+        ('subdir', {'nargs': '?', 'help': _SUBDIR_HELP}),
+        ('nested_branch', {'nargs': '?', 'help': "branch to push; defaults to nested/<subdir>"}),
+    ],
+}
+
+# The paragraph `git nested <command> --help` opens with. COMMAND_HELP is
+# the one-line summary in the command list; this is room to say what the
+# command actually does to the repository.
+COMMAND_DESCRIPTION: dict[str, str] = {
+    'branch': (
+        "Build a 'nested/<subdir>' branch from the commits in <subdir> since the last sync, "
+        "and check it out in a worktree. Use it to look at the nested history on its own, "
+        "or to fix up a pull that stopped on conflicts."
+    ),
+    'clean': (
+        "Delete the branches, refs, remotes and worktrees that other git-nested commands left behind. "
+        "Nothing in your own history is touched, so this is also how you abandon a half-finished pull or push."
+    ),
+    'clone': (
+        "Copy an upstream repository into <subdir> and commit it, with a .gitnested file recording where it came from. "
+        "The result is ordinary files in ordinary commits: everyone who clones the parent repository gets them, "
+        "with no extra command to run."
+    ),
+    'commit': (
+        "Take a 'nested/<subdir>' branch and add it to the current history as a single commit. "
+        "This is the step that finishes a pull you resolved by hand."
+    ),
+    'completion': (
+        "Print the shell completion script for git-nested. "
+        "With no shell named, the shell that invoked git-nested is guessed."
+    ),
+    'config': (
+        "Read or write the fields of <subdir>/.gitnested. "
+        "With no key, every field is printed; with a key, just that one; with a value, the field is written. "
+        "The fields git-nested maintains itself (commit, cmdver, filter) can be read but not written."
+    ),
+    'diff': (
+        "Show what <subdir> has locally that its upstream does not, as an ordinary diff. "
+        "Nothing is fetched first unless you ask for it."
+    ),
+    'fetch': (
+        "Fetch the upstream branch of <subdir> into a local ref, without changing any file. "
+        "Other commands fetch when they need to; this is for looking first."
+    ),
+    'init': (
+        "Turn a subdirectory you already have into a nested repository by writing <subdir>/.gitnested. "
+        "The files are left as they are. Without --remote the subdirectory has no upstream yet, "
+        "which you can add later with 'git nested config'."
+    ),
+    'pull': (
+        "Fetch the upstream of <subdir> and join the new commits into it, by merge or by rebase. "
+        "If that conflicts, the half-finished work is left in a worktree and the way to finish it by hand is printed."
+    ),
+    'push': (
+        "Send the commits you made in <subdir> to its upstream. "
+        "Only the changes inside the subdirectory go; the rest of the parent repository is not part of it."
+    ),
+    'status': (
+        "Report every nested repository in this repository: where it comes from, and whether it has local changes. "
+        "With -q, just the paths, one per line."
+    ),
+    'version': "Print the git-nested version, and the versions of git and Python it is running on.",
+}
+
+# Examples, printed after the options by `git nested <command> --help`.
+COMMAND_EXAMPLES: dict[str, list[str]] = {
+    'branch': [
+        "git nested branch ext/lib",
+        "git nested branch --all",
+    ],
+    'clean': [
+        "git nested clean ext/lib",
+        "git nested clean --all",
+    ],
+    'clone': [
+        "git nested clone https://github.com/user/lib ext/lib",
+        "git nested clone -b develop https://github.com/user/lib ext/lib",
+    ],
+    'commit': [
+        "git nested commit ext/lib",
+        "git nested commit --file=msg.txt ext/lib",
+    ],
+    'completion': [
+        'eval "$(git-nested completion bash)"    # ~/.bashrc',
+        'eval "$(git-nested completion zsh)"     # ~/.zshrc, after compinit',
+        "git-nested completion fish | source     # ~/.config/fish/config.fish",
+    ],
+    'config': [
+        "git nested config ext/lib",
+        "git nested config ext/lib method",
+        "git nested config ext/lib method rebase",
+    ],
+    'diff': [
+        "git nested diff ext/lib",
+        "git nested diff --all",
+    ],
+    'fetch': [
+        "git nested fetch ext/lib",
+        "git nested fetch --all",
+    ],
+    'init': [
+        "git nested init doc",
+        "git nested init -r https://github.com/user/lib -b main ext/lib",
+    ],
+    'pull': [
+        "git nested pull ext/lib",
+        "git nested pull -M rebase ext/lib",
+        "git nested pull --all",
+    ],
+    'push': [
+        "git nested push ext/lib",
+        "git nested push --squash -m 'one commit upstream' ext/lib",
+    ],
+    'status': [
+        "git nested status",
+        "git nested status -q",
+    ],
+    'version': [
+        "git nested version",
+    ],
 }

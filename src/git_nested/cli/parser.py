@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import argparse
+import textwrap
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .. import output, refs
 from ..models import CommandContext, Flags
 from .spec import (
+    COMMAND_DESCRIPTION,
+    COMMAND_EXAMPLES,
     COMMAND_HELP,
     GLOBAL_ARG_SPECS,
     POSITIONALS,
@@ -35,6 +38,23 @@ def _add_subparser_positionals(command_subparser: argparse.ArgumentParser, comma
         command_subparser.add_argument(name, **kwargs)
 
 
+def _subparser_kwargs(command: str) -> dict:
+    """The help texts one command's subparser is built with.
+
+    RawDescriptionHelpFormatter so that the examples keep their line breaks;
+    argparse would otherwise reflow them into a paragraph. That leaves the
+    description unwrapped too, so it is wrapped here -- to a fixed width
+    rather than the terminal's, which keeps `--help` reproducible.
+    """
+    examples = "\n".join(f"  {line}" for line in COMMAND_EXAMPLES[command])
+    return {
+        'help': COMMAND_HELP[command],
+        'description': textwrap.fill(COMMAND_DESCRIPTION[command], width=78),
+        'epilog': f"examples:\n{examples}",
+        'formatter_class': argparse.RawDescriptionHelpFormatter,
+    }
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     """Build the top-level argument parser and all per-command subparsers."""
     parser = argparse.ArgumentParser(prog='git nested')
@@ -43,7 +63,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
     subparsers = parser.add_subparsers(dest='command')
     for command in VALID_COMMAND_OPTIONS:
-        command_subparser = subparsers.add_parser(command, help=COMMAND_HELP[command])
+        command_subparser = subparsers.add_parser(command, **_subparser_kwargs(command))
         _add_subparser_args(command_subparser, command)
         _add_subparser_positionals(command_subparser, command)
 
