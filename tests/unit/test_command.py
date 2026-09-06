@@ -7,6 +7,7 @@ import pytest
 from git_nested import Flags, GitNestedCommand, GitNestedError
 from git_nested.cli import setup
 from git_nested.commands import push
+from git_nested.models import CommandContext
 
 
 @pytest.fixture
@@ -31,14 +32,25 @@ def test_parse_args_missing_command_is_a_usage_error(cmd):
 
 
 # ============================================================================
+# main
+# ============================================================================
+
+
+def test_main_answers_a_completion_request_before_the_parser(cmd, capsys):
+    """__complete is not a subcommand, so the parser must never see it."""
+    cmd.main(['__complete', 'git-nested', 'vers'])
+    assert capsys.readouterr().out == 'version\n'
+
+
+# ============================================================================
 # dispatch_command
 # ============================================================================
 
 
 def test_dispatch_command_unknown_command_is_a_usage_error(cmd):
-    flags = Flags()
+    ctx = CommandContext(git=cmd.git, flags=Flags())
     with pytest.raises(SystemExit) as exc_info:
-        cmd.dispatch_command('bogus', flags, None, None, None, None, None)
+        cmd.dispatch_command('bogus', ctx)
     assert exc_info.value.code == 1
 
 
