@@ -110,6 +110,13 @@ jobs:
           # (git-nested-<version>-<arch>-<os>.tar.xz, .zip on Windows), so it
           # cannot be spelled out ahead of time -- it is published as an
           # output for callers that need the exact name.
+          #
+          # nullglob: only one of the two patterns ever matches (a build
+          # produces .tar.xz or .zip, never both) -- without it the unmatched
+          # pattern is passed to ls literally, ls exits non-zero trying to
+          # read it, and pipefail+errexit abort the step right here with no
+          # visible error (ls's message went to /dev/null).
+          shopt -s nullglob
           ARCHIVE="$(ls dist/*.tar.xz dist/*.zip 2>/dev/null | head -1)"
           test -n "$ARCHIVE" || { echo "no archive produced" >&2; exit 1; }
           echo "archive=$(basename "$ARCHIVE")" >> "$GITHUB_OUTPUT"

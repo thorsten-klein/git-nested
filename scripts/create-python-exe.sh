@@ -211,10 +211,14 @@ if [ "$ARCHIVE" = 1 ]; then
     # release.
     cp "$EXE" "$BUILD_DIR/dist/git-nested-$VERSION$EXE_SUFFIX"
     if [ "$OS_NAME" = windows ]; then
-        # No symlink: Git Bash only makes a real one when the user has turned
-        # that on, so the archive would hold either a copy or a dangling text
-        # file depending on the build machine. A copy always, then.
-        cp "$EXE" "$BUILD_DIR/dist/$EXE_NAME"
+        # No symlink needed here: Git Bash only makes a real one when the user
+        # has turned that on, so the archive would hold either a copy or a
+        # dangling text file depending on the build machine -- a copy always,
+        # then. But $EXE_NAME's copy already exists: $EXE *is*
+        # "$BUILD_DIR/dist/$EXE_NAME", untouched since PyInstaller wrote it, so
+        # there is nothing left to do. (Copying $EXE onto itself here used to
+        # fail outright -- cp refuses a same-file copy.)
+        :
     else
         ln -sf "git-nested-$VERSION" "$BUILD_DIR/dist/$EXE_NAME"
     fi
