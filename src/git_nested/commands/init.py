@@ -27,7 +27,7 @@ def do_init(
     checks.check_subdir_for_init(git, subdir, gitnested)
     nested_commit_ref = head_commit
 
-    output.verbose(f"Put info into '{subdir}/.gitnested' file.", flags)
+    output.verbose(f"Put info into '{subdir}/.gitnested' file.")
     gitfile.update_gitrepo_file(
         git=git,
         flags=flags,
@@ -39,10 +39,10 @@ def do_init(
         command='init',
     )
 
-    output.verbose(f"Add the new '{subdir}/.gitnested' file.", flags)
+    output.verbose(f"Add the new '{subdir}/.gitnested' file.")
     git.run(['add', '-f', '--', gitnested])
 
-    output.verbose("Commit the changes.", flags)
+    output.verbose("Commit the changes.")
     msg = discovery.build_commit_message(
         git=git,
         config=config,
@@ -79,4 +79,4 @@ def cmd_init(ctx: CommandContext) -> None:
     )
 
     remote_msg = "(with no remote)." if config.remote == 'none' else f"with remote '{config.remote}' ({config.branch})."
-    output.say(f"Nested repository created from '{subdir}' {remote_msg}", flags)
+    output.say(f"Nested repository created from '{subdir}' {remote_msg}")

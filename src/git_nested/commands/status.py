@@ -71,7 +71,7 @@ def _status_for_subdir(
     config = gitfile.read_config(gitrepo, flags)
 
     if flags.fetch:
-        fetch.do_fetch(git, flags, config, subref)
+        fetch.do_fetch(git, config, subref)
 
     if flags.quiet:
         return [f"{subdir}\n"], [(subdir, config)]
@@ -181,4 +181,4 @@ def cmd_status(ctx: CommandContext) -> None:
     git = ctx.git
     flags, git_tmp = ctx.flags, ctx.tmp
     report, _ = get_status(git, flags, git_tmp)
-    output.say(report, flags)
+    output.payload(report)

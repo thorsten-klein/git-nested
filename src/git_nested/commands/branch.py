@@ -15,7 +15,7 @@ def cmd_branch(ctx: CommandContext) -> None:
     subdir, gitnested, subref, config = setup.setup_command(git, 'branch', flags, subdir, upstream)
 
     if flags.fetch:
-        fetch.do_fetch(git, flags, config, subref)
+        fetch.do_fetch(git, config, subref)
 
     branch = f'nested/{subref}'
     if flags.force:
@@ -34,4 +34,4 @@ def cmd_branch(ctx: CommandContext) -> None:
         subref=subref,
         command='branch',
     )
-    output.say(f"Created branch '{branch}' and worktree '{subdir_worktree}'.", flags)
+    output.say(f"Created branch '{branch}' and worktree '{subdir_worktree}'.")

@@ -17,7 +17,7 @@ from ..git import GitRunner
 from ..models import Flags, NestedConfig
 
 
-def resolve_gitnested_file(subdir: Path, flags: Flags) -> Path:
+def resolve_gitnested_file(subdir: Path) -> Path:
     """Determine the .gitnested (or highest .gitnested.levelN) file to use for subdir."""
     gitnested = subdir / GITNESTED_FILENAME
 
@@ -31,7 +31,7 @@ def resolve_gitnested_file(subdir: Path, flags: Flags) -> Path:
     if level_files:
         # Use the highest level file found (for deeply nested repos)
         gitnested = level_files[-1]
-        output.verbose(f"Using {gitnested} for nested repository (detected from existing level files)", flags)
+        output.verbose(f"Using {gitnested} for nested repository (detected from existing level files)")
 
     return gitnested
 
@@ -64,9 +64,9 @@ def _error_existing_worktree(subdir: Path, gitnested: Path, worktree_path: str |
         )
 
 
-def _check_existing_worktree(git: GitRunner, flags: Flags, command: str, subdir: Path, gitnested: Path) -> None:
+def _check_existing_worktree(git: GitRunner, command: str, subdir: Path, gitnested: Path) -> None:
     """Error out if an existing worktree for subdir conflicts with this command."""
-    output.verbose(f"Check for worktree with branch nested/{subdir}", flags)
+    output.verbose(f"Check for worktree with branch nested/{subdir}")
     worktree_list = git.check_output(['worktree', 'list'], may_fail=True) or ''
     worktree_path = _find_worktree_path(worktree_list, subdir)
     has_worktree = worktree_path is not None
@@ -106,10 +106,10 @@ def setup_command(
     subref = refs.sanitize_subref(git, str(subdir))
 
     # Determine the appropriate .gitnested file to use by detecting existing level files
-    gitnested = resolve_gitnested_file(subdir, flags)
+    gitnested = resolve_gitnested_file(subdir)
 
     if not flags.force:
-        _check_existing_worktree(git, flags, command, subdir, gitnested)
+        _check_existing_worktree(git, command, subdir, gitnested)
 
     config = _load_config_for_setup(command, gitnested, flags, upstream)
 

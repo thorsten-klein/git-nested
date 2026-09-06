@@ -27,11 +27,11 @@ def create_nested_branch(
     Returns:
         subdir_worktree
     """
-    output.verbose(f"Check if the '{branch}' branch already exists.", flags)
+    output.verbose(f"Check if the '{branch}' branch already exists.")
     if git.branch_exists(branch):
         return git_tmp / branch
 
-    output.verbose(f"Nested repository parent: {config.parent}", flags)
+    output.verbose(f"Nested repository parent: {config.parent}")
 
     if config.parent:
         first_gitrepo_commit = history._create_branch_from_parent(
@@ -66,9 +66,9 @@ def commit_nested_branch(
     """Commit a nested branch."""
     _verify_commit_ref(git, flags, nested_commit_ref, upstream_head_commit)
 
-    _replace_subdir_content(git, flags, subdir)
+    _replace_subdir_content(git, subdir)
 
-    output.verbose(f"Put remote nested content into '{subdir}/'.", flags)
+    output.verbose(f"Put remote nested content into '{subdir}/'.")
     if not config.filter:
         _place_full_content(git, subdir, nested_commit_ref)
     else:
@@ -85,23 +85,23 @@ def commit_nested_branch(
 
 def _verify_commit_ref(git: GitRunner, flags: Flags, nested_commit_ref: str, upstream_head_commit: str) -> None:
     """Verify the nested commit exists and (unless --force) contains upstream HEAD."""
-    output.verbose("Checking that the nested repository commit exists.", flags)
+    output.verbose("Checking that the nested repository commit exists.")
     if not git.rev_exists(nested_commit_ref):
         raise GitNestedError(f"Commit ref '{nested_commit_ref}' does not exist.")
 
     if flags.force:
         return
-    output.verbose("Make sure that the commit contains the upstream HEAD.", flags)
+    output.verbose("Make sure that the commit contains the upstream HEAD.")
     if not git.commit_in_rev_list(upstream_head_commit, nested_commit_ref):
         raise GitNestedError(f"Can't commit: '{nested_commit_ref}' doesn't contain upstream HEAD.")
 
 
-def _replace_subdir_content(git: GitRunner, flags: Flags, subdir: Path) -> None:
+def _replace_subdir_content(git: GitRunner, subdir: Path) -> None:
     """Remove any existing content of subdir/ before placing fresh upstream content."""
     has_files = git.check_output(['ls-files', '--', subdir], may_fail=True)
     if not has_files:
         return
-    output.verbose("Remove old content of the subdir.", flags)
+    output.verbose("Remove old content of the subdir.")
     git.run(['rm', '-r', '--', subdir])
 
 
@@ -121,7 +121,7 @@ def _sync_gitnested_files(
     command: str,
 ) -> None:
     """Update .gitnested (and its sibling regular file, if this is a levelN file)."""
-    output.verbose(f"Put info into '{gitnested}' file.", flags)
+    output.verbose(f"Put info into '{gitnested}' file.")
     gitfile.update_gitrepo_file(
         git=git,
         flags=flags,
@@ -141,7 +141,7 @@ def _sync_gitnested_files(
     regular_gitnested = gitnested.parent / GITNESTED_FILENAME
     if not regular_gitnested.exists():
         return
-    output.verbose(f"Also updating {regular_gitnested} for consistency", flags)
+    output.verbose(f"Also updating {regular_gitnested} for consistency")
     gitfile.update_gitrepo_file(
         git=git,
         flags=flags,
@@ -163,7 +163,7 @@ def _commit_gitnested_update(git: GitRunner, flags: Flags, msg: str) -> None:
     do_clone() separately rejects an empty repo before any commit logic runs), so a
     plain 'git commit' -- which needs no pre-existing HEAD anyway -- always applies.
     """
-    output.verbose("Commit .gitnested update to the current branch.", flags)
+    output.verbose("Commit .gitnested update to the current branch.")
     if flags.message_file:
         git.run(['commit', '--file', flags.message_file])
     else:
@@ -196,7 +196,7 @@ def _finalize_commit(
         )
         _commit_gitnested_update(git, flags, msg)
     else:
-        output.verbose("No changes to commit for .gitnested update", flags)
+        output.verbose("No changes to commit for .gitnested update")
 
     worktree.remove_worktree(git, subdir_worktree)
 

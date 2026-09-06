@@ -9,6 +9,7 @@ import subprocess
 from collections.abc import Sequence
 from pathlib import Path
 
+from . import output
 from .constants import REQUIRED_GIT_VERSION
 from .errors import GitNestedError
 
@@ -42,6 +43,7 @@ class GitRunner:
         """Run git command."""
         # Convert any Path objects to strings
         cmd = ['git'] + [str(arg) for arg in args]
+        output.trace(' '.join(cmd))
         kwargs['env'] = _git_env(kwargs.get('env'))
         result = subprocess.run(cmd, capture_output=True, text=True, check=False, **kwargs)
         if result.returncode != 0:

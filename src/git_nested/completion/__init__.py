@@ -13,7 +13,7 @@ from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 
-from .. import discovery, gitfile
+from .. import discovery, gitfile, output
 from ..cli.spec import (
     COMMAND_HELP,
     GLOBAL_ARG_SPECS,
@@ -254,7 +254,7 @@ def _print_candidates(git: GitRunner, words: list[str]) -> None:
     """Print one line per candidate, honouring a leading --describe."""
     describe = bool(words) and words[0] == '--describe'
     for candidate in candidates(git, words[1:] if describe else words):
-        print(_candidate_line(candidate, describe))
+        output.payload(_candidate_line(candidate, describe))
 
 
 def handle_dunder_complete(git: GitRunner, argv: list[str]) -> bool:

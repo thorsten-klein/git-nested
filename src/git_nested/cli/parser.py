@@ -103,7 +103,9 @@ def _flags_from_args(args: argparse.Namespace) -> Flags:
     flags.squash = getattr(args, 'squash', False)
     flags.update = getattr(args, 'update', False)
     flags.quiet = getattr(args, 'quiet', False)
-    flags.verbose = getattr(args, 'verbose', 0)
+    # argparse's `count` action leaves the attribute at None when the flag
+    # is absent, and the output layer wants a real count.
+    flags.verbose = getattr(args, 'verbose', 0) or 0
 
     if flags.all_deep:
         flags.all = True

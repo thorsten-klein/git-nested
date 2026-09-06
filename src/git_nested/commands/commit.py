@@ -22,7 +22,7 @@ def cmd_commit(ctx: CommandContext) -> None:
     subdir, gitnested, subref, config = setup.setup_command(git, 'commit', flags, subdir, upstream)
 
     if flags.fetch:
-        fetch.do_fetch(git, flags, config, subref)
+        fetch.do_fetch(git, config, subref)
 
     refs_fetch = f'refs/nested/{subref}/fetch'
     if not git.rev_exists(refs_fetch):
@@ -43,4 +43,4 @@ def cmd_commit(ctx: CommandContext) -> None:
         subdir_worktree=git_tmp / f'nested/{subref}',
         command='commit',
     )
-    output.say(f"Nested commit '{nested_commit_ref}' committed as subdir '{subdir}/' to current branch.", flags)
+    output.say(f"Nested commit '{nested_commit_ref}' committed as subdir '{subdir}/' to current branch.")
