@@ -223,13 +223,12 @@ if [ "$ARCHIVE" = 1 ]; then
     else
         ln -sf "git-nested-$VERSION" "$BUILD_DIR/dist/$EXE_NAME"
     fi
-    # LICENSE and the completion scripts ride along: the archive is a
-    # redistribution of git-nested in binary form, so MIT asks for the notice
-    # to travel with it, and share/ is the only way a user who never installs
-    # the package gets completion at all.
+    # LICENSE rides along: the archive is a redistribution of git-nested in
+    # binary form, so MIT asks for the notice to travel with it. Completion
+    # needs nothing here -- the binary prints its own script, so
+    # `eval "$(git-nested completion bash)"` works from the archive too.
     cp "$REPO_ROOT/LICENSE" "$BUILD_DIR/dist/LICENSE"
-    cp -r "$REPO_ROOT/share" "$BUILD_DIR/dist/share"
-    ARCHIVE_MEMBERS="git-nested-$VERSION$EXE_SUFFIX $EXE_NAME LICENSE share"
+    ARCHIVE_MEMBERS="git-nested-$VERSION$EXE_SUFFIX $EXE_NAME LICENSE"
     if [ "$ARCHIVE_EXT" = zip ]; then
         # Written by the build venv's python rather than a 'zip' binary: a
         # Windows runner has the former and not always the latter.

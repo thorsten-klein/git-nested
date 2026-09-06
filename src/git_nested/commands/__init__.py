@@ -16,13 +16,14 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from ..models import CommandContext
-from . import branch, clean, clone, commit, diff, fetch, init, pull, push, status, version
+from . import branch, clean, clone, commit, completion, diff, fetch, init, pull, push, status, version
 
 REGISTRY: dict[str, Callable[[CommandContext], None]] = {
     'branch': branch.cmd_branch,
     'clean': clean.cmd_clean,
     'clone': clone.cmd_clone,
     'commit': commit.cmd_commit,
+    'completion': completion.cmd_completion,
     'diff': diff.cmd_diff,
     'fetch': fetch.cmd_fetch,
     'init': init.cmd_init,

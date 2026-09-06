@@ -24,7 +24,7 @@ def check_repository(git: GitRunner, command: str) -> tuple[Path | None, str | N
     Returns:
         tuple: (git_tmp, head_commit)
     """
-    if command in ['version']:
+    if command in ['completion', 'version']:
         return None, None
 
     try:

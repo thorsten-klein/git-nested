@@ -42,10 +42,6 @@ repos:
       # --- scripts --------------------------------------------------------
       - id: check-executables-have-shebangs
       - id: check-shebang-scripts-are-executable
-        # share/*.bash and share/*.sh are meant to be *sourced* into a user's
-        # shell (see share/enable-completion.sh), never executed directly --
-        # their shebang is there only so editors pick the right syntax mode.
-        exclude: ^share/
 
       # --- repo integrity -------------------------------------------------
       - id: detect-private-key

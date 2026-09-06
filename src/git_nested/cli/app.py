@@ -6,9 +6,10 @@ current Flags -- and dispatches argv to the right handler in `commands`.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import NoReturn
 
-from .. import checks, commands, discovery, output
+from .. import checks, commands, completion, discovery, output
 from ..git import GitRunner
 from ..models import CommandContext, Flags
 from ..repo import GitNestedRepo
@@ -34,51 +35,46 @@ class GitNestedCommand:
         """Report a malformed command line and exit."""
         output.usage_error(msg)
 
-    def _dispatch_all(self, command, flags, upstream, nested_commit_ref, git_tmp, head_commit):
+    def _dispatch_all(self, command: str, ctx: CommandContext) -> None:
         """Dispatch command across every nested repository (the --all flag)."""
-        if flags.branch:
+        if ctx.flags.branch:
             self.error("options --branch and --all are not compatible")
 
-        nesteds = discovery.find_all_nested_repositories(self.git, flags)
-        for subdir_path in nesteds:
-            self.dispatch_command(command, flags, subdir_path, upstream, nested_commit_ref, git_tmp, head_commit)
+        for subdir_path in discovery.find_all_nested_repositories(self.git, ctx.flags):
+            self.dispatch_command(command, replace(ctx, subdir=subdir_path))
 
     def main(self, args):
         """Main entry point."""
-        command, flags, subdir, upstream, nested_commit_ref = self.parse_args(args)
-        self.git.check()
-        git_tmp, head_commit = checks.check_repository(self.git, command)
+        # Before the parser: `__complete` is deliberately not a subcommand.
+        # It is an implementation detail of the printed completion scripts,
+        # so it stays out of --help and out of its own candidate list.
+        if completion.handle_dunder_complete(self.git, args):
+            return
 
-        if flags.all and command not in ['status']:
-            self._dispatch_all(command, flags, upstream, nested_commit_ref, git_tmp, head_commit)
+        command, ctx = self.parse_args(args)
+        self.git.check()
+        ctx.git_tmp, ctx.head_commit = checks.check_repository(self.git, command)
+
+        if ctx.flags.all and command not in ['status']:
+            self._dispatch_all(command, ctx)
         else:
-            self.dispatch_command(command, flags, subdir, upstream, nested_commit_ref, git_tmp, head_commit)
+            self.dispatch_command(command, ctx)
 
     def parse_args(self, args_list):
         """Parse command line arguments.
 
         Returns:
-            tuple: (command, flags, subdir, upstream, nested_commit_ref)
+            tuple: (command, context)
         """
-        return parser.parse_args(args_list)
+        return parser.parse_args(self.git, args_list)
 
-    def dispatch_command(self, command, flags, subdir, upstream, nested_commit_ref, git_tmp, head_commit):
+    def dispatch_command(self, command: str, ctx: CommandContext) -> None:
         """Run the handler registered for `command`."""
         handler = commands.REGISTRY.get(command)
         if handler is None:
             self.usage_error(f"Unknown command: {command}")
 
-        handler(
-            CommandContext(
-                git=self.git,
-                flags=flags,
-                subdir=subdir,
-                upstream=upstream,
-                nested_commit_ref=nested_commit_ref,
-                git_tmp=git_tmp,
-                head_commit=head_commit,
-            )
-        )
+        handler(ctx)
 
     def setup_command(self, command, flags, subdir, upstream):
         """Setup command with parameters.

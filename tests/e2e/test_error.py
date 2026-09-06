@@ -3,6 +3,8 @@
 import pytest
 from conftest import cmd_git_nested, git_rev_parse
 
+from git_nested.cli.spec import VALID_COMMAND_OPTIONS
+
 
 def test_help(env):
     """Test that the help is shown"""
@@ -64,11 +66,10 @@ def test_error_unknown_command(foo_bar_cloned):
     cp = cmd_git_nested('main 1 2 3', check=False, cwd=env.workspace / 'bar')
     assert_argparse_error(cp, "git nested: error: argument command: invalid choice: 'main'")
 
-    # the following text depends on the python version. The single quotes might be missing.
-    text = (
-        "(choose from 'branch', 'clean', 'clone', 'commit', 'diff', 'fetch', 'init', 'pull', 'push', "
-        "'status', 'version')"
-    )
+    # Read off the spec rather than spelled out here, so that adding a command
+    # does not silently leave this assertion behind.
+    # The quoting depends on the python version -- the single quotes might be missing.
+    text = f"(choose from {', '.join(repr(command) for command in VALID_COMMAND_OPTIONS)})"
     assert (text in cp.stderr) or (text.replace("'", "") in cp.stderr)
 
 
