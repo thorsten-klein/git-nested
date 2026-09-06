@@ -2,6 +2,10 @@
 
 > An alternative to git-submodule and git-subtree for managing nested repositories.
 
+[![Test](https://github.com/thorsten-klein/git-nested/actions/workflows/test.yml/badge.svg)](https://github.com/thorsten-klein/git-nested/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/thorsten-klein/git-nested/branch/main/graph/badge.svg)](https://codecov.io/gh/thorsten-klein/git-nested)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=thorsten-klein_git-nested&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=thorsten-klein_git-nested)
+[![PyPI](https://img.shields.io/pypi/v/git-nested.svg)](https://pypi.org/project/git-nested/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
