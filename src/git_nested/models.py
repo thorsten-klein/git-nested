@@ -4,10 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 import yaml
 
 from .errors import GitNestedError
+
+if TYPE_CHECKING:
+    from .git import GitRunner
 
 
 @dataclass
@@ -67,3 +71,38 @@ class NestedConfig:
             raise GitNestedError(f"Missing required 'branch' in '{filepath}'.")
 
         return config
+
+
+@dataclass
+class CommandContext:
+    """Everything a `cmd_*` handler is given, in one object.
+
+    The handlers all take this instead of their own parameter list so that
+    dispatch is a table lookup rather than a per-command lambda. Which
+    fields are meaningful depends on the command: `nested_commit_ref` is
+    only populated by the commands that take it as a positional, and
+    `upstream` only by `clone`.
+    """
+
+    git: GitRunner
+    flags: Flags
+    subdir: str | Path | None = None
+    upstream: str | None = None
+    nested_commit_ref: str | None = None
+    git_tmp: Path | None = None
+    head_commit: str | None = None
+
+    # `version` is the one command that runs without a repository, so it is
+    # the only reason these two are optional at all -- and it reads neither.
+    # Every other handler goes through these, which say so once instead of
+    # each caller re-proving it.
+
+    @property
+    def tmp(self) -> Path:
+        """`git_tmp`, for a handler that only runs inside a repository."""
+        return cast('Path', self.git_tmp)
+
+    @property
+    def head(self) -> str:
+        """`head_commit`, for a handler that only runs inside a repository."""
+        return cast('str', self.head_commit)
