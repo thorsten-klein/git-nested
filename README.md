@@ -175,6 +175,22 @@ git nested --help          # the manual page
 git nested pull --help     # one command: what it does, its options, examples
 ```
 
+#### How much it tells you
+
+These work with every command. They only affect what git-nested says about
+its work, which goes to stderr -- a result you would pipe somewhere (`status`,
+`diff`, `config`, `completion`) goes to stdout and is never gated.
+
+```bash
+git nested pull ext/lib -q     # only warnings and errors
+git nested pull ext/lib        # the default: what changed
+git nested pull ext/lib -v     # plus each step as it is taken
+git nested pull ext/lib -vv    # plus every git command that is run
+```
+
+Colour is used when the output is a terminal. `NO_COLOR=1` turns it off,
+`FORCE_COLOR=1` keeps it on when piping.
+
 #### `git nested clone`
 
 Clone an external repository into a subdirectory of your project.
