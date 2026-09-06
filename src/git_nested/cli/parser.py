@@ -86,9 +86,9 @@ def _validate_message_options(args: argparse.Namespace) -> None:
     opts = VALID_COMMAND_OPTIONS.get(args.command)
     msg_file_set = _supported_and_set(args, opts, 'msg_file')
     if msg_file_set and not Path(args.msg_file).is_file():
-        output.error(f"Commit msg file at {args.msg_file} not found")
+        output.error(f"no commit message file at {args.msg_file}")
     if msg_file_set and _supported_and_set(args, opts, 'message'):
-        output.error("fatal: options '-m' and '--file' cannot be used together")
+        output.error("-m and --file can't be used together")
 
 
 def _flags_from_args(args: argparse.Namespace) -> Flags:
@@ -103,7 +103,9 @@ def _flags_from_args(args: argparse.Namespace) -> Flags:
     flags.squash = getattr(args, 'squash', False)
     flags.update = getattr(args, 'update', False)
     flags.quiet = getattr(args, 'quiet', False)
-    flags.verbose = getattr(args, 'verbose', 0)
+    # argparse's `count` action leaves the attribute at None when the flag
+    # is absent, and the output layer wants a real count.
+    flags.verbose = getattr(args, 'verbose', 0) or 0
 
     if flags.all_deep:
         flags.all = True
@@ -128,13 +130,13 @@ def parse_args(git: GitRunner, args_list: list[str]) -> tuple[str, CommandContex
         args.command = 'version'
 
     if not args.command:
-        output.usage_error("Missing command")
+        output.usage_error("no command given; 'git nested --help' lists them")
 
     upstream, subdir, nested_commit_ref = _resolve_positional_args(args)
     flags = _flags_from_args(args)
 
     if flags.update and not (flags.branch or flags.remote):
-        output.usage_error("Can't use '--update' without '--branch' or '--remote'.")
+        output.usage_error("--update needs --branch or --remote to have something to update")
 
     context = CommandContext(
         git=git,

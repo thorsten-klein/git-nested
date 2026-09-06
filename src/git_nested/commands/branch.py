@@ -15,13 +15,13 @@ def cmd_branch(ctx: CommandContext) -> None:
     subdir, gitnested, subref, config = setup.setup_command(git, 'branch', flags, subdir, upstream)
 
     if flags.fetch:
-        fetch.do_fetch(git, flags, config, subref)
+        fetch.do_fetch(git, config, subref)
 
     branch = f'nested/{subref}'
     if flags.force:
         worktree.delete_branch(git, branch, git_tmp)
     elif git.branch_exists(branch):
-        output.error(f"Branch '{branch}' already exists. Use '--force' to override.")
+        output.error(f"branch {branch} already exists; pass --force to replace it")
 
     subdir_worktree = content.create_nested_branch(
         git=git,
@@ -34,4 +34,4 @@ def cmd_branch(ctx: CommandContext) -> None:
         subref=subref,
         command='branch',
     )
-    output.say(f"Created branch '{branch}' and worktree '{subdir_worktree}'.", flags)
+    output.say(f"{subdir}: branch {branch} created, worktree at {subdir_worktree}")

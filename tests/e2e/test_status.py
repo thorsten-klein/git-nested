@@ -101,7 +101,8 @@ def test_status_quiet(foo_bar_cloned):
     # Clone a nested
     cmd_git_nested(f'clone {env.upstream}/bar', cwd=env.workspace / 'foo')
 
-    # Test status with --quiet flag (should still show output since status prints output)
+    # -q trims the report down to the bare subdir list, but a report is what
+    # `status` is for, so it is still printed.
     result = cmd_git_nested('--quiet status', cwd=env.workspace / 'foo')
     assert result.stderr.strip() == ""
-    assert result.stdout.strip() == ""
+    assert result.stdout.strip() == "bar"

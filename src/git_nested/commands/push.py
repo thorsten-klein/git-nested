@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-import sys
 from pathlib import Path
 
 from .. import content, discovery, gitfile, output, refs, worktree
@@ -38,7 +37,7 @@ def do_push(
         return early_exit
 
     if not git.branch_exists(branch):
-        raise GitNestedError(f"No nested branch '{branch}' to push.")
+        raise GitNestedError(f"no nested branch {branch} to push")
 
     new_commit = git.check_output(['rev-parse', branch])
     up_to_date_result = _push_up_to_date_result(
@@ -72,7 +71,7 @@ def _push_fetch_missing_upstream(stderr: str) -> bool:
     """
     if re.search(r"(^|\n)fatal: couldn't find remote ref ", stderr.lower()):
         return True
-    raise GitNestedError(f"Fetch for push failed: {stderr}")
+    raise GitNestedError(f"the fetch before the push failed: {stderr}")
 
 
 def _push_verify_or_refetch(git: GitRunner, flags: Flags, config: NestedConfig, branch_name: str, upstream: str) -> str:
@@ -80,7 +79,7 @@ def _push_verify_or_refetch(git: GitRunner, flags: Flags, config: NestedConfig, 
     if upstream == config.commit:
         return upstream
     if not flags.force:
-        raise GitNestedError(f"There are new changes upstream ({branch_name}), you need to pull first.")
+        raise GitNestedError(f"upstream {branch_name} has commits you do not have; pull first")
     # Force mode: fetch original branch to be based on correct commit
     git.run(['fetch', '--no-tags', '--quiet', config.remote, config.branch])
     return git.check_output(['rev-parse', FETCH_HEAD_REV])
@@ -121,7 +120,7 @@ def _push_branch_setup(
     if not branch:
         return _push_prepare_branch(git, flags, config, subdir, gitnested, git_tmp, subref, branch_name)
     if flags.squash:
-        raise GitNestedError("Squash option (-s) can't be used with branch parameter")
+        raise GitNestedError("--squash can't be combined with an explicit branch")
     return branch, None, False, False, None, None
 
 
@@ -216,7 +215,7 @@ def _push_check_ancestry(
     if flags.force or new_upstream or upstream_head_commit is None:
         return
     if not git.commit_in_rev_list(upstream_head_commit, branch):
-        raise GitNestedError(f"Can't commit: '{branch}' doesn't contain upstream HEAD: {upstream_head_commit}")
+        raise GitNestedError(f"can't commit: {branch} does not contain the upstream HEAD {upstream_head_commit}")
 
 
 def _push_run_push(
@@ -245,7 +244,7 @@ def cmd_push(ctx: CommandContext) -> None:
     )
     subdir, gitnested, subref, config = setup.setup_command(git, 'push', flags, subdir, upstream)
 
-    output.verbose(f"Pushing {subdir} to upstream", flags)
+    output.verbose(f"pushing {subdir} upstream")
     success, branch_name, subdir_worktree, branch_created, new_commit = do_push(
         git=git,
         flags=flags,
@@ -257,7 +256,7 @@ def cmd_push(ctx: CommandContext) -> None:
         branch=nested_commit_ref,
     )
 
-    if _handle_push_failure(success, subdir_worktree, subdir, flags):
+    if _handle_push_failure(success, subdir_worktree, subdir):
         return
 
     # do_push only returns success=True together with a non-None new_commit
@@ -268,20 +267,17 @@ def cmd_push(ctx: CommandContext) -> None:
         )  # pragma: no cover -- invariant guard, unreachable via the public API
 
     if branch_created:
-        output.verbose(f"Remove branch 'nested/{subref}'.", flags)
+        output.verbose(f"removing branch nested/{subref}")
         worktree.delete_branch(git, f'nested/{subref}', git_tmp)
 
     # Update .gitnested if --commit or if --remote/--branch specified
     if flags.commit:
         _record_push_commit(git, flags, subdir, gitnested, config, new_commit, head_commit)
 
-    output.say(
-        f"Nested repository '{subdir}' pushed to '{config.remote}' ({branch_name}).",
-        flags,
-    )
+    output.say(f"{subdir}: pushed to {config.remote} ({branch_name})")
 
 
-def _handle_push_failure(success, subdir_worktree, subdir, flags) -> bool:
+def _handle_push_failure(success, subdir_worktree, subdir) -> bool:
     """Handle a failed do_push call (rebase failure or nothing to push).
 
     Returns:
@@ -289,11 +285,10 @@ def _handle_push_failure(success, subdir_worktree, subdir, flags) -> bool:
     """
     if not success and subdir_worktree:
         # Rebase failed
-        output.say('The "git rebase" command failed', flags)
-        sys.exit(1)
+        output.error(f"{subdir}: git rebase failed, so nothing was pushed")
 
     if not success:
-        output.say(f"Nested repository '{subdir}' has no new commits to push.", flags)
+        output.say(f"{subdir}: nothing to push")
         return True
 
     return False
@@ -301,7 +296,7 @@ def _handle_push_failure(success, subdir_worktree, subdir, flags) -> bool:
 
 def _record_push_commit(git, flags, subdir, gitnested, config, new_commit, head_commit):
     """Update `.gitnested` and create a commit recording the push (the --commit flag)."""
-    output.verbose(f"Put updates into '{subdir}/.gitnested' file.", flags)
+    output.verbose(f"writing {subdir}/.gitnested")
 
     gitfile.update_gitrepo_file(
         git=git,

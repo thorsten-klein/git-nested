@@ -10,6 +10,7 @@ from dataclasses import replace
 from typing import NoReturn, cast
 
 from .. import checks, commands, completion, discovery, output
+from ..errors import GitNestedError
 from ..git import GitRunner
 from ..models import CommandContext, Flags
 from ..repo import GitNestedRepo
@@ -38,7 +39,7 @@ class GitNestedCommand:
     def _dispatch_all(self, command: str, ctx: CommandContext) -> None:
         """Dispatch command across every nested repository (the --all flag)."""
         if ctx.flags.branch:
-            self.error("options --branch and --all are not compatible")
+            self.error("--branch and --all can't be used together")
 
         for subdir_path in discovery.find_all_nested_repositories(self.git, ctx.flags):
             subdir_ctx = cast(CommandContext, replace(ctx, subdir=subdir_path))
@@ -52,7 +53,24 @@ class GitNestedCommand:
         if completion.handle_dunder_complete(self.git, args):
             return
 
+        # The handler goes on before the parser runs, because the parser is
+        # itself allowed to report a bad command line; it comes off again in
+        # a finally, because a single process may run many commands (the
+        # test suite runs hundreds) and a handler left attached would print
+        # every later line once more per command.
+        detach = output.configure()
+        try:
+            self._run(args)
+        except GitNestedError as exc:
+            output.report(exc)
+            raise
+        finally:
+            detach()
+
+    def _run(self, args) -> None:
+        """Parse `args` and run the command it names, with output already wired up."""
         command, ctx = self.parse_args(args)
+        output.set_level(ctx.flags)
         self.git.check()
         ctx.git_tmp, ctx.head_commit = checks.check_repository(self.git, command)
 
@@ -73,7 +91,7 @@ class GitNestedCommand:
         """Run the handler registered for `command`."""
         handler = commands.REGISTRY.get(command)
         if handler is None:
-            self.usage_error(f"Unknown command: {command}")
+            self.usage_error(f"unknown command {command}; 'git nested --help' lists them")
 
         handler(ctx)
 

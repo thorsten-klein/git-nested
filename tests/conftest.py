@@ -8,8 +8,8 @@ import shlex
 import shutil
 import subprocess
 import textwrap
+from dataclasses import dataclass
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -67,6 +67,36 @@ VERSION = _version_under_test()
 # ============================================================================
 
 
+@dataclass
+class CommandResult:
+    """What one git-nested run produced, from either the in-process or subprocess path.
+
+    The two paths are otherwise indistinguishable to a test, so they return
+    the same shape -- which is also what gives both of them `.output`.
+    """
+
+    returncode: int = 0
+    stdout: str = ''
+    stderr: str = ''
+
+    @property
+    def output(self) -> str:
+        """Everything the command said, whichever stream it chose to say it on.
+
+        Assertions about diagnostics go through here rather than through
+        `.stdout`/`.stderr`, so that moving a message from one stream to the
+        other is not a test change. Assertions about a machine-consumable
+        payload -- what `status` and `diff` print for a script to read --
+        deliberately keep `.stdout`: for those the stream is the contract.
+        """
+        return self.stdout + self.stderr
+
+
+def _as_command_result(result) -> CommandResult:
+    """Re-wrap a subprocess.CompletedProcess so that it too has `.output`."""
+    return CommandResult(result.returncode, result.stdout, result.stderr)
+
+
 class NestedTestEnvironment:
     """Test environment with paths and helper methods for git operations.
 
@@ -85,13 +115,18 @@ class NestedTestEnvironment:
         self.defaultbranch = 'master'
 
     def run(self, cmd, cwd=None, check=True, capture_output=True, text=True, **kwargs):
-        """Run a subprocess command"""
-        if isinstance(cmd, str):
-            return subprocess.run(
-                cmd, shell=True, cwd=cwd, capture_output=capture_output, text=text, check=check, **kwargs
-            )
-        cmd = [str(a) for a in cmd]  # convert all arguments to str
-        return subprocess.run(cmd, cwd=cwd, capture_output=capture_output, text=text, check=check, **kwargs)
+        """Run a subprocess command
+
+        A captured result is wrapped in CommandResult, so that a test which
+        drives git-nested through `env.run` asserts on `.output` the same way
+        one that goes through cmd_git_nested does.
+        """
+        if not isinstance(cmd, str):
+            cmd = [str(a) for a in cmd]  # convert all arguments to str
+        result = subprocess.run(
+            cmd, shell=isinstance(cmd, str), cwd=cwd, capture_output=capture_output, text=text, check=check, **kwargs
+        )
+        return _as_command_result(result) if capture_output and text else result
 
     def clone_foo(self, path=None):
         path = path or self.workspace / 'foo'
@@ -591,11 +626,9 @@ def _raise_if_failed(cmd_and_args: list[str], result, check: bool):
         return
     # GitNestedError rather than a bare Exception: in-process the app's own
     # error type propagates out of app.main(), and tests match on it. The
-    # message is the stderr the command produced, so `match=` keeps working;
-    # print_to_stderr would duplicate it into the captured output.
+    # message is the stderr the command produced, so `match=` keeps working.
     raise git_nested.GitNestedError(
-        f"Command failed with exit code {result.returncode}: {shlex.join(cmd_and_args)}\n{result.stderr}",
-        print_to_stderr=False,
+        f"Command failed with exit code {result.returncode}: {shlex.join(cmd_and_args)}\n{result.stderr}"
     )
 
 
@@ -617,7 +650,7 @@ def cmd_git_nested_subprocess(args, cwd, check: bool = True):
 
     result = subprocess.run(cmd + args, cwd=cwd, capture_output=True, text=True, check=False)
     _raise_if_failed(cmd + args, result, check)
-    return result
+    return CommandResult(result.returncode, result.stdout, result.stderr)
 
 
 def _handle_system_exit(e: SystemExit, retval, check: bool):
@@ -639,8 +672,7 @@ def _run_inprocess(args: list[str], cwd, check: bool):
     stdout_buf = io.StringIO()
     stderr_buf = io.StringIO()
 
-    retval = SimpleNamespace()
-    retval.returncode = 0
+    retval = CommandResult()
 
     with git_nested.chdir(cwd), contextlib.redirect_stdout(stdout_buf), contextlib.redirect_stderr(stderr_buf):
         try:

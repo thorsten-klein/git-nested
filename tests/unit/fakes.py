@@ -57,14 +57,12 @@ class FakeGit(GitRunner):
                 return result
         raise AssertionError(f"FakeGit: no response registered for: git {' '.join(args_t)}")
 
-    def run(self, args, may_fail=False, print_error=True, **kwargs):
+    def run(self, args, may_fail=False, **kwargs):
         args_t = tuple(str(a) for a in args)
         self.calls.append(args_t)
         result = self._find_response(args_t)
         if result.returncode != 0 and not may_fail:
-            raise GitNestedError(
-                f"Command failed: 'git {' '.join(args_t)}'.\n{result.stderr}", print_to_stderr=print_error
-            )
+            raise GitNestedError(f"command failed: git {' '.join(args_t)}\n{result.stderr}")
         return result
 
     def check_output(self, args, may_fail=False, **kwargs):

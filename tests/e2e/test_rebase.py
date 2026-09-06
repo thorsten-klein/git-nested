@@ -38,10 +38,12 @@ def test_rebase(foo_bar_cloned):
     # Validate it found the previous merge point
     cmd_git_nested('clean --force --all', cwd=env.workspace / 'foo')
     cp = env.run('git nested branch bar', check=False, cwd=env.workspace / 'foo')
-    assert cp.stdout.strip() == ""
-    assert cp.stderr.strip() == textwrap.dedent("""\
-        git-nested: The last sync point (where upstream and the nested were equal) is not an ancestor.
-        This is usually caused by a rebase affecting that commit.
-        To recover set the nested parent in 'bar/.gitnested'
-        to ''
-        and validate the nested by comparing with 'git nested branch bar'""")
+    assert cp.output.strip() == textwrap.dedent("""\
+        git-nested: the recorded sync point is no longer an ancestor of HEAD
+
+        The sync point is the commit at which bar and its upstream were last
+        equal. A rebase usually rewrites it. To recover, set
+
+            parent:
+
+        in bar/.gitnested, then check the result with 'git nested branch bar'.""")

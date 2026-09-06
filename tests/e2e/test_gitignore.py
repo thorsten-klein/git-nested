@@ -20,7 +20,7 @@ def test_gitignore(foo_bar_cloned_and_nested):
 
     # Pull nested repository "bar"
     result = cmd_git_nested('pull bar', cwd=env.workspace / 'foo')
-    assert result.stdout.strip() == f"Nested repository 'bar' pulled from '{env.upstream}/bar' (master)."
+    assert result.output.strip() == f"bar: pulled from {env.upstream}/bar (master)"
 
     # Ensure nested repository files are present
     gitnested = env.workspace / 'foo' / 'bar' / '.gitnested'

@@ -14,7 +14,7 @@ def test_fetch(foo_bar_cloned_and_nested):
 
     # Fetch information
     result = cmd_git_nested('fetch bar', cwd=env.workspace / 'foo')
-    assert result.stdout.strip() == f"Fetched 'bar' from '{env.upstream}/bar' (master)."
+    assert result.output.strip() == f"bar: fetched from {env.upstream}/bar (master)"
 
     # Check that there is no tags fetched
     result = env.run(['git', 'tag', '-l', 'CoolTag'], cwd=env.workspace / 'foo')
@@ -30,5 +30,4 @@ def test_fetch_with_no_remote(env):
 
     # Try to fetch - should skip with message
     result = cmd_git_nested('fetch doc', cwd=env.workspace / 'init')
-    assert result.stdout.strip() == "Ignored 'doc', no remote."
-    assert result.stderr.strip() == ''
+    assert result.output.strip() == "doc: skipped, it has no remote"

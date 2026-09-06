@@ -10,13 +10,12 @@ def test_reclone(foo_bar_cloned):
 
     # Clone bar
     cp = cmd_git_nested('clone ' + str(env.upstream / 'bar'), cwd=env.workspace / 'foo')
-    assert cp.stdout.strip() == f"Nested repository '{env.upstream}/bar' (master) cloned into 'bar'."
-    assert cp.stderr.strip() == ""
+    assert cp.output.strip() == f"bar: cloned from {env.upstream}/bar (master)"
     assert (env.workspace / 'foo' / 'bar' / 'bard').exists()
 
     # Test that reclone is not done if not needed
     cp = cmd_git_nested('clone --force ' + str(env.upstream / 'bar'), cwd=env.workspace / 'foo')
-    assert cp.stdout.strip() == "Nested repository 'bar' is up to date with upstream branch 'master'."
+    assert cp.output.strip() == f"bar: already up to date with {env.upstream}/bar (master)"
 
     # Test that reclone of a different ref works
     cmd_git_nested(f'clone --force {env.upstream}/bar --branch=refs/tags/A', cwd=env.workspace / 'foo')
@@ -28,8 +27,7 @@ def test_reclone(foo_bar_cloned):
 
     # Test that reclone back to (implicit) master works
     cp = cmd_git_nested(f'clone -f {env.upstream}/bar', cwd=env.workspace / 'foo')
-    assert cp.stdout.strip() == f"Nested repository '{env.upstream}/bar' (master) cloned into 'bar'."
-    assert cp.stderr.strip() == ""
+    assert cp.output.strip() == f"bar: cloned from {env.upstream}/bar (master)"
     assert (env.workspace / 'foo' / 'bar' / 'bard').exists()
 
     # Check that config has correct branch value

@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
 
 import yaml
+
+from .messages import GITNESTED_HEADER
 
 
 def _read_yaml_config(filepath: Path) -> dict:
@@ -16,11 +17,6 @@ def _read_yaml_config(filepath: Path) -> dict:
 
 def _write_yaml_config(filepath: Path, data: dict) -> None:
     """Write YAML configuration file with header."""
-    GITREPO_HEADER = textwrap.dedent("""\
-        # This subdirectory is managed by "git nested".
-        # Refer to: https://github.com/thorsten-klein/git-nested#readme
-        #
-        """)
     with filepath.open('w') as f:
-        f.write(GITREPO_HEADER)
+        f.write(GITNESTED_HEADER)
         yaml.dump(data, f, default_flow_style=False, sort_keys=False)

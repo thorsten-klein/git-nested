@@ -49,8 +49,8 @@ COMMAND_HELP: dict[str, str] = {
 # (argparse flag names, argparse kwargs) for the flags every command takes.
 GLOBAL_ARG_SPECS: list[tuple[tuple[str, ...], dict]] = [
     (('--version',), {'action': 'store_true', 'help': "print the git-nested version number"}),
-    (('-q', '--quiet'), {'action': 'store_true', 'help': "show minimal output"}),
-    (('-v', '--verbose'), {'action': 'count', 'help': "show verbose output"}),
+    (('-q', '--quiet'), {'action': 'store_true', 'help': "report only warnings and errors"}),
+    (('-v', '--verbose'), {'action': 'count', 'help': "narrate the steps being taken; twice to log every git command"}),
 ]
 
 # (option name in VALID_COMMAND_OPTIONS, argparse flag names, argparse kwargs)

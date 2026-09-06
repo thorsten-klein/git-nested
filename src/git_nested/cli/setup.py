@@ -8,16 +8,15 @@ top.
 
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
 
-from .. import gitfile, output, refs
+from .. import gitfile, messages, output, refs
 from ..constants import GITNESTED_FILENAME, GITNESTED_LEVEL_PREFIX
 from ..git import GitRunner
 from ..models import Flags, NestedConfig
 
 
-def resolve_gitnested_file(subdir: Path, flags: Flags) -> Path:
+def resolve_gitnested_file(subdir: Path) -> Path:
     """Determine the .gitnested (or highest .gitnested.levelN) file to use for subdir."""
     gitnested = subdir / GITNESTED_FILENAME
 
@@ -31,7 +30,7 @@ def resolve_gitnested_file(subdir: Path, flags: Flags) -> Path:
     if level_files:
         # Use the highest level file found (for deeply nested repos)
         gitnested = level_files[-1]
-        output.verbose(f"Using {gitnested} for nested repository (detected from existing level files)", flags)
+        output.verbose(f"using {gitnested} (detected from the level files)")
 
     return gitnested
 
@@ -46,33 +45,18 @@ def _find_worktree_path(worktree_list: str, subdir: Path) -> str | None:
 
 def _error_existing_worktree(subdir: Path, gitnested: Path, worktree_path: str | None) -> None:
     """Raise the appropriate 'worktree already exists' error message."""
-    if gitnested.exists():
-        output.error(
-            textwrap.dedent(f"""\
-            There is already a worktree with branch nested/{subdir}.
-            Use the --force flag to override this check or perform a nested clean
-            to remove the worktree.""")
-        )
-    else:
-        output.error(
-            textwrap.dedent(f"""\
-            There is already a worktree with branch nested/{subdir}.
-            Use the --force flag to override this check or remove the worktree with
-            1. rm -rf {worktree_path}
-            2. git worktree prune
-            """)
-        )
+    output.error(messages.worktree_exists(subdir, worktree_path, prunable=gitnested.exists()))
 
 
-def _check_existing_worktree(git: GitRunner, flags: Flags, command: str, subdir: Path, gitnested: Path) -> None:
+def _check_existing_worktree(git: GitRunner, command: str, subdir: Path, gitnested: Path) -> None:
     """Error out if an existing worktree for subdir conflicts with this command."""
-    output.verbose(f"Check for worktree with branch nested/{subdir}", flags)
+    output.verbose(f"checking for a worktree on nested/{subdir}")
     worktree_list = git.check_output(['worktree', 'list'], may_fail=True) or ''
     worktree_path = _find_worktree_path(worktree_list, subdir)
     has_worktree = worktree_path is not None
 
     if command in ['commit'] and not has_worktree:
-        output.error("There is no worktree available, use the branch command first")
+        output.error(f"{subdir}: no worktree to commit from; run 'git nested branch {subdir}' first")
     elif command not in ['branch', 'clean', 'commit', 'push'] and has_worktree:
         _error_existing_worktree(subdir, gitnested, worktree_path)
 
@@ -96,20 +80,20 @@ def setup_command(
         tuple: (subdir, gitnested, subref, config)
     """
     if not subdir:
-        output.error("subdir not set")
+        output.error("no subdir given, and none could be guessed")
 
     subdir = Path(subdir)
 
     if subdir.is_absolute():
-        output.usage_error(f"The subdir '{subdir}' should not be absolute path.")
+        output.usage_error(f"{subdir}: subdir must be a relative path")
 
     subref = refs.sanitize_subref(git, str(subdir))
 
     # Determine the appropriate .gitnested file to use by detecting existing level files
-    gitnested = resolve_gitnested_file(subdir, flags)
+    gitnested = resolve_gitnested_file(subdir)
 
     if not flags.force:
-        _check_existing_worktree(git, flags, command, subdir, gitnested)
+        _check_existing_worktree(git, command, subdir, gitnested)
 
     config = _load_config_for_setup(command, gitnested, flags, upstream)
 
