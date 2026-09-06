@@ -138,7 +138,7 @@ def complete_in_bash(env, line, cwd=None):
 
 def test_bash_completes_a_command_prefix(env):
     requires('bash')
-    assert complete_in_bash(env, 'git-nested c') == ['clean', 'clone', 'commit', 'completion']
+    assert complete_in_bash(env, 'git-nested c') == ['clean', 'clone', 'commit', 'completion', 'config']
 
 
 def test_bash_completes_through_the_git_subcommand(env):

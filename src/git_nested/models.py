@@ -81,7 +81,8 @@ class CommandContext:
     dispatch is a table lookup rather than a per-command lambda. Which
     fields are meaningful depends on the command: `nested_commit_ref` is
     only populated by the commands that take it as a positional,
-    `upstream` only by `clone` and `completion_shell` only by `completion`.
+    `upstream` only by `clone`, `completion_shell` only by `completion` and
+    the `config_*` pair only by `config`.
     """
 
     git: GitRunner
@@ -92,6 +93,8 @@ class CommandContext:
     # Spelled out rather than `shell`, which reads as subprocess's shell=
     # in a package whose every other module shells out to git.
     completion_shell: str | None = None
+    config_key: str | None = None
+    config_value: str | None = None
     git_tmp: Path | None = None
     head_commit: str | None = None
 
