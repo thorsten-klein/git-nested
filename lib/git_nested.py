@@ -4,12 +4,11 @@
 Copyright 2026 - Thorsten Klein <thorsten.klein.git@gmail.com>
 """
 
-# PEP 604 `X | Y` unions appear throughout this module's annotations (e.g.
-# Flags' fields below), but requires-python floors at 3.9, where that syntax
-# only works at class-body evaluation time from 3.10 on. Postponed evaluation
-# (PEP 563) makes every annotation a lazily-parsed string instead, so `X | Y`
-# is never actually evaluated at import time on 3.9 -- without this, importing
-# this module on 3.9 raises TypeError before a single command runs.
+# Postponed evaluation (PEP 563). The 3.9 floor that originally required this
+# -- PEP 604 `X | Y` unions are evaluated at class-body time, which 3.9 cannot
+# do -- is gone, but it stays: annotations become lazily-parsed strings, which
+# keeps every annotation free to name a type that is only imported under
+# `if TYPE_CHECKING:`.
 from __future__ import annotations
 
 import argparse
@@ -51,11 +50,13 @@ GIT_LOG_DATE_DEFAULT_FLAG = '--date=default'
 
 @contextlib.contextmanager
 def chdir(path):
-    """Backport of contextlib.chdir stdlib class added in Python 3.11.
+    """Backport of contextlib.chdir, which the stdlib only gained in 3.11.
 
     The current working directory is temporarily changed to given path
     for the duration of the `with` block. When the block exits, the
     working directory is restored to its original value.
+
+    Delete this and import chdir from contextlib once the floor reaches 3.11.
     """
     oldpwd = Path.cwd()
     os.chdir(path)
