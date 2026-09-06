@@ -247,14 +247,15 @@ def handle_dunder_complete(git: GitRunner, argv: list[str]) -> bool:
         True if `argv` was a completion request and has been answered.
 
     Anything at all going wrong while computing candidates is swallowed: this
-    runs on every <TAB> the user presses, and a traceback (or a SystemExit
-    from deep inside argparse) landing on their prompt is far worse than an
-    empty candidate list.
+    runs on every <TAB> the user presses, and a traceback (or a SystemExit --
+    output.error() calls sys.exit(1) when a candidate needs a git command
+    that fails, e.g. outside a repository) landing on their prompt is far
+    worse than an empty candidate list.
     """
     if not argv or argv[0] != '__complete':
         return False
     try:
         _print_candidates(git, argv[1:])
-    except BaseException:
+    except (Exception, SystemExit):  # NOSONAR(S5754) deliberate, see docstring above
         return True
     return True

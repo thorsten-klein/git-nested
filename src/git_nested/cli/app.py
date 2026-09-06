@@ -7,7 +7,7 @@ current Flags -- and dispatches argv to the right handler in `commands`.
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import NoReturn
+from typing import NoReturn, cast
 
 from .. import checks, commands, completion, discovery, output
 from ..git import GitRunner
@@ -41,7 +41,8 @@ class GitNestedCommand:
             self.error("options --branch and --all are not compatible")
 
         for subdir_path in discovery.find_all_nested_repositories(self.git, ctx.flags):
-            self.dispatch_command(command, replace(ctx, subdir=subdir_path))
+            subdir_ctx = cast(CommandContext, replace(ctx, subdir=subdir_path))
+            self.dispatch_command(command, subdir_ctx)
 
     def main(self, args):
         """Main entry point."""

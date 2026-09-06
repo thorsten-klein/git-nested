@@ -48,8 +48,9 @@ def test_main_answers_a_completion_request_before_the_parser(cmd, capsys):
 
 
 def test_dispatch_command_unknown_command_is_a_usage_error(cmd):
+    ctx = CommandContext(git=cmd.git, flags=Flags())
     with pytest.raises(SystemExit) as exc_info:
-        cmd.dispatch_command('bogus', CommandContext(git=cmd.git, flags=Flags()))
+        cmd.dispatch_command('bogus', ctx)
     assert exc_info.value.code == 1
 
 
