@@ -47,7 +47,7 @@ class NestedConfig:
     method: str = 'merge'
 
     @classmethod
-    def from_file(cls, filepath: str | Path):
+    def from_file(cls, filepath: str | Path) -> NestedConfig:
         """Read config from .gitnested YAML file."""
         path = Path(filepath)
         if not path.is_file():

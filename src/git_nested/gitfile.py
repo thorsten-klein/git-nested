@@ -34,7 +34,7 @@ WRITABLE_CONFIG_FIELDS = ('remote', 'branch', 'method', 'parent')
 
 def create_level_gitnested_files(
     git: GitRunner, flags: Flags, subdir: Path, head_commit: str, level: int | None = None
-):
+) -> None:
     """Create .gitnested.levelN files for nested-in-nested repositories.
 
     This allows sub-nested repositories to be pulled/pushed independently
@@ -142,7 +142,7 @@ def update_gitrepo_file(
     nested_commit_ref: str,
     head_commit: str,
     command: str,
-):
+) -> None:
     """Update .gitnested YAML file."""
     initial = not gitnested.exists()
     if initial and _recreate_gitnested_from_parent(git, gitnested, head_commit):
@@ -182,9 +182,9 @@ def _recreate_gitnested_from_parent(git: GitRunner, gitnested: Path, head_commit
     return True
 
 
-def _should_update_field(flags_update: bool, command: str, override_value) -> bool:
+def _should_update_field(flags_update: bool, command: str, override_value: object) -> bool:
     """Check if a config field should be overwritten, given --update and the command."""
-    return (flags_update and override_value) or (command in ['push', 'clone'] and override_value)
+    return bool(override_value) and (flags_update or command in ['push', 'clone'])
 
 
 def _update_remote_field(nested: dict, initial: bool, flags: Flags, config: NestedConfig, command: str) -> None:

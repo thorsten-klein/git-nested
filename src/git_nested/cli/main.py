@@ -8,7 +8,7 @@ from ..errors import GitNestedError
 from .app import GitNestedCommand
 
 
-def main():
+def main() -> int:
     """Run git-nested, mapping its two expected failures onto exit codes."""
     try:
         app = GitNestedCommand()
@@ -17,3 +17,4 @@ def main():
         sys.exit(1)
     except KeyboardInterrupt:
         sys.exit(130)
+    return 0

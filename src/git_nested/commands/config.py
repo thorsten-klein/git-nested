@@ -16,7 +16,7 @@ _VALID_VALUES: dict[str, tuple[str, ...]] = {
 }
 
 
-def _format_value(value) -> str:
+def _format_value(value: object) -> str:
     """One field's value as a single line: a filter is a list, everything else a scalar."""
     if isinstance(value, list):
         return ' '.join(str(item) for item in value)

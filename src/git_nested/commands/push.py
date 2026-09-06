@@ -277,7 +277,7 @@ def cmd_push(ctx: CommandContext) -> None:
     output.say(f"{subdir}: pushed to {config.remote} ({branch_name})")
 
 
-def _handle_push_failure(success, subdir_worktree, subdir) -> bool:
+def _handle_push_failure(success: bool, subdir_worktree: Path | None, subdir: Path) -> bool:
     """Handle a failed do_push call (rebase failure or nothing to push).
 
     Returns:
@@ -294,7 +294,15 @@ def _handle_push_failure(success, subdir_worktree, subdir) -> bool:
     return False
 
 
-def _record_push_commit(git, flags, subdir, gitnested, config, new_commit, head_commit):
+def _record_push_commit(
+    git: GitRunner,
+    flags: Flags,
+    subdir: Path,
+    gitnested: Path,
+    config: NestedConfig,
+    new_commit: str,
+    head_commit: str,
+) -> None:
     """Update `.gitnested` and create a commit recording the push (the --commit flag)."""
     output.verbose(f"writing {subdir}/.gitnested")
 

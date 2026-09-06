@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, NoReturn, TextIO
 
 from .errors import GitNestedError
 
@@ -50,7 +50,7 @@ _STYLES: dict[int, tuple[str, str]] = {
 }
 
 
-def _use_colour(stream) -> bool:
+def _use_colour(stream: TextIO) -> bool:
     """Whether to colour output on `stream`, asked at the moment of writing.
 
     Late, because the stream is resolved late too. FORCE_COLOR is honoured

@@ -18,7 +18,7 @@ if sys.version_info >= (3, 11):  # pragma: no cover -- the branch not taken is t
 else:  # pragma: no cover -- only 3.10 runs this
 
     @contextlib.contextmanager
-    def chdir(path) -> Iterator[None]:
+    def chdir(path: str | Path) -> Iterator[None]:
         """Backport of contextlib.chdir, added to the standard library in 3.11.
 
         The working directory is changed for the duration of the `with` block

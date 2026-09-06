@@ -12,7 +12,7 @@ class GitNestedError(Exception):
     without a stray line already on stderr.
     """
 
-    def __init__(self, message):
+    def __init__(self, message: str) -> None:
         """Store the message."""
         self.message = message
         super().__init__(self.message)

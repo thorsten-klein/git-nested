@@ -62,7 +62,7 @@ def commit_nested_branch(
     head_commit: str,
     subdir_worktree: Path | None,
     command: str,
-):
+) -> None:
     """Commit a nested branch."""
     _verify_commit_ref(git, flags, nested_commit_ref, upstream_head_commit)
 

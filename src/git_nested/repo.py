@@ -44,7 +44,7 @@ _MODULES = (
 class GitNestedRepo:
     """Handles repository operations and business logic."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """No state to initialize; all methods operate on their arguments."""
 
     def __getattr__(self, name: str) -> Callable[..., object]:
