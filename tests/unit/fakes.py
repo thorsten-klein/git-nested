@@ -12,16 +12,25 @@ unit test file first was enough to break it:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import subprocess
+from typing import cast
 
 from git_nested import GitNestedError, GitRunner
 
+# Some functions take a GitRunner they never touch on the path being tested.
+# NO_GIT says that out loud, where a bare None is only a type error.
+NO_GIT: GitRunner = cast('GitRunner', None)
 
-@dataclass
-class FakeResult:
-    returncode: int = 0
-    stdout: str = ''
-    stderr: str = ''
+
+class FakeResult(subprocess.CompletedProcess):
+    """What FakeGit.run hands back.
+
+    A real CompletedProcess, so the double's signature still matches the
+    GitRunner it stands in for; `args` is empty because nothing reads it.
+    """
+
+    def __init__(self, returncode: int = 0, stdout: str = '', stderr: str = ''):
+        super().__init__(args=[], returncode=returncode, stdout=stdout, stderr=stderr)
 
 
 class FakeGit(GitRunner):

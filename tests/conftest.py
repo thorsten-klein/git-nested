@@ -27,12 +27,12 @@ import git_nested
 #
 # Unset (the normal case) nothing changes: the tests run in-process, which is
 # faster and is what the coverage numbers come from.
-GIT_NESTED_EXE = os.getenv('GIT_NESTED_EXE') or None
+_exe_from_env = os.getenv('GIT_NESTED_EXE') or None
+# .absolute(), not .resolve(): the released archive's 'git-nested' is a
+# symlink to a versioned binary (see create-python-exe.sh), and .resolve()
+# would follow it before the name check below ever saw 'git-nested'.
+GIT_NESTED_EXE: Path | None = Path(_exe_from_env).absolute() if _exe_from_env else None
 if GIT_NESTED_EXE:
-    # .absolute(), not .resolve(): the released archive's 'git-nested' is a
-    # symlink to a versioned binary (see create-python-exe.sh), and .resolve()
-    # would follow it before the name check below ever saw 'git-nested'.
-    GIT_NESTED_EXE = Path(GIT_NESTED_EXE).absolute()
     if not os.access(GIT_NESTED_EXE, os.X_OK):
         raise RuntimeError(f"GIT_NESTED_EXE={GIT_NESTED_EXE} is not an executable file")
     # `git nested ...` is git looking up a 'git-nested' on PATH, so the name of
@@ -459,7 +459,7 @@ def _assert_yaml_field(nested_data: dict, field: str, value: str | None):
     if value is None:
         return  # skip
     actual_value = nested_data.get(field)
-    expected_values = [value]
+    expected_values: list[str | None] = [value]
     if value == '':
         expected_values.append(None)  # can be empty or None
     assert actual_value in expected_values
