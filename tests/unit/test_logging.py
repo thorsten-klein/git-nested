@@ -148,36 +148,41 @@ def test_the_error_level_is_red(printing, monkeypatch, capsys):
 
 def test_error_prints_nothing_by_itself(printing, no_colour, capsys):
     """Raising is not reporting: the message waits for report()."""
+    cmd = GitNested()
     with pytest.raises(GitNestedError):
-        GitNested().error("error message")
+        cmd.error("error message")
     assert capsys.readouterr().err == ""
 
 
 def test_an_unhandled_error_is_reported_once(printing, no_colour, capsys):
     """What prints an error in practice is it reaching the end of main()."""
+    cmd = GitNested()
     with pytest.raises(GitNestedError):
-        GitNested().main([])
+        cmd.main([])
     assert capsys.readouterr().err == "git-nested: no command given; 'git nested --help' lists them\n"
 
 
 def test_error_raises_exception():
     """error() raises GitNestedError carrying the bare message."""
+    cmd = GitNested()
     with pytest.raises(GitNestedError) as exc_info:
-        GitNested().error("test error")
+        cmd.error("test error")
     assert str(exc_info.value) == "test error"
 
 
 def test_error_exception_message():
     """The exception keeps the message on .message too."""
+    cmd = GitNested()
     with pytest.raises(GitNestedError) as exc_info:
-        GitNested().error("Something went wrong")
+        cmd.error("Something went wrong")
     assert exc_info.value.message == "Something went wrong"
 
 
 def test_usage_error_raises_like_error(printing, no_colour, capsys):
     """A malformed command line aborts the same way anything else does."""
+    cmd = GitNested()
     with pytest.raises(GitNestedError) as exc_info:
-        GitNested().usage_error("usage error message")
+        cmd.usage_error("usage error message")
     assert exc_info.value.message == "usage error message"
     assert capsys.readouterr().err == ""
 

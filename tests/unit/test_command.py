@@ -47,8 +47,9 @@ def test_main_answers_a_completion_request_before_the_parser(cmd, capsys):
 
 
 def test_dispatch_command_unknown_command_is_a_usage_error(cmd):
+    ctx = CommandContext(git=cmd.git, flags=Flags())
     with pytest.raises(GitNestedError, match='unknown command bogus'):
-        cmd.dispatch_command('bogus', CommandContext(git=cmd.git, flags=Flags()))
+        cmd.dispatch_command('bogus', ctx)
 
 
 # ============================================================================
