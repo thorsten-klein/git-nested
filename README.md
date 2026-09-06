@@ -92,7 +92,7 @@ source ~/.bashrc
 
 ```bash
 git clone https://github.com/thorsten-klein/git-nested /path/to/git-nested
-export PATH="/path/to/git-nested/lib:$PATH"
+export PATH="/path/to/git-nested/bin:$PATH"
 ```
 
 > **Note:** Add the export command to your shell profile (~/.bashrc, ~/.zshrc) to make it permanent.
