@@ -8,7 +8,7 @@ import sys
 import pytest
 
 import git_nested
-from git_nested import Flags, GitNestedError, GitNestedRepo, GitRunner, NestedConfig, _version
+from git_nested import Flags, GitNestedError, GitNestedRepo, GitRunner, NestedConfig, _version, refs
 from git_nested import __main__ as dunder_main
 from git_nested import git as git_module
 
@@ -161,10 +161,12 @@ def test_guess_subdir_raises_without_remote():
 
 def test_sanitize_subref_raises_when_unsanitizable(monkeypatch):
     """Force the 'even sanitized, still not a valid ref' guard for an input we can't otherwise construct"""
-    repo = GitNestedRepo()
-    monkeypatch.setattr(GitNestedRepo, "_is_valid_ref", lambda self, git, ref: False)
+    # Patch the definition in git_nested.refs, not the GitNestedRepo facade:
+    # the facade resolves attributes lazily, so patching it would not be seen
+    # by sanitize_subref's own module-level call to _is_valid_ref.
+    monkeypatch.setattr(refs, "_is_valid_ref", lambda git, ref: False)
     with pytest.raises(GitNestedError, match="Can't determine valid subref"):
-        repo.sanitize_subref(git=None, ref="whatever")
+        refs.sanitize_subref(git=None, ref="whatever")
 
 
 def test_get_default_branch_falls_back_to_main(tmp_path, monkeypatch):
