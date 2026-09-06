@@ -63,7 +63,7 @@ class FakeGit(GitRunner):
         result = self._find_response(args_t)
         if result.returncode != 0 and not may_fail:
             raise GitNestedError(
-                f"Command failed: 'git {' '.join(args_t)}'.\n{result.stderr}", print_to_stderr=print_error
+                f"command failed: git {' '.join(args_t)}\n{result.stderr}", print_to_stderr=print_error
             )
         return result
 

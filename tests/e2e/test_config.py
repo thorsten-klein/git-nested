@@ -44,7 +44,7 @@ def test_config_writes_a_field(foo_bar_cloned_and_nested):
     env = foo_bar_cloned_and_nested
     result = cmd_git_nested('config bar method rebase', cwd=env.workspace / 'foo')
 
-    assert result.output.strip() == "Set 'method' of 'bar' to 'rebase'."
+    assert result.output.strip() == "bar: method set to rebase"
     assert_gitnested_field(env.workspace / 'foo' / 'bar' / '.gitnested', method='rebase')
 
     staged = subprocess.run(
@@ -76,8 +76,8 @@ def test_config_rejects_a_read_only_field(foo_bar_cloned_and_nested):
     result = cmd_git_nested('config bar commit deadbeef', cwd=env.workspace / 'foo', check=False)
 
     assert result.returncode != 0
-    assert "'commit' is written by git-nested itself" in result.output
-    assert "Settable fields: remote, branch, method, parent." in result.output
+    assert "commit is written by git-nested itself" in result.output
+    assert "the settable fields are remote, branch, method, parent" in result.output
 
 
 def test_config_rejects_an_unknown_field(foo_bar_cloned_and_nested):
@@ -86,7 +86,7 @@ def test_config_rejects_an_unknown_field(foo_bar_cloned_and_nested):
     result = cmd_git_nested('config bar bogus', cwd=env.workspace / 'foo', check=False)
 
     assert result.returncode != 0
-    assert "Unknown config key 'bogus'." in result.output
+    assert "unknown config key bogus" in result.output
 
 
 def test_config_rejects_an_invalid_method(foo_bar_cloned_and_nested):
@@ -95,7 +95,7 @@ def test_config_rejects_an_invalid_method(foo_bar_cloned_and_nested):
     result = cmd_git_nested('config bar method squash', cwd=env.workspace / 'foo', check=False)
 
     assert result.returncode != 0
-    assert "'squash' is not a valid 'method'. Use one of: merge, rebase." in result.output
+    assert "squash is not a valid method; use one of merge, rebase" in result.output
 
 
 def test_config_without_a_subdir_fails(foo_bar_cloned_and_nested):
@@ -104,7 +104,7 @@ def test_config_without_a_subdir_fails(foo_bar_cloned_and_nested):
     result = cmd_git_nested('config', cwd=env.workspace / 'foo', check=False)
 
     assert result.returncode != 0
-    assert "subdir not set" in result.output
+    assert "no subdir given" in result.output
 
 
 def test_config_with_an_absolute_subdir_fails(foo_bar_cloned_and_nested):
@@ -113,7 +113,7 @@ def test_config_with_an_absolute_subdir_fails(foo_bar_cloned_and_nested):
     result = cmd_git_nested(f'config {env.workspace / "foo" / "bar"}', cwd=env.workspace / 'foo', check=False)
 
     assert result.returncode != 0
-    assert "should not be absolute path" in result.output
+    assert "subdir must be a relative path" in result.output
 
 
 def test_config_on_a_subdir_that_is_not_nested_fails(foo_bar_cloned_and_nested):
@@ -122,4 +122,4 @@ def test_config_on_a_subdir_that_is_not_nested_fails(foo_bar_cloned_and_nested):
     result = cmd_git_nested('config doc', cwd=env.workspace / 'foo', check=False)
 
     assert result.returncode != 0
-    assert "No 'doc/.gitnested' file." in result.output
+    assert "doc/.gitnested does not exist" in result.output

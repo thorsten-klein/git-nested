@@ -21,7 +21,7 @@ def cmd_branch(ctx: CommandContext) -> None:
     if flags.force:
         worktree.delete_branch(git, branch, git_tmp)
     elif git.branch_exists(branch):
-        output.error(f"Branch '{branch}' already exists. Use '--force' to override.")
+        output.error(f"branch {branch} already exists; pass --force to replace it")
 
     subdir_worktree = content.create_nested_branch(
         git=git,
@@ -34,4 +34,4 @@ def cmd_branch(ctx: CommandContext) -> None:
         subref=subref,
         command='branch',
     )
-    output.say(f"Created branch '{branch}' and worktree '{subdir_worktree}'.")
+    output.say(f"{subdir}: branch {branch} created, worktree at {subdir_worktree}")

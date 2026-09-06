@@ -74,7 +74,7 @@ def _index_literal_filter_entry(
         try:
             regex_patterns.append(re.compile(p))
         except re.error as e:
-            raise GitNestedError(f"Invalid filter pattern '{p}': {e}") from e
+            raise GitNestedError(f"invalid filter pattern {p}: {e}") from e
 
 
 def _index_regex_matches(
@@ -121,7 +121,7 @@ def _place_literal_filter_entry(
         try:
             regex_patterns.append(re.compile(p))
         except re.error as e:
-            raise GitNestedError(f"Invalid filter pattern '{p}': {e}") from e
+            raise GitNestedError(f"invalid filter pattern {p}: {e}") from e
 
 
 def _blob_needs_placement(blob_path: str, subdir: Path, regex_patterns: list[re.Pattern]) -> bool:

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import os
-import textwrap
 from pathlib import Path
 
 import yaml
 
+from . import messages
 from .constants import GIT_LOG_DATE_DEFAULT_FLAG
 from .errors import GitNestedError
 from .git import GitRunner
@@ -22,16 +22,7 @@ def _check_parent_is_ancestor(git: GitRunner, config: NestedConfig, gitnested: P
     prev = git.check_output(['log', '-1', '-G', 'commit =', '--format=%H', gitnested], may_fail=True)
     if prev:
         prev = git.check_output(['log', '-1', '--format=%H', f'{prev.strip()}^'])
-    raise GitNestedError(
-        textwrap.dedent(
-            f"""\
-        The last sync point (where upstream and the nested were equal) is not an ancestor.
-        This is usually caused by a rebase affecting that commit.
-        To recover set the nested parent in '{gitnested}'
-        to '{prev}'
-        and validate the nested by comparing with 'git nested branch {subdir}'"""
-        )
-    )
+    raise GitNestedError(messages.sync_point_lost(gitnested, subdir, prev))
 
 
 def _extract_gitrepo_commit(git: GitRunner, commit: str, subdir: Path) -> str | None:
@@ -67,10 +58,12 @@ def _check_rebase_safety(git: GitRunner, command: str, subref: str, gitrepo_comm
         return
     if not git.rev_exists(gitrepo_commit):
         raise GitNestedError(
-            f"Local repository does not contain {gitrepo_commit}. Try to 'git nested fetch {subref}' or add the '-F' flag."
+            f"upstream commit {gitrepo_commit} is missing locally; "
+            f"run 'git nested fetch {subref}' or pass -F to take upstream as it is"
         )
     raise GitNestedError(
-        f"Upstream history has been rewritten. Commit {gitrepo_commit} is not in the upstream history. Try to 'git nested fetch {subref}' or add the '-F' flag."
+        f"upstream history was rewritten: {gitrepo_commit} is no longer part of it; "
+        f"run 'git nested fetch {subref}' or pass -F to take upstream as it is"
     )
 
 
@@ -201,7 +194,7 @@ def _create_branch_from_parent(
         # No commit in the parent..HEAD range ever touched subdir, so the
         # chain builder above never had content to build a nested commit from.
         raise GitNestedError(
-            f"No commit between '{config.parent}' and HEAD touches '{subdir}'; can't reconstruct nested branch history."
+            f"{subdir}: no commit between {config.parent} and HEAD touches it, so there is no nested history to rebuild"
         )
     git.run(['branch', branch, prev_commit])
     return first_gitrepo_commit

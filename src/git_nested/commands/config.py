@@ -26,7 +26,7 @@ def _format_value(value) -> str:
 def read_fields(gitnested: Path) -> dict[str, str]:
     """The fields the .gitnested file actually sets, in the documented order."""
     if not gitnested.is_file():
-        raise GitNestedError(f"No '{gitnested}' file.")
+        raise GitNestedError(f"{gitnested} does not exist")
     nested = yamlio._read_yaml_config(gitnested).get('nested') or {}
     return {
         field: _format_value(nested[field])
@@ -39,10 +39,10 @@ def _check_writable(key: str, value: str) -> None:
     """Reject a field git-nested owns, or a value it would not accept."""
     if key not in gitfile.WRITABLE_CONFIG_FIELDS:
         writable = ', '.join(gitfile.WRITABLE_CONFIG_FIELDS)
-        raise GitNestedError(f"'{key}' is written by git-nested itself. Settable fields: {writable}.")
+        raise GitNestedError(f"{key} is written by git-nested itself; the settable fields are {writable}")
     valid = _VALID_VALUES.get(key)
     if valid and value not in valid:
-        raise GitNestedError(f"'{value}' is not a valid '{key}'. Use one of: {', '.join(valid)}.")
+        raise GitNestedError(f"{value} is not a valid {key}; use one of {', '.join(valid)}")
 
 
 def write_field(git: GitRunner, gitnested: Path, key: str, value: str) -> None:
@@ -57,7 +57,7 @@ def write_field(git: GitRunner, gitnested: Path, key: str, value: str) -> None:
 def _check_known(key: str) -> None:
     """Reject a field that is not part of a .gitnested file at all."""
     if key not in gitfile.CONFIG_FIELDS:
-        raise GitNestedError(f"Unknown config key '{key}'. Known keys: {', '.join(gitfile.CONFIG_FIELDS)}.")
+        raise GitNestedError(f"unknown config key {key}; the known keys are {', '.join(gitfile.CONFIG_FIELDS)}")
 
 
 def _print_all(gitnested: Path) -> None:
@@ -80,10 +80,10 @@ def _resolve_gitnested(subdir: str | Path | None) -> tuple[Path, Path]:
         tuple: (subdir, gitnested)
     """
     if not subdir:
-        output.error("subdir not set")
+        output.error("no subdir given")
     subdir = Path(subdir)
     if subdir.is_absolute():
-        output.usage_error(f"The subdir '{subdir}' should not be absolute path.")
+        output.usage_error(f"{subdir}: subdir must be a relative path")
     return subdir, setup.resolve_gitnested_file(subdir)
 
 
@@ -101,4 +101,4 @@ def cmd_config(ctx: CommandContext) -> None:
         return
 
     write_field(ctx.git, gitnested, ctx.config_key, ctx.config_value)
-    output.say(f"Set '{ctx.config_key}' of '{subdir}' to '{ctx.config_value}'.")
+    output.say(f"{subdir}: {ctx.config_key} set to {ctx.config_value}")

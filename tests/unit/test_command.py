@@ -59,12 +59,11 @@ def test_dispatch_command_unknown_command_is_a_usage_error(cmd):
 # ============================================================================
 
 
-def test_handle_push_failure_rebase_failed_exits():
+def test_handle_push_failure_rebase_failed_raises():
     subdir_worktree = Path('/tmp/wt')
     subdir = Path('sub')
-    with pytest.raises(SystemExit) as exc_info:
+    with pytest.raises(GitNestedError, match='git rebase failed'):
         push._handle_push_failure(success=False, subdir_worktree=subdir_worktree, subdir=subdir)
-    assert exc_info.value.code == 1
 
 
 def test_handle_push_failure_nothing_to_push_returns_true():
@@ -82,7 +81,7 @@ def test_handle_push_failure_success_returns_false():
 
 def test_setup_command_requires_subdir(cmd):
     flags = Flags()
-    with pytest.raises(GitNestedError, match="subdir not set"):
+    with pytest.raises(GitNestedError, match="no subdir given"):
         cmd.setup_command('init', flags, subdir=None, upstream=None)
 
 
@@ -102,7 +101,7 @@ def test_check_existing_worktree_errors_when_commit_has_no_worktree(cmd, monkeyp
     monkeypatch.setattr(cmd.git, 'check_output', lambda *a, **k: '')
     subdir = Path('sub')
     gitnested = Path('sub/.gitnested')
-    with pytest.raises(GitNestedError, match="no worktree available"):
+    with pytest.raises(GitNestedError, match="no worktree to commit from"):
         setup._check_existing_worktree(cmd.git, 'commit', subdir, gitnested)
 
 
@@ -111,7 +110,7 @@ def test_check_existing_worktree_errors_with_gitnested_present(cmd, monkeypatch,
     gitnested.write_text("nested:\n  remote: x\n  branch: y\n")
     monkeypatch.setattr(cmd.git, 'check_output', lambda *a, **k: '/tmp/wt sha [nested/sub]')
     subdir = Path('sub')
-    with pytest.raises(GitNestedError, match="perform a nested clean"):
+    with pytest.raises(GitNestedError, match="git nested clean"):
         setup._check_existing_worktree(cmd.git, 'pull', subdir, gitnested)
 
 

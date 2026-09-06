@@ -17,10 +17,10 @@ def do_fetch(git: GitRunner, config: NestedConfig, subref: str) -> str:
         upstream_head_commit
     """
     if config.remote == 'none':
-        raise GitNestedError("Can't fetch nested repository. Remote is 'none'.")
+        raise GitNestedError("can't fetch, the remote is 'none'")
 
     branch_info = f"({config.branch})" if config.branch else ""
-    output.verbose(f"Fetch the upstream: {config.remote} {branch_info}.")
+    output.verbose(f"fetching {config.remote} {branch_info}")
 
     cmd = ['fetch', '--no-tags', '--quiet', config.remote]
     if config.branch:
@@ -28,7 +28,7 @@ def do_fetch(git: GitRunner, config: NestedConfig, subref: str) -> str:
 
     git.run(cmd)
 
-    output.verbose("Get the upstream nested HEAD commit.")
+    output.verbose("reading the upstream HEAD commit")
     upstream_head_commit = git.check_output(['rev-parse', FETCH_HEAD_REV])
 
     refs.create_nested_ref(git, subref, 'fetch', FETCH_HEAD_REV)
@@ -43,7 +43,7 @@ def cmd_fetch(ctx: CommandContext) -> None:
     subdir, _, subref, config = setup.setup_command(git, 'fetch', flags, subdir, upstream)
 
     if config.remote == 'none':
-        output.say(f"Ignored '{subdir}', no remote.")
+        output.say(f"{subdir}: skipped, it has no remote")
     else:
         do_fetch(git, config, subref)
-        output.say(f"Fetched '{subdir}' from '{config.remote}' ({config.branch}).")
+        output.say(f"{subdir}: fetched from {config.remote} ({config.branch})")
