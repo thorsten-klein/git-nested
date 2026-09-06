@@ -16,6 +16,7 @@ from git_nested import (
     gitfile,
     refs,
 )
+from git_nested import __main__ as dunder_main
 from git_nested import git as git_module
 from git_nested.cli import main as cli_main
 
@@ -65,8 +66,6 @@ def test_nested_config_from_file_missing_branch(tmp_path):
 
 def test_dunder_main_is_wired_to_the_package_entry_point():
     """`python -m git_nested` must reach the same main() the console script does."""
-    import git_nested.__main__ as dunder_main
-
     assert dunder_main.main is git_nested.main
 
 

@@ -13,6 +13,7 @@ Example structure:
           .gitnested
 """
 
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -35,8 +36,6 @@ def create_upstream_level3(repo_path: Path):
     subprocess.run(['git', 'push', str(repo_path), 'master'], cwd=work_dir, check=True, capture_output=True)
 
     # Clean up
-    import shutil
-
     shutil.rmtree(work_dir)
 
 
@@ -58,8 +57,6 @@ def create_upstream_level2_with_nested(env):
     subprocess.run(['git', 'push', str(repo_path), 'master'], cwd=work_dir, check=True, capture_output=True)
 
     # Clean up
-    import shutil
-
     shutil.rmtree(work_dir)
 
 
@@ -81,8 +78,6 @@ def create_upstream_level1_with_nested(env):
     subprocess.run(['git', 'push', str(repo_path), 'master'], cwd=work_dir, check=True, capture_output=True)
 
     # Clean up
-    import shutil
-
     shutil.rmtree(work_dir)
 
 
@@ -287,10 +282,7 @@ def test_pull_sub_nested_using_level_files(nested_in_nested_repos):
     # Now pull level2 directly from the parent repo using the .gitnested.level2 file
     # This should work because we have the .gitnested.level2 metadata
     result = cmd_git_nested(['pull', 'nested1/nested2'], cwd=parent, check=False)
-    if result.returncode != 0:
-        print("STDOUT:", result.stdout)
-        print("STDERR:", result.stderr)
-    assert result.returncode == 0, f"Pull failed with stderr: {result.stderr}"
+    assert result.returncode == 0, f"Pull failed:\n{result.stdout}\n{result.stderr}"
 
     # Verify the update was pulled
     assert (parent / 'nested1' / 'nested2' / 'new_file.txt').exists()
@@ -363,6 +355,4 @@ def test_four_levels_deep(nested_in_nested_repos):
     assert (parent / 'nested0' / 'nested1' / 'nested2' / 'nested3' / '.gitnested.level4').is_file()
 
     # Clean up
-    import shutil
-
     shutil.rmtree(work_dir)

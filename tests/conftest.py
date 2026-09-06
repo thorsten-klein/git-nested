@@ -659,7 +659,7 @@ def _handle_system_exit(e: SystemExit, retval, check: bool):
     """Record a SystemExit's code on retval, re-raising as Exception if check is set"""
     retval.returncode = e.code
     if check and e.code:
-        raise Exception(f'Command failed with exit code {e.code}') from e
+        raise git_nested.GitNestedError(f'Command failed with exit code {e.code}') from e
 
 
 def _handle_run_exception(e: Exception, retval, check: bool):
