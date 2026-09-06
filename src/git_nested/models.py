@@ -22,7 +22,6 @@ class Flags:
     all_deep: bool = False
     branch: None | str = None
     commit: bool = False
-    debug: bool = False
     filter: None | list[str] = None
     force: bool = False
     fetch: bool = False
