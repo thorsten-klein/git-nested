@@ -14,7 +14,7 @@ def test_commit_missing_fetch_ref_error(env):
 
     result = cmd_git_nested('commit doc', cwd=init_dir, check=False)
     assert result.returncode == 1
-    assert result.output.strip() == "git-nested: Can't find ref 'refs/nested/doc/fetch'. Try using -F."
+    assert result.output.strip() == "git-nested: no ref refs/nested/doc/fetch; run 'git nested fetch' first, or pass -F"
 
 
 def test_commit_fetch_flag_fetches_before_committing(env):
@@ -29,7 +29,7 @@ def test_commit_fetch_flag_fetches_before_committing(env):
     # (and isn't expected to) contain the freshly fetched upstream HEAD as an ancestor.
     result = cmd_git_nested('commit doc --fetch --force', cwd=init_dir)
     assert result.returncode == 0
-    assert "committed as subdir 'doc/'" in result.output
+    assert "doc: committed" in result.output
 
 
 def test_commit_with_message_file(env):

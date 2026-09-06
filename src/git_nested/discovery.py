@@ -32,10 +32,10 @@ def get_upstream_branch(git: GitRunner, config: NestedConfig) -> str:
     """Determine upstream default branch."""
     remote_branches = git.check_output(['ls-remote', '--symref', config.remote], may_fail=True)
     if not remote_branches:
-        raise GitNestedError(f"Command failed: 'git ls-remote --symref {config.remote}'.")
+        raise GitNestedError(f"can't reach {config.remote}: git ls-remote failed")
     upstream_branch = re.search(r"^ref:\s+refs/heads/(\S+)\s+HEAD", remote_branches, re.MULTILINE)
     if not upstream_branch:
-        raise GitNestedError("Problem finding remote default head branch.")
+        raise GitNestedError(f"can't determine the default branch of {config.remote}")
     return upstream_branch.group(1)
 
 

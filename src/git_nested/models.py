@@ -22,6 +22,7 @@ class Flags:
     all_deep: bool = False
     branch: None | str = None
     commit: bool = False
+    debug: bool = False
     filter: None | list[str] = None
     force: bool = False
     fetch: bool = False
@@ -51,7 +52,7 @@ class NestedConfig:
         """Read config from .gitnested YAML file."""
         path = Path(filepath)
         if not path.is_file():
-            raise GitNestedError(f"No '{filepath}' file.")
+            raise GitNestedError(f"{filepath} does not exist")
         with path.open('r') as f:
             data = yaml.safe_load(f) or {}
         nested_data = data.get('nested', {})
@@ -66,9 +67,9 @@ class NestedConfig:
         config.method = 'rebase' if method == 'rebase' else 'merge'
 
         if not config.remote:
-            raise GitNestedError(f"Missing required 'remote' in '{filepath}'.")
+            raise GitNestedError(f"{filepath} has no 'remote'")
         if not config.branch:
-            raise GitNestedError(f"Missing required 'branch' in '{filepath}'.")
+            raise GitNestedError(f"{filepath} has no 'branch'")
 
         return config
 

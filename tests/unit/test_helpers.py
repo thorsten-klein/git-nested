@@ -45,21 +45,21 @@ def test_detect_version_returns_installed_version():
 
 
 def test_nested_config_from_file_missing_file(tmp_path):
-    with pytest.raises(GitNestedError, match=r"No '.*' file"):
+    with pytest.raises(GitNestedError, match=r"\.gitnested does not exist"):
         NestedConfig.from_file(tmp_path / "does-not-exist" / ".gitnested")
 
 
 def test_nested_config_from_file_missing_remote(tmp_path):
     gitnested = tmp_path / ".gitnested"
     gitnested.write_text("nested:\n  branch: main\n")
-    with pytest.raises(GitNestedError, match="Missing required 'remote'"):
+    with pytest.raises(GitNestedError, match="has no 'remote'"):
         NestedConfig.from_file(gitnested)
 
 
 def test_nested_config_from_file_missing_branch(tmp_path):
     gitnested = tmp_path / ".gitnested"
     gitnested.write_text("nested:\n  remote: https://example.com/repo.git\n")
-    with pytest.raises(GitNestedError, match="Missing required 'branch'"):
+    with pytest.raises(GitNestedError, match="has no 'branch'"):
         NestedConfig.from_file(gitnested)
 
 
@@ -77,13 +77,13 @@ def test_dunder_main_is_wired_to_the_package_entry_point():
 
 def test_git_runner_raises_when_git_not_on_path(monkeypatch):
     monkeypatch.setattr(git_module.shutil, "which", lambda name: None)
-    with pytest.raises(GitNestedError, match="Can't find 'git' in PATH"):
+    with pytest.raises(GitNestedError, match="git is not on PATH"):
         GitRunner()
 
 
 def test_git_runner_raises_when_git_version_too_old(monkeypatch):
     monkeypatch.setattr(GitRunner, "get_version", lambda self: "1.0.0")
-    with pytest.raises(GitNestedError, match="Requires git version"):
+    with pytest.raises(GitNestedError, match="or newer is required"):
         GitRunner()
 
 
@@ -119,7 +119,7 @@ def test_git_runner_keeps_a_caller_supplied_env(monkeypatch):
 def test_git_runner_get_version_raises_when_unparseable(monkeypatch):
     runner = object.__new__(GitRunner)
     monkeypatch.setattr(GitRunner, "check_output", lambda self, args, **kw: "not a version string")
-    with pytest.raises(GitNestedError, match="Can't determine git version"):
+    with pytest.raises(GitNestedError, match="can't parse the version git reports"):
         runner.get_version()
 
 
@@ -145,7 +145,7 @@ def test_create_one_level_file_returns_when_source_missing(tmp_path):
 
 
 def test_guess_subdir_raises_without_remote():
-    with pytest.raises(GitNestedError, match="No remote specified"):
+    with pytest.raises(GitNestedError, match="no remote to guess one from"):
         refs.guess_subdir("")
 
 
@@ -154,7 +154,7 @@ def test_sanitize_subref_raises_when_unsanitizable(monkeypatch):
     # Patch the definition in git_nested.refs, not any re-export of it: only
     # the definition is what sanitize_subref's own call resolves through.
     monkeypatch.setattr(refs, "_is_valid_ref", lambda git, ref: False)
-    with pytest.raises(GitNestedError, match="Can't determine valid subref"):
+    with pytest.raises(GitNestedError, match="can't derive a git ref name"):
         refs.sanitize_subref(git=None, ref="whatever")
 
 

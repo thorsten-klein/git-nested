@@ -14,7 +14,7 @@ def test_diff_no_differences(foo_bar_cloned_and_nested):
     env = foo_bar_cloned_and_nested
 
     result = cmd_git_nested('diff bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"No differences between 'bar' and upstream '{env.upstream}/bar' (master)."
+    assert result.output.strip() == f"bar: no differences from {env.upstream}/bar (master)"
 
 
 def test_diff_shows_upstream_changes(foo_bar_cloned_and_nested):
@@ -80,7 +80,7 @@ def test_diff_no_remote(env):
     cmd_git_nested('init doc', cwd=env.workspace / 'init')
 
     result = cmd_git_nested('diff doc', cwd=env.workspace / 'init')
-    assert result.output.strip() == "Ignored 'doc', no remote."
+    assert result.output.strip() == "doc: skipped, it has no remote"
 
 
 def test_diff_requires_clean_worktree(foo_bar_cloned_and_nested):
@@ -92,10 +92,7 @@ def test_diff_requires_clean_worktree(foo_bar_cloned_and_nested):
 
     result = cmd_git_nested('diff bar', cwd=env.workspace / 'foo', check=False)
     assert result.returncode == 1
-    assert (
-        result.output.strip()
-        == f"git-nested: Can't diff nested repository. Working tree has changes. ({env.workspace}/foo)"
-    )
+    assert result.output.strip() == f"git-nested: {env.workspace}/foo: can't diff, the working tree has changes"
 
 
 def test_diff_all(foo_bar_cloned):
@@ -111,7 +108,7 @@ def test_diff_all(foo_bar_cloned):
     cmd_git_nested('pull bar1', cwd=env.workspace / 'foo')
 
     result = cmd_git_nested('diff --all', cwd=env.workspace / 'foo')
-    assert_output_like(result.output, r"No differences between 'bar1' and upstream '.*' \(master\)\.")
+    assert_output_like(result.output, r"bar1: no differences from .* \(master\)")
     assert_output_like(result.stdout, r'diff --git a/Bar2 b/Bar2')
 
 
@@ -150,4 +147,4 @@ def test_diff_ignores_gitnested_level_files(foo_bar_cloned):
     assert (env.workspace / 'foo' / 'bar' / 'nestedfoo' / '.gitnested.level2').is_file()
 
     result = cmd_git_nested('diff bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"No differences between 'bar' and upstream '{env.upstream}/bar' (master)."
+    assert result.output.strip() == f"bar: no differences from {env.upstream}/bar (master)"

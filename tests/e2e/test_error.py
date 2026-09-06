@@ -46,7 +46,7 @@ def test_error_branch_already_exists(foo_bar_cloned):
     env.add_new_files('foo/file', cwd=env.workspace / 'bar')
     cmd_git_nested('branch foo', cwd=env.workspace / 'bar')
     cp = cmd_git_nested('branch foo', check=False, cwd=env.workspace / 'bar')
-    assert_error(cp, "git-nested: Branch 'nested/foo' already exists. Use '--force' to override.", returncode=1)
+    assert_error(cp, "git-nested: branch nested/foo already exists; pass --force to replace it", returncode=1)
 
 
 def test_error_clone_missing_upstream(foo_bar_cloned):
@@ -76,7 +76,7 @@ def test_error_update_requires_branch_or_remote(foo_bar_cloned):
     """Test error when --update is used without --branch or --remote"""
     env = foo_bar_cloned
     cp = cmd_git_nested('pull --update', check=False, cwd=env.workspace / 'bar')
-    assert_error(cp, "git-nested: Can't use '--update' without '--branch' or '--remote'.", returncode=1)
+    assert_error(cp, "git-nested: --update needs --branch or --remote to have something to update", returncode=1)
 
 
 def test_error_invalid_option_for_clone(foo_bar_cloned):
@@ -90,7 +90,7 @@ def test_error_subdir_is_absolute_path(foo_bar_cloned):
     """Test error when subdir is an absolute path"""
     env = foo_bar_cloned
     cp = cmd_git_nested('pull /home/user/bar/foo', check=False, cwd=env.workspace / 'bar')
-    assert_error(cp, "git-nested: The subdir '/home/user/bar/foo' should not be absolute path.", returncode=1)
+    assert_error(cp, "git-nested: /home/user/bar/foo: subdir must be a relative path", returncode=1)
 
 
 @pytest.mark.parametrize('cmd', ['pull', 'push', 'fetch', 'branch', 'commit', 'clean', 'diff'])
@@ -98,7 +98,7 @@ def test_error_command_requires_subdir(foo_bar_cloned, cmd):
     """Test error when command is called without required subdir argument"""
     env = foo_bar_cloned
     cp = env.run(f'git nested {cmd}', check=False, cwd=env.workspace / 'bar')
-    assert_error(cp, "git-nested: subdir not set", returncode=1)
+    assert_error(cp, "git-nested: no subdir given, and none could be guessed", returncode=1)
 
 
 def test_error_extra_arguments_for_clone(foo_bar_cloned):
@@ -112,14 +112,14 @@ def test_error_cannot_determine_subdir(foo_bar_cloned):
     """Test error when subdir cannot be determined from path"""
     env = foo_bar_cloned
     cp = cmd_git_nested('clone .git', check=False, cwd=env.workspace / 'bar')
-    assert_error(cp, "git-nested: subdir not set", returncode=1)
+    assert_error(cp, "git-nested: no subdir given, and none could be guessed", returncode=1)
 
 
 def test_error_invalid_nested_subdir(foo_bar_cloned):
     """Test error when operating on non-existent nested subdir"""
     env = foo_bar_cloned
     cp = cmd_git_nested('pull lala', check=False, cwd=env.workspace / 'bar')
-    assert_error(cp, "git-nested: No 'lala/.gitnested' file.", returncode=1)
+    assert_error(cp, "git-nested: lala/.gitnested does not exist", returncode=1)
 
 
 def test_error_not_on_branch(foo_bar_cloned):
@@ -128,14 +128,14 @@ def test_error_not_on_branch(foo_bar_cloned):
     commit = git_rev_parse(['master'], cwd=env.workspace / 'bar')
     env.run(['git', 'checkout', '--quiet', commit], cwd=env.workspace / 'bar')
     cp = cmd_git_nested('status', check=False, cwd=env.workspace / 'bar')
-    assert_error(cp, "git-nested: Must be on a branch to run this command.", returncode=1)
+    assert_error(cp, "git-nested: HEAD is detached; check out a branch first", returncode=1)
 
 
 def test_error_outside_working_tree(foo_bar_cloned):
     """Test error when command is run outside working tree"""
     env = foo_bar_cloned
     cp = cmd_git_nested('status', check=False, cwd=env.workspace / 'bar' / '.git')
-    assert_error(cp, "git-nested: Must run inside a git working tree.", returncode=1)
+    assert_error(cp, "git-nested: not inside a git working tree", returncode=1)
 
 
 def test_error_working_tree_has_changes(foo_bar_cloned):
@@ -144,9 +144,7 @@ def test_error_working_tree_has_changes(foo_bar_cloned):
     (env.workspace / 'bar' / 'me').touch()
     env.run(['git', 'add', 'me'], cwd=env.workspace / 'bar')
     cp = env.run(f'git nested clone {env.upstream}/foo', check=False, cwd=env.workspace / 'bar')
-    assert_error(
-        cp, f"git-nested: Can't clone nested repository. Working tree has changes. ({env.workspace}/bar)", returncode=1
-    )
+    assert_error(cp, f"git-nested: {env.workspace}/bar: can't clone, the working tree has changes", returncode=1)
 
 
 def test_error_not_at_top_level(foo_bar_cloned):
@@ -154,21 +152,21 @@ def test_error_not_at_top_level(foo_bar_cloned):
     env = foo_bar_cloned
     (env.workspace / 'foo' / 'subdir').mkdir()
     cp = cmd_git_nested('status', check=False, cwd=env.workspace / 'foo' / 'subdir')
-    assert_error(cp, "git-nested: Need to run nested command from top level directory of the repo.", returncode=1)
+    assert_error(cp, "git-nested: run git-nested from the top level of the repository", returncode=1)
 
 
 def test_error_clone_non_empty_subdir(foo_bar_cloned):
     """Test error when trying to clone into non-empty directory"""
     env = foo_bar_cloned
     cp = cmd_git_nested('clone dummy bard', check=False, cwd=env.workspace / 'bar')
-    assert_error(cp, "git-nested: The subdir 'bard' exists and is not empty.", returncode=1)
+    assert_error(cp, "git-nested: bard: exists and is not empty", returncode=1)
 
 
 def test_error_clone_non_repo(foo_bar_cloned):
     """Test error when trying to clone from invalid repository"""
     env = foo_bar_cloned
     cp = cmd_git_nested('clone dummy-repo', check=False, cwd=env.workspace / 'bar')
-    assert_error(cp, "git-nested: Command failed: 'git ls-remote --symref dummy-repo'.", returncode=1)
+    assert_error(cp, "git-nested: can't reach dummy-repo: git ls-remote failed", returncode=1)
 
 
 def test_error_all_with_branch(foo_bar_cloned):
@@ -176,7 +174,7 @@ def test_error_all_with_branch(foo_bar_cloned):
     env = foo_bar_cloned
     cmd_git_nested(f'clone {env.upstream}/foo', cwd=env.workspace / 'bar')
     cp = cmd_git_nested('pull --all --branch other', check=False, cwd=env.workspace / 'bar')
-    assert_error(cp, "git-nested: options --branch and --all are not compatible", returncode=1)
+    assert_error(cp, "git-nested: --branch and --all can't be used together", returncode=1)
 
 
 def test_error_message_and_file_together(foo_bar_cloned):
@@ -190,7 +188,7 @@ def test_error_message_and_file_together(foo_bar_cloned):
     msg_file.write_text('Test commit message')
 
     cp = cmd_git_nested('commit foo -m "Test" --file commit_msg.txt', check=False, cwd=env.workspace / 'bar')
-    assert_error(cp, "git-nested: fatal: options '-m' and '--file' cannot be used together", returncode=1)
+    assert_error(cp, "git-nested: -m and --file can't be used together", returncode=1)
 
 
 def test_error_missing_commit_msg_file(foo_bar_cloned):
@@ -200,4 +198,4 @@ def test_error_missing_commit_msg_file(foo_bar_cloned):
     env.add_new_files('foo/newfile', cwd=env.workspace / 'bar')
 
     cp = cmd_git_nested('commit foo --file nonexistent.txt', check=False, cwd=env.workspace / 'bar')
-    assert_error(cp, "git-nested: Commit msg file at nonexistent.txt not found", returncode=1)
+    assert_error(cp, "git-nested: no commit message file at nonexistent.txt", returncode=1)

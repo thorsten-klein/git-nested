@@ -42,12 +42,12 @@ def cmd_diff(ctx: CommandContext) -> None:
     subdir, _gitnested, subref, config = setup.setup_command(git, 'diff', flags, subdir, upstream)
 
     if config.remote == 'none':
-        output.say(f"Ignored '{subdir}', no remote.")
+        output.say(f"{subdir}: skipped, it has no remote")
         return
 
     diff_output = get_diff(git, config, subdir, subref)
 
     if not diff_output:
-        output.say(f"No differences between '{subdir}' and upstream '{config.remote}' ({config.branch}).")
+        output.say(f"{subdir}: no differences from {config.remote} ({config.branch})")
     else:
         output.payload(diff_output)

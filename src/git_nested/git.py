@@ -48,9 +48,7 @@ class GitRunner:
         result = subprocess.run(cmd, capture_output=True, text=True, check=False, **kwargs)
         if result.returncode != 0:
             if not may_fail:
-                raise GitNestedError(
-                    f"Command failed: '{' '.join(cmd)}'.\n{result.stderr!s}", print_to_stderr=print_error
-                )
+                raise GitNestedError(f"command failed: {' '.join(cmd)}\n{result.stderr!s}", print_to_stderr=print_error)
 
             # Exception occurred but may_fail=True: Create a fake CompletedProcess for exception case
             return subprocess.CompletedProcess(args=cmd, returncode=-1, stdout=result.stdout, stderr=result.stderr)
@@ -89,14 +87,14 @@ class GitRunner:
     def check(self):
         """Check that environment is suitable."""
         if not shutil.which('git'):
-            raise GitNestedError("Can't find 'git' in PATH env variable.")
+            raise GitNestedError("git is not on PATH")
         version = self.get_version()
 
         def version_tuple(v):
             return tuple(map(int, (v.split("."))))
 
         if version_tuple(version) < version_tuple(REQUIRED_GIT_VERSION):
-            raise GitNestedError(f"Requires git version {REQUIRED_GIT_VERSION} or higher; you have '{version}'.")
+            raise GitNestedError(f"git {REQUIRED_GIT_VERSION} or newer is required, but this is {version}")
 
     def get_version(self):
         """Return the installed git version string (e.g. '2.43.0')."""
@@ -106,5 +104,5 @@ class GitRunner:
         # backtrack quadratically while probing every start position.
         m = re.search(r'(\d{1,6}\.\d{1,6}\.\d{1,6})', git_version)
         if not m:
-            raise GitNestedError("Can't determine git version")
+            raise GitNestedError("can't parse the version git reports")
         return m.group(1)

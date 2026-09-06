@@ -105,7 +105,14 @@ def configure() -> Callable[[], None]:
 
 
 def _level(flags: Flags) -> int:
-    """The level `flags` asks for: `-q` quieter, `-v` and `-vv` louder."""
+    """The level `flags` asks for: `-q` quieter, `-v`/`-vv`/`-d` louder.
+
+    `-d` is the spelling for "show me the git commands" on its own, which is
+    where `-vv` also ends up; it exists because that is the question people
+    actually arrive with, and counting v's to reach it is a poor way to ask.
+    """
+    if flags.debug:
+        return TRACE
     if flags.quiet:
         return logging.WARNING
     return {0: logging.INFO, 1: logging.DEBUG}.get(flags.verbose, TRACE)

@@ -27,7 +27,7 @@ def do_clone(
     """
     # Check if we can clone (fail if HEAD doesn't exist)
     if not git.rev_exists('HEAD'):
-        raise GitNestedError("You can't clone into an empty repository")
+        raise GitNestedError("can't clone into a repository that has no commits yet")
 
     # Turn off force unless really a reclone
     force = _effective_force(flags, gitnested)
@@ -39,7 +39,7 @@ def do_clone(
     if flags.filter:
         config.filter = flags.filter
 
-    output.verbose(f"Make the directory '{subdir}/' for the clone.")
+    output.verbose(f"creating {subdir}/")
     subdir.mkdir(parents=True, exist_ok=True)
 
     nested_commit_ref = upstream_head_commit
@@ -83,15 +83,15 @@ def _do_clone_forced(
     upstream_head_commit = fetch.do_fetch(git, config, subref)
     config = gitfile.read_config(gitnested, flags)
 
-    output.verbose("Check if we already are up to date.")
+    output.verbose("checking whether it is already up to date")
     if upstream_head_commit == config.commit:
         return True, config, upstream_head_commit
 
-    output.verbose("Remove the existing subdir.")
+    output.verbose("removing the existing subdir")
     git.run(['rm', '-r', '--', subdir])
 
     if not branch:
-        output.verbose("Determine the upstream head branch.")
+        output.verbose("determining the upstream default branch")
         config.branch = discovery.get_upstream_branch(git, config)
         # Fetch again from the new branch
         upstream_head_commit = fetch.do_fetch(git, config, subref)
@@ -106,10 +106,10 @@ def _do_clone_fresh(git: GitRunner, config: NestedConfig, subdir: Path, subref: 
         tuple: (updated_config, upstream_head_commit)
     """
     if subdir.exists() and any(subdir.iterdir()):
-        raise GitNestedError(f"The subdir '{subdir}' exists and is not empty.")
+        raise GitNestedError(f"{subdir}: exists and is not empty")
 
     if not config.branch:
-        output.verbose("Determine the upstream head branch.")
+        output.verbose("determining the upstream default branch")
         config.branch = discovery.get_upstream_branch(git, config)
 
     upstream_head_commit = fetch.do_fetch(git, config, subref)
@@ -137,7 +137,7 @@ def cmd_clone(ctx: CommandContext) -> None:
             raise AssertionError(
                 'do_clone returned nested_commit_ref=None with up_to_date=False'
             )  # pragma: no cover -- invariant guard, unreachable via the public API
-        output.verbose(f"Commit the new '{subdir}/' content.")
+        output.verbose(f"committing the new {subdir}/ content")
         content.commit_nested_branch(
             git=git,
             flags=flags,
@@ -152,6 +152,6 @@ def cmd_clone(ctx: CommandContext) -> None:
         )
 
     if up_to_date:
-        output.say(f"Nested repository '{subdir}' is up to date with upstream branch '{config.branch}'.")
+        output.say(f"{subdir}: already up to date with {config.remote} ({config.branch})")
     else:
-        output.say(f"Nested repository '{config.remote}' ({config.branch}) cloned into '{subdir}'.")
+        output.say(f"{subdir}: cloned from {config.remote} ({config.branch})")

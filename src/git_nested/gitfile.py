@@ -93,7 +93,7 @@ def _create_one_level_file(git: GitRunner, flags: Flags, gitnested_path: str, le
     gitnested_file = Path(gitnested_path)
     level_file = gitnested_file.parent / f'{GITNESTED_LEVEL_PREFIX}{level}'
 
-    output.verbose(f"Creating {level_file} for sub-nested repository")
+    output.verbose(f"creating {level_file} for the sub-nested repository")
 
     # Copy the .gitnested content to .gitnested.levelN, but clear the parent field
     # The parent field from the intermediate repo doesn't apply in this context
@@ -118,7 +118,7 @@ def _create_one_level_file(git: GitRunner, flags: Flags, gitnested_path: str, le
 def read_config(gitnested: Path, flags: Flags) -> NestedConfig:
     """Read .gitnested file."""
     if not gitnested.is_file():
-        raise GitNestedError(f"No '{gitnested}' file.")
+        raise GitNestedError(f"{gitnested} does not exist")
 
     config = NestedConfig.from_file(gitnested)
 

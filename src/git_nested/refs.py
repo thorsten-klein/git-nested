@@ -19,7 +19,7 @@ def create_nested_ref(git: GitRunner, subref: str, ref_type: str, commit: str):
 def guess_subdir(remote: str) -> str:
     """Guess subdirectory name from remote URL."""
     if not remote:
-        raise GitNestedError("No remote specified for guessing subdir")
+        raise GitNestedError("no subdir given, and no remote to guess one from")
     name = Path(remote).name
     if name.endswith('.git'):
         name = name[:-4]
@@ -58,5 +58,5 @@ def sanitize_subref(git: GitRunner, ref: str) -> str:
     sanitized = _strip_forbidden_ref_chars(quote(ref, safe='/'))
 
     if not _is_valid_ref(git, sanitized):
-        raise GitNestedError(f"Can't determine valid subref from '{ref}'.")
+        raise GitNestedError(f"can't derive a git ref name from {ref}")
     return sanitized

@@ -118,7 +118,7 @@ def test_nested_in_nested_basic(nested_in_nested_repos):
     # Clone level1 (which contains level2, which contains level3) into parent
     result = cmd_git_nested(['clone', str(env.upstream / 'level1'), 'nested1'], cwd=parent)
     assert result.returncode == 0
-    assert "cloned into 'nested1'" in result.output
+    assert "nested1: cloned from" in result.output
 
     # Verify the structure exists
     assert (parent / 'nested1' / 'level1.txt').is_file()

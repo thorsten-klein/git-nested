@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import sys
-import textwrap
 from pathlib import Path
 
-from .. import content, filters, output, refs, worktree
+from .. import content, filters, messages, output, refs, worktree
 from ..cli import setup
 from ..errors import GitNestedError
 from ..git import GitRunner
@@ -39,7 +37,7 @@ def do_pull(
     worktree.delete_branch(git, branch, git_tmp)
     nested_commit_ref = branch
 
-    output.verbose(f"Create nested branch '{branch}'.")
+    output.verbose(f"creating nested branch {branch}")
     subdir_worktree = content.create_nested_branch(
         git=git,
         flags=flags,
@@ -96,7 +94,7 @@ def _run_merge_or_rebase(
                 merge_cmd.append('--allow-unrelated-histories')
             git.run(merge_cmd, cwd=subdir_worktree, print_error=False)
     except GitNestedError as e:
-        return f'The "git {method}" command failed:\n{e.message}'
+        return f"git {method} failed:\n{e.message}"
     return None
 
 
@@ -128,53 +126,7 @@ def _pull_forced(git, flags, subdir, gitnested, subref, config, head_commit) -> 
             subdir_worktree=None,
             command='clone',
         )
-    output.say(f"Nested repository '{subdir}' pulled from '{config.remote}' ({config.branch}).")
-
-
-def _build_pull_conflict_help(subdir, subdir_worktree, method, flags, subref) -> str:
-    """Build the operator-facing help text shown when a pull's merge/rebase conflicts."""
-    branch_name = f'nested/{subref}'
-    rebase_step = "git rebase --continue" if method == 'rebase' else "git commit"
-    commit_cmd = (
-        f"git nested commit --file={flags.message_file} {subdir}"
-        if flags.message_file
-        else f"git nested commit {subdir}"
-    )
-    rebase_note = ""
-    if method == 'rebase':
-        rebase_note = textwrap.dedent(
-            f"""
-
-            After you have performed the steps above you can push your local changes
-            without repeating the rebase by:
-              1. git nested push {subdir} {branch_name}
-            """
-        )
-    return textwrap.dedent(
-        f"""\
-        You will need to finish the pull by hand. A new working tree has been
-        created at {subdir_worktree} so that you can resolve the conflicts
-        shown in the output above.
-
-        This is the common conflict resolution workflow:
-
-          1. cd {subdir_worktree}
-          2. Resolve the conflicts (see "git status").
-          3. "git add" the resolved files.
-          4. {rebase_step}
-          5. If there are more conflicts, restart at step 2.
-          6. cd {Path.cwd()}
-          7. {commit_cmd}
-        {rebase_note}
-        See "git help {method}" for details.
-
-        Alternatively, you can abort the pull and reset back to where you started:
-
-          1. git nested clean {subdir}
-
-        See "git help nested" for more help.
-        """
-    )
+    output.say(f"{subdir}: pulled from {config.remote} ({config.branch})")
 
 
 def cmd_pull(ctx: CommandContext) -> None:
@@ -202,7 +154,7 @@ def cmd_pull(ctx: CommandContext) -> None:
     )
 
     if not success and pulled_commit_ref is None:
-        output.say(f"Nested repository '{subdir}' is up to date with upstream branch '{config.branch}'.")
+        output.say(f"{subdir}: already up to date with {config.remote} ({config.branch})")
         return
 
     if not success:
@@ -222,13 +174,13 @@ def _handle_pull_conflict(subdir, subdir_worktree, error_msg, config, flags, sub
         raise AssertionError(
             'do_pull returned error_msg=None with success=False and nested_commit_ref set'
         )  # pragma: no cover -- invariant guard, unreachable via the public API
-    # Print the error message to stdout
-    output.say(error_msg)
-    # Merge/rebase failed
     method = flags.method or config.method
-    msg = _build_pull_conflict_help(subdir, subdir_worktree, method, flags, subref)
-    output.say(msg)
-    sys.exit(1)
+    help_text = messages.pull_conflict_help(subdir, subdir_worktree, method, flags.message_file, subref)
+    # error_msg ends with git's own stderr, and so with however many newlines
+    # git felt like; rstrip normalises that, and the one added here plus the
+    # one help_text opens with leave a blank line between what failed and what
+    # to do about it.
+    output.error(f"{subdir}: the pull is unfinished, {error_msg.rstrip()}\n{help_text}")
 
 
 def _finalize_successful_pull(
@@ -242,7 +194,7 @@ def _finalize_successful_pull(
         raise AssertionError(
             'do_pull returned success=True without nested_commit_ref/subdir_worktree set'
         )  # pragma: no cover -- invariant guard, unreachable via the public API
-    output.verbose(f"Commit the new '{nested_commit_ref}' content.")
+    output.verbose(f"committing the new {nested_commit_ref} content")
     upstream_head_commit = git.check_output(['rev-parse', f'refs/nested/{subref}/fetch'])
     content.commit_nested_branch(
         git=git,
@@ -256,4 +208,4 @@ def _finalize_successful_pull(
         subdir_worktree=subdir_worktree,
         command='pull',
     )
-    output.say(f"Nested repository '{subdir}' pulled from '{config.remote}' ({config.branch}).")
+    output.say(f"{subdir}: pulled from {config.remote} ({config.branch})")

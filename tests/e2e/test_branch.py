@@ -65,7 +65,7 @@ def test_branch(foo_bar_cloned_and_nested):
     # actually advance for the commits to land at a distinct time.
     with update_env(_LATER_COMMIT_DATE):
         result = cmd_git_nested('branch bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == "Created branch 'nested/bar' and worktree '.git/tmp/nested/bar'."
+    assert result.output.strip() == "bar: branch nested/bar created, worktree at .git/tmp/nested/bar"
 
     # Check temporary directory exists
     tmp_worktree = env.workspace / 'foo' / '.git' / 'tmp' / 'nested' / 'bar'
@@ -177,7 +177,7 @@ def test_branch_rev_list(foo_bar_cloned_and_nested):
 
     # create nested branch to fetch new information
     result = cmd_git_nested('branch bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == "Created branch 'nested/bar' and worktree '.git/tmp/nested/bar'."
+    assert result.output.strip() == "bar: branch nested/bar created, worktree at .git/tmp/nested/bar"
 
     # assert branch is correctly created
     tmp_worktree = env.workspace / 'foo' / '.git' / 'tmp' / 'nested' / 'bar'
@@ -225,7 +225,7 @@ def test_branch_rev_list_one_path(foo_bar_cloned_and_nested):
 
     # Branch
     result = cmd_git_nested('branch bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == "Created branch 'nested/bar' and worktree '.git/tmp/nested/bar'."
+    assert result.output.strip() == "bar: branch nested/bar created, worktree at .git/tmp/nested/bar"
 
     # Count commits
     assert_commit_count(env.workspace / 'foo', 8)  # no commit is added
@@ -254,7 +254,7 @@ def test_branch_with_force(foo_bar_cloned_and_nested):
 
     # Create branch
     result = cmd_git_nested('branch bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == "Created branch 'nested/bar' and worktree '.git/tmp/nested/bar'."
+    assert result.output.strip() == "bar: branch nested/bar created, worktree at .git/tmp/nested/bar"
 
     # assert branch is correctly created
     tmp_worktree = env.workspace / 'foo' / '.git' / 'tmp' / 'nested' / 'bar'
@@ -275,18 +275,18 @@ def test_branch_with_force(foo_bar_cloned_and_nested):
 
     # create nested branch
     result = cmd_git_nested('branch bar', cwd=env.workspace / 'foo', check=False)
-    assert "Branch 'nested/bar' already exists. Use '--force' to override" in result.output
+    assert "branch nested/bar already exists; pass --force to replace it" in result.output
 
     # Create branch with --force
     result = cmd_git_nested('branch bar --force', cwd=env.workspace / 'foo')
-    assert result.output.strip() == "Created branch 'nested/bar' and worktree '.git/tmp/nested/bar'."
+    assert result.output.strip() == "bar: branch nested/bar created, worktree at .git/tmp/nested/bar"
 
     # Rebuild at a different timestamp. That is the whole point of the
     # assertion below: the rebuilt commits keep their hashes because they
     # take their dates from the source commits, not from 'now'.
     with update_env(_LATER_COMMIT_DATE):
         result = cmd_git_nested('branch bar --force', cwd=env.workspace / 'foo')
-    assert result.output.strip() == "Created branch 'nested/bar' and worktree '.git/tmp/nested/bar'."
+    assert result.output.strip() == "bar: branch nested/bar created, worktree at .git/tmp/nested/bar"
 
     branch_commits_2 = git_get_commit_msg(tmp_worktree, args=['--pretty=format:"%h %s"']).strip().splitlines()
     assert branch_commits_2[2:] == branch_commits_1
@@ -297,4 +297,4 @@ def test_branch_fetch_flag_refreshes_upstream_ref_first(foo_bar_cloned_and_neste
     env = foo_bar_cloned_and_nested
 
     result = cmd_git_nested('branch bar --fetch', cwd=env.workspace / 'foo')
-    assert result.output.strip() == "Created branch 'nested/bar' and worktree '.git/tmp/nested/bar'."
+    assert result.output.strip() == "bar: branch nested/bar created, worktree at .git/tmp/nested/bar"

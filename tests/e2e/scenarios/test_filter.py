@@ -5,6 +5,7 @@ import textwrap
 import pytest
 import yaml
 from conftest import assert_commit_count, clone_repo, cmd_git_nested, create_upstream_repo, tree
+
 from git_nested import GitNestedError
 
 
@@ -245,7 +246,7 @@ def test_filter_invalid_regex(foo_bar_cloned):
     env.run(['git', 'push'], cwd=env.workspace / 'leg')
 
     # '[unclosed' is neither a tree, a blob, nor a valid regex
-    with pytest.raises(GitNestedError, match=r"Invalid filter pattern '\[unclosed'"):
+    with pytest.raises(GitNestedError, match=r"invalid filter pattern \[unclosed"):
         cmd_git_nested(
             ['clone', f'{env.upstream}/leg', 'leg', '--filter=[unclosed'],
             cwd=env.workspace / 'foo',

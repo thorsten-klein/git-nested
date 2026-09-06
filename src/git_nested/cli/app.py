@@ -38,7 +38,7 @@ class GitNestedCommand:
     def _dispatch_all(self, command: str, ctx: CommandContext) -> None:
         """Dispatch command across every nested repository (the --all flag)."""
         if ctx.flags.branch:
-            self.error("options --branch and --all are not compatible")
+            self.error("--branch and --all can't be used together")
 
         for subdir_path in discovery.find_all_nested_repositories(self.git, ctx.flags):
             self.dispatch_command(command, replace(ctx, subdir=subdir_path))
@@ -86,7 +86,7 @@ class GitNestedCommand:
         """Run the handler registered for `command`."""
         handler = commands.REGISTRY.get(command)
         if handler is None:
-            self.usage_error(f"Unknown command: {command}")
+            self.usage_error(f"unknown command {command}; 'git nested --help' lists them")
 
         handler(ctx)
 
