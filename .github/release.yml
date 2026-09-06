@@ -1,0 +1,22 @@
+# Categories for the notes GitHub generates from merged pull requests. The
+# repository squash-merges with Conventional Commit titles, so the labels
+# below are what sorts a PR into a section -- keep them on the PR, not on the
+# commit.
+changelog:
+  exclude:
+    labels: [skip-changelog]
+  categories:
+    - title: Breaking changes
+      labels: [breaking]
+    - title: Features
+      labels: [enhancement, feature]
+    - title: Fixes
+      labels: [bug, fix]
+    - title: Documentation
+      labels: [documentation]
+    - title: Build, CI and tooling
+      labels: [build, ci, tooling]
+    - title: Dependencies
+      labels: [dependencies]
+    - title: Other changes
+      labels: ['*']

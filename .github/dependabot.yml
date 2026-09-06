@@ -1,0 +1,23 @@
+# Dependabot keeps the two things this repository pins up to date: the actions
+# every workflow runs, and the Python dependencies uv.lock records.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      # One pull request for the lot. Action bumps are almost always routine,
+      # and reviewing them together is quicker than reviewing them one by one.
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      # Dev tooling moves often and breaks nothing users see, so it travels
+      # together; a runtime dependency gets its own pull request.
+      dev:
+        dependency-type: development
