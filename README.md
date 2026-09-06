@@ -370,9 +370,9 @@ uv venv --python 3.11
 uv run poe test
 
 # Specific test file
-uv run poe test test/test_clone.py
+uv run poe test tests/e2e/test_clone.py
 # or
-uv run pytest test/test_clone.py
+uv run pytest tests/e2e/test_clone.py
 
 # With verbose output
 uv run poe test -vv

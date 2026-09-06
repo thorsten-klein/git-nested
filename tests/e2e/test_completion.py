@@ -8,7 +8,7 @@ import pytest
 def skip_if_missing(env, cmd):
     result = env.run(['which', cmd], check=False)
     if result.returncode != 0:
-        pytest.skip("bash is not installed")
+        pytest.skip(f"{cmd} is not installed")
 
 
 def test_bash_rc_sources_without_error(env):

@@ -1,10 +1,20 @@
-"""Shared test doubles for unit-level tests."""
+"""Shared test doubles for unit-level tests.
+
+Deliberately not named conftest.py. pytest registers every conftest under the
+bare module name ``conftest``, so a second one here would collide in
+sys.modules with tests/conftest.py -- which the whole e2e suite imports from
+by that name. The full run only ever worked by collection order; naming a
+unit test file first was enough to break it:
+
+    $ pytest tests/unit tests/e2e/test_clone.py
+    ImportError: cannot import name 'VERSION' from 'conftest'
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from git_nested import GitNestedError
+from git_nested import GitNestedError, GitRunner
 
 
 @dataclass
@@ -14,17 +24,28 @@ class FakeResult:
     stderr: str = ''
 
 
-class FakeGit:
+class FakeGit(GitRunner):
     """A minimal GitRunner double driven by canned responses.
 
     Register a response for a command with `.respond(*prefix, stdout=..., ...)`; any call whose
     args start with that prefix returns it (first registered match wins). Unmatched calls raise
     AssertionError so a test with a gap fails loudly instead of falling through to real git.
+
+    Subclasses GitRunner and overrides only `run`, so `is_tracked`, `rev_exists`,
+    `branch_exists` and `commit_in_rev_list` are the *real* implementations
+    driven by canned output. They used to be copies, and one had already
+    drifted: is_tracked answered on the exit code, but `git ls-files` exits 0
+    whether or not it matched anything, so the double called every path
+    tracked while the real one asks whether there was any output.
+
+    GitRunner.__init__ is deliberately not called -- it shells out to
+    `git --version` -- so `version` is set here instead.
     """
 
     def __init__(self):
         self._responses: list[tuple[tuple[str, ...], FakeResult]] = []
         self.calls: list[tuple[str, ...]] = []
+        self.version = '99.0.0'
 
     def respond(self, *prefix, stdout='', stderr='', returncode=0):
         self._responses.append((tuple(str(p) for p in prefix), FakeResult(returncode, stdout, stderr)))
@@ -48,15 +69,3 @@ class FakeGit:
 
     def check_output(self, args, may_fail=False, **kwargs):
         return self.run(args, may_fail=may_fail, **kwargs).stdout.strip()
-
-    def is_tracked(self, path):
-        return self.run(['ls-files', '--', path], may_fail=True).returncode == 0
-
-    def rev_exists(self, rev):
-        return self.run(['rev-list', rev, '-1'], may_fail=True).returncode == 0
-
-    def branch_exists(self, branch):
-        return self.rev_exists(f'refs/heads/{branch}')
-
-    def commit_in_rev_list(self, commit, list_head):
-        return self.run(['merge-base', '--is-ancestor', commit, list_head], may_fail=True).returncode == 0
