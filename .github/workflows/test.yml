@@ -28,6 +28,7 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
         python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
@@ -57,17 +58,18 @@ jobs:
       - name: Run poe all
         run: uv run poe all
       - name: Upload coverage reports to Codecov
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
+        # Dependabot-triggered runs don't get repo secrets, so skip rather than fail.
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14' && secrets.CODECOV_TOKEN != ''
         uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: Upload test results to Codecov
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && secrets.CODECOV_TOKEN != '' }}
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: SonarCloud Scan
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14' && secrets.SONAR_TOKEN != ''
         uses: SonarSource/sonarqube-scan-action@v8
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
