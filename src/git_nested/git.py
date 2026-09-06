@@ -37,9 +37,7 @@ class GitRunner:
         self.check()
         self.version = self.get_version()
 
-    def run(
-        self, args: Sequence[str | Path], may_fail=False, print_error=True, **kwargs
-    ) -> subprocess.CompletedProcess:
+    def run(self, args: Sequence[str | Path], may_fail=False, **kwargs) -> subprocess.CompletedProcess:
         """Run git command."""
         # Convert any Path objects to strings
         cmd = ['git'] + [str(arg) for arg in args]
@@ -48,7 +46,7 @@ class GitRunner:
         result = subprocess.run(cmd, capture_output=True, text=True, check=False, **kwargs)
         if result.returncode != 0:
             if not may_fail:
-                raise GitNestedError(f"command failed: {' '.join(cmd)}\n{result.stderr!s}", print_to_stderr=print_error)
+                raise GitNestedError(f"command failed: {' '.join(cmd)}\n{result.stderr!s}")
 
             # Exception occurred but may_fail=True: Create a fake CompletedProcess for exception case
             return subprocess.CompletedProcess(args=cmd, returncode=-1, stdout=result.stdout, stderr=result.stderr)

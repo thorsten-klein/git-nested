@@ -26,9 +26,8 @@ def test_parse_args_version_flag_selects_version_command(cmd):
 
 
 def test_parse_args_missing_command_is_a_usage_error(cmd):
-    with pytest.raises(SystemExit) as exc_info:
+    with pytest.raises(GitNestedError, match='no command given'):
         cmd.parse_args([])
-    assert exc_info.value.code == 1
 
 
 # ============================================================================
@@ -48,9 +47,8 @@ def test_main_answers_a_completion_request_before_the_parser(cmd, capsys):
 
 
 def test_dispatch_command_unknown_command_is_a_usage_error(cmd):
-    with pytest.raises(SystemExit) as exc_info:
+    with pytest.raises(GitNestedError, match='unknown command bogus'):
         cmd.dispatch_command('bogus', CommandContext(git=cmd.git, flags=Flags()))
-    assert exc_info.value.code == 1
 
 
 # ============================================================================
@@ -86,9 +84,8 @@ def test_setup_command_requires_subdir(cmd):
 
 def test_setup_command_rejects_absolute_subdir(cmd):
     flags = Flags()
-    with pytest.raises(SystemExit) as exc_info:
+    with pytest.raises(GitNestedError, match='subdir must be a relative path'):
         cmd.setup_command('init', flags, subdir='/absolute/path', upstream=None)
-    assert exc_info.value.code == 1
 
 
 # ============================================================================

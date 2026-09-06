@@ -155,17 +155,25 @@ def warn(msg: str) -> None:
 
 
 def error(msg: str) -> NoReturn:
-    """Report a failure and abort the command.
+    """Abort the command with `msg`.
 
-    The message is written here rather than by GitNestedError so that a
-    caller that wants to catch and recover does not get a stray line on
-    stderr as a side effect of the exception existing.
+    Nothing is written here. The message reaches the user from `report`,
+    called by `cli.app` if the error is still unhandled by the time it
+    leaves the command -- so a caller that catches this one and raises a
+    clearer one in its place leaves no stray line behind.
     """
-    LOGGER.error(msg)
-    raise GitNestedError(msg, print_to_stderr=False)
+    raise GitNestedError(msg)
 
 
 def usage_error(msg: str) -> NoReturn:
-    """Report a malformed command line and exit."""
-    LOGGER.error(msg)
-    sys.exit(1)
+    """Abort the command because the command line was malformed.
+
+    The same exit as `error`; a separate name because the two read
+    differently at the call site and only one of them is the user's typo.
+    """
+    error(msg)
+
+
+def report(exc: GitNestedError) -> None:
+    """Print a failure. The one place a GitNestedError becomes visible."""
+    LOGGER.error(exc.message)

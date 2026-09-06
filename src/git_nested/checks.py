@@ -30,9 +30,10 @@ def check_repository(git: GitRunner, command: str) -> tuple[Path | None, str | N
     try:
         git.run(['rev-parse', '--git-dir'])
     except GitNestedError:
-        # git.run() already printed the underlying git error to stderr;
-        # this is a deliberate, more user-friendly re-interpretation of
-        # it, not an incidental failure, so the chain is suppressed.
+        # A deliberate re-interpretation of git's own message, not an
+        # incidental failure, so the chain is suppressed -- and since
+        # nothing is printed until an error leaves the command, this is
+        # the only line the user sees.
         raise GitNestedError("not inside a git repository") from None
 
     git_common_dir = git.check_output(['rev-parse', '--git-common-dir'])

@@ -626,11 +626,9 @@ def _raise_if_failed(cmd_and_args: list[str], result, check: bool):
         return
     # GitNestedError rather than a bare Exception: in-process the app's own
     # error type propagates out of app.main(), and tests match on it. The
-    # message is the stderr the command produced, so `match=` keeps working;
-    # print_to_stderr would duplicate it into the captured output.
+    # message is the stderr the command produced, so `match=` keeps working.
     raise git_nested.GitNestedError(
-        f"Command failed with exit code {result.returncode}: {shlex.join(cmd_and_args)}\n{result.stderr}",
-        print_to_stderr=False,
+        f"Command failed with exit code {result.returncode}: {shlex.join(cmd_and_args)}\n{result.stderr}"
     )
 
 
