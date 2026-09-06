@@ -173,13 +173,12 @@ if [ "$ARCHIVE" = 1 ]; then
     # release.
     cp "$EXE" "$BUILD_DIR/dist/git-nested-$VERSION"
     ln -sf "git-nested-$VERSION" "$BUILD_DIR/dist/git-nested"
-    # LICENSE and the completion scripts ride along: the tarball is a
-    # redistribution of git-nested in binary form, so MIT asks for the notice
-    # to travel with it, and share/ is the only way a user who never installs
-    # the package gets completion at all.
+    # LICENSE rides along: the tarball is a redistribution of git-nested in
+    # binary form, so MIT asks for the notice to travel with it. Completion
+    # needs nothing here -- the binary prints its own script, so
+    # `eval "$(git-nested completion bash)"` works from the tarball too.
     cp "$REPO_ROOT/LICENSE" "$BUILD_DIR/dist/LICENSE"
-    cp -r "$REPO_ROOT/share" "$BUILD_DIR/dist/share"
-    XZ_OPT=-9 tar -C "$BUILD_DIR/dist" -caf "$OUTPUT_DIR/$ARCHIVE_NAME" "git-nested-$VERSION" git-nested LICENSE share
+    XZ_OPT=-9 tar -C "$BUILD_DIR/dist" -caf "$OUTPUT_DIR/$ARCHIVE_NAME" "git-nested-$VERSION" git-nested LICENSE
 fi
 
 echo

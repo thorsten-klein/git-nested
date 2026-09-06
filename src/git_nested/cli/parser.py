@@ -1,13 +1,24 @@
-"""Turning argv into a command name, a Flags object and its positionals."""
+"""Turning argv into a command name and the CommandContext to run it with."""
 
 from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .. import output, refs
-from ..models import Flags
-from .spec import POSITIONALS, SUBPARSER_ARG_SPECS, SUPPORTED_OPT_ATTRS, VALID_COMMAND_OPTIONS
+from ..models import CommandContext, Flags
+from .spec import (
+    COMMAND_HELP,
+    GLOBAL_ARG_SPECS,
+    POSITIONALS,
+    SUBPARSER_ARG_SPECS,
+    SUPPORTED_OPT_ATTRS,
+    VALID_COMMAND_OPTIONS,
+)
+
+if TYPE_CHECKING:
+    from ..git import GitRunner
 
 
 def _add_subparser_args(command_subparser: argparse.ArgumentParser, command: str) -> None:
@@ -27,13 +38,12 @@ def _add_subparser_positionals(command_subparser: argparse.ArgumentParser, comma
 def build_arg_parser() -> argparse.ArgumentParser:
     """Build the top-level argument parser and all per-command subparsers."""
     parser = argparse.ArgumentParser(prog='git nested')
-    parser.add_argument('--version', action='store_true')
-    parser.add_argument('-q', '--quiet', action='store_true')
-    parser.add_argument('-v', '--verbose', action='count')
+    for arg_names, kwargs in GLOBAL_ARG_SPECS:
+        parser.add_argument(*arg_names, **kwargs)
 
     subparsers = parser.add_subparsers(dest='command')
     for command in VALID_COMMAND_OPTIONS:
-        command_subparser = subparsers.add_parser(command)
+        command_subparser = subparsers.add_parser(command, help=COMMAND_HELP[command])
         _add_subparser_args(command_subparser, command)
         _add_subparser_positionals(command_subparser, command)
 
@@ -104,11 +114,12 @@ def _flags_from_args(args: argparse.Namespace) -> Flags:
     return flags
 
 
-def parse_args(args_list: list[str]) -> tuple[str, Flags, str | None, str | None, str | None]:
-    """Parse command line arguments.
+def parse_args(git: GitRunner, args_list: list[str]) -> tuple[str, CommandContext]:
+    """Parse command line arguments into a command name and the context to run it with.
 
     Returns:
-        tuple: (command, flags, subdir, upstream, nested_commit_ref)
+        tuple: (command, context). The context's git_tmp/head_commit are left
+        unset -- only the caller knows whether the command runs in a repository.
     """
     # Subparsers handle the positional and optional arguments of each command.
     args = build_arg_parser().parse_args(args_list)
@@ -125,4 +136,12 @@ def parse_args(args_list: list[str]) -> tuple[str, Flags, str | None, str | None
     if flags.update and not (flags.branch or flags.remote):
         output.usage_error("Can't use '--update' without '--branch' or '--remote'.")
 
-    return args.command, flags, subdir, upstream, nested_commit_ref
+    context = CommandContext(
+        git=git,
+        flags=flags,
+        subdir=subdir,
+        upstream=upstream,
+        nested_commit_ref=nested_commit_ref,
+        completion_shell=getattr(args, 'shell', None),
+    )
+    return args.command, context
