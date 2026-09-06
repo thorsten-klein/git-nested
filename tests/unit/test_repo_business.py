@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from conftest import FakeGit
+from fakes import FakeGit
 from git_nested import Flags, GitNestedError, GitNestedRepo, NestedConfig
 
 # ============================================================================

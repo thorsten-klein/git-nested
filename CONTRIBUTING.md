@@ -56,7 +56,7 @@ Please be respectful and constructive in all interactions with the community. We
 uv run poe test
 
 # Run specific test file
-uv run poe test test/test_clone.py
+uv run poe test tests/e2e/test_clone.py
 
 # Run with verbose output
 uv run poe test -vv
@@ -83,7 +83,7 @@ uv run poe exe
 GIT_NESTED_EXE=dist/git-nested uv run pytest
 ```
 
-With `GIT_NESTED_EXE` set, `cmd_git_nested()` in `test/conftest.py` runs
+With `GIT_NESTED_EXE` set, `cmd_git_nested()` in `tests/conftest.py` runs
 `git nested ...` as a subprocess against that binary rather than calling the
 module in-process; without it, nothing changes. CI does both: `test.yml` builds
 the binary and runs the suite against it on every PR, and `release-binary.yml`

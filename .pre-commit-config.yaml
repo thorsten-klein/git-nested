@@ -33,6 +33,11 @@ repos:
       - id: debug-statements
       - id: name-tests-test
         args: ['--pytest-test-first']
+        # tests/unit/fakes.py holds the shared test doubles. It cannot be a
+        # conftest.py -- pytest registers every conftest under the bare name
+        # 'conftest', so a second one would collide in sys.modules with
+        # tests/conftest.py, which the whole e2e suite imports by that name.
+        exclude: ^tests/unit/fakes\.py$
 
       # --- scripts --------------------------------------------------------
       - id: check-executables-have-shebangs

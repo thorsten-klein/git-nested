@@ -66,8 +66,14 @@ VERSION = _version_under_test()
 # ============================================================================
 
 
-class TestEnvironment:
-    """Test environment with paths and helper methods for git operations"""
+class NestedTestEnvironment:
+    """Test environment with paths and helper methods for git operations.
+
+    Not named Test* on purpose: pytest's `python_classes = ["Test*"]` would
+    collect it as a test class the moment a test module imported it (for a
+    type hint, say). It is safe today only because conftest.py is never
+    collected, which is a coincidence rather than a design.
+    """
 
     def __init__(self, tmp_dir: Path, test_dir: Path):
         self.tmp = tmp_dir
@@ -95,6 +101,11 @@ class TestEnvironment:
         clone_repo(str(self.upstream / 'bar'), path)
 
     def clone_init(self, path=None):
+        # Built on demand rather than by the env fixture: the 'init' upstream
+        # is a 5-commit history that only a handful of tests ever clone, and
+        # pre-building it charged every test in the suite for it.
+        if not (self.upstream / 'init').exists():
+            create_upstream_init(self.upstream / 'init')
         path = path or self.workspace / 'init'
         clone_repo(str(self.upstream / 'init'), path)
 
@@ -323,7 +334,7 @@ def env(tmp_path):
     """Setup isolated test environment with git repos"""
     root_dir = Path(__file__).parent.parent
     tmp_dir = Path(tmp_path)
-    test_env = TestEnvironment(tmp_dir, root_dir)
+    test_env = NestedTestEnvironment(tmp_dir, root_dir)
 
     # Create home directory for git config
     test_env.test_home.mkdir()
@@ -344,10 +355,10 @@ def env(tmp_path):
         subprocess.run(['git', 'config', '--global', 'user.email', 'test@example.com'], check=True)
         subprocess.run(['git', 'config', '--global', 'init.defaultBranch', 'master'], check=True)
 
-        # Create test repositories
+        # Create test repositories. 'init' is deliberately absent -- it is
+        # built lazily by NestedTestEnvironment.clone_init, see there.
         create_upstream_foo(test_env.upstream / 'foo')
         create_upstream_bar(test_env.upstream / 'bar')
-        create_upstream_init(test_env.upstream / 'init')
 
         yield test_env
 
@@ -679,3 +690,24 @@ def tree(path: Path, prefix="") -> str:
     for i, entry in enumerate(entries):
         lines.extend(_tree_entry_lines(entry, prefix, i == len(entries) - 1))
     return "\n".join(lines)
+
+
+# ============================================================================
+# Collection
+# ============================================================================
+
+
+def pytest_collection_modifyitems(items):
+    """Mark every test by the directory it lives in.
+
+    tests/unit is fast and uses FakeGit; tests/e2e shells out to real git. The
+    split is already expressed by the layout, so deriving the marker from the
+    path keeps it true by construction rather than asking ~190 tests to carry
+    a decorator that could drift from where the file actually sits.
+    """
+    for item in items:
+        parts = item.path.parts
+        if 'unit' in parts:
+            item.add_marker('unit')
+        elif 'e2e' in parts:
+            item.add_marker('e2e')
