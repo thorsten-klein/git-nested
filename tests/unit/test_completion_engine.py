@@ -9,9 +9,11 @@ from fakes import FakeGit
 
 from git_nested import completion
 from git_nested.cli.spec import VALID_COMMAND_OPTIONS
+from git_nested.commands.completion import cmd_completion
 from git_nested.completion import scripts
 from git_nested.constants import COMPLETION_SHELLS
 from git_nested.gitfile import CONFIG_FIELDS
+from git_nested.models import CommandContext, Flags
 
 
 @pytest.fixture
@@ -308,17 +310,11 @@ def test_an_unreadable_parent_is_not_an_error(monkeypatch):
 
 
 def test_the_command_prints_the_script_for_the_requested_shell(git, capsys):
-    from git_nested.commands.completion import cmd_completion
-    from git_nested.models import CommandContext, Flags
-
     cmd_completion(CommandContext(git=git, flags=Flags(), completion_shell='fish'))
     assert '__git_nested_complete' in capsys.readouterr().out
 
 
 def test_the_command_falls_back_to_the_detected_shell(git, capsys, monkeypatch):
-    from git_nested.commands.completion import cmd_completion
-    from git_nested.models import CommandContext, Flags
-
     monkeypatch.setattr(scripts, 'detect_shell', lambda: 'bash')
     with contextlib.suppress(SystemExit):
         cmd_completion(CommandContext(git=git, flags=Flags()))
