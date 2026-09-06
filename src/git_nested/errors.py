@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-import sys
-
 
 class GitNestedError(Exception):
-    """Base exception for git-nested errors."""
+    """Base exception for git-nested errors.
 
-    def __init__(self, message, print_to_stderr=True):
-        """Store the message and optionally print it to stderr immediately."""
+    Raising is not reporting: this only carries the message. `cli.app` prints
+    it, once, if the error makes it all the way out of the command -- which
+    is what lets the several places that catch one and re-interpret it do so
+    without a stray line already on stderr.
+    """
+
+    def __init__(self, message):
+        """Store the message."""
         self.message = message
-        if print_to_stderr:
-            print(f"git-nested: {message}", file=sys.stderr)
         super().__init__(self.message)

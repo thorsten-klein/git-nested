@@ -86,13 +86,13 @@ def _run_merge_or_rebase(
     """Run the merge or rebase step of a pull; return an error message on failure, else None."""
     try:
         if method == 'rebase':
-            git.run(['rebase', merge_target, branch], cwd=subdir_worktree, print_error=False)
+            git.run(['rebase', merge_target, branch], cwd=subdir_worktree)
         else:
             # If parent is empty, allow unrelated histories (for nested-in-nested repos)
             merge_cmd = ['merge', merge_target]
             if not config.parent:
                 merge_cmd.append('--allow-unrelated-histories')
-            git.run(merge_cmd, cwd=subdir_worktree, print_error=False)
+            git.run(merge_cmd, cwd=subdir_worktree)
     except GitNestedError as e:
         return f"git {method} failed:\n{e.message}"
     return None

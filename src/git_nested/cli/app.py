@@ -10,6 +10,7 @@ from dataclasses import replace
 from typing import NoReturn, cast
 
 from .. import checks, commands, completion, discovery, output
+from ..errors import GitNestedError
 from ..git import GitRunner
 from ..models import CommandContext, Flags
 from ..repo import GitNestedRepo
@@ -60,6 +61,9 @@ class GitNestedCommand:
         detach = output.configure()
         try:
             self._run(args)
+        except GitNestedError as exc:
+            output.report(exc)
+            raise
         finally:
             detach()
 

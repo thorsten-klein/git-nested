@@ -146,19 +146,25 @@ def test_colour_follows_the_stream_when_nothing_is_forced(printing, monkeypatch,
 
 
 def test_the_error_level_is_red(printing, monkeypatch, capsys):
-    """error() is the loudest thing the layer prints, and looks it."""
+    """report() is the loudest thing the layer prints, and looks it."""
     monkeypatch.delenv('NO_COLOR', raising=False)
     monkeypatch.setenv('FORCE_COLOR', '1')
-    with pytest.raises(GitNestedError):
-        output.error("boom")
+    output.report(GitNestedError("boom"))
     assert capsys.readouterr().err == "\033[31mgit-nested: boom\033[0m\n"
 
 
-def test_error_prints_to_stderr(printing, no_colour, capsys):
-    """error() reports before it raises."""
+def test_error_prints_nothing_by_itself(printing, no_colour, capsys):
+    """Raising is not reporting: the message waits for report()."""
     with pytest.raises(GitNestedError):
         GitNested().error("error message")
-    assert capsys.readouterr().err == "git-nested: error message\n"
+    assert capsys.readouterr().err == ""
+
+
+def test_an_unhandled_error_is_reported_once(printing, no_colour, capsys):
+    """What prints an error in practice is it reaching the end of main()."""
+    with pytest.raises(GitNestedError):
+        GitNested().main([])
+    assert capsys.readouterr().err == "git-nested: no command given; 'git nested --help' lists them\n"
 
 
 def test_error_raises_exception():
@@ -175,27 +181,12 @@ def test_error_exception_message():
     assert exc_info.value.message == "Something went wrong"
 
 
-def test_usage_error_prints_to_stderr(printing, no_colour, capsys):
-    """usage_error() reports before it exits."""
-    with pytest.raises(SystemExit):
+def test_usage_error_raises_like_error(printing, no_colour, capsys):
+    """A malformed command line aborts the same way anything else does."""
+    with pytest.raises(GitNestedError) as exc_info:
         GitNested().usage_error("usage error message")
-    assert capsys.readouterr().err == "git-nested: usage error message\n"
-
-
-def test_usage_error_exits_with_code_1():
-    """usage_error() leaves the process with status 1."""
-    with pytest.raises(SystemExit) as exc_info:
-        GitNested().usage_error("usage error")
-    assert exc_info.value.code == 1
-
-
-def test_error_vs_usage_error_difference():
-    """error() raises for main() to map; usage_error() exits on the spot."""
-    runner = GitNested()
-    with pytest.raises(GitNestedError):
-        runner.error("regular error")
-    with pytest.raises(SystemExit):
-        runner.usage_error("usage error")
+    assert exc_info.value.message == "usage error message"
+    assert capsys.readouterr().err == ""
 
 
 def test_the_default_level_is_info():
