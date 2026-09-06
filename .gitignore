@@ -1,4 +1,4 @@
-/test/tmp/
+/tests/tmp/
 __pycache__
 .venv/
 *.pyc

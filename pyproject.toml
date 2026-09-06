@@ -62,10 +62,17 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["test"]
+testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+# Applied by path in tests/conftest.py's pytest_collection_modifyitems, not by
+# decorator -- the directory a test lives in already says which it is.
+markers = [
+    "unit: fast, no real git (tests/unit)",
+    "e2e: shells out to real git (tests/e2e)",
+]
+addopts = "--strict-markers"
 
 [tool.coverage.report]
 fail_under = 100
@@ -103,7 +110,7 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 # unused fixture/mock-callback arguments are idiomatic pytest, not a smell;
 # a test's own name is its documentation, so docstrings aren't required.
-"test/*" = ["ARG001", "ARG002", "ARG005", "D"]
+"tests/**" = ["ARG001", "ARG002", "ARG005", "D"]
 
 [tool.ruff.format]
 quote-style = "preserve"
@@ -112,7 +119,7 @@ line-ending = "lf"
 preview = true
 
 [tool.complexipy]
-paths = ["lib", "test"]
+paths = ["lib", "tests"]
 max-complexity-allowed = 5
 failed = true
 color = "auto"
@@ -155,7 +162,7 @@ bandit = "bandit -c pyproject.toml -r lib"
 complexity = "complexipy"
 # Fast inner loop: the unit tests only, and deliberately WITHOUT --cov --
 # `fail_under = 100` would otherwise fail every partial run.
-test-unit = {cmd = "pytest -v -n=auto -W error test/unittest", env = {PYTHONIOENCODING = "utf-8"}}
+test-unit = {cmd = "pytest -v -n=auto -W error -m unit", env = {PYTHONIOENCODING = "utf-8"}}
 flakefinder = "pytest -n=auto -W error --flake-finder --flake-runs=200"
 test = {cmd = "pytest -v -n=auto -W error --cov-config=pyproject.toml --cov=git_nested --junitxml=junit.xml -o junit_family=legacy --cov-report=term --cov-report=html --cov-report=xml", env = {PYTHONIOENCODING = "utf-8"}}
 
