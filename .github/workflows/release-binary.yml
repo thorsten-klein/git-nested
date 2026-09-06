@@ -1,9 +1,9 @@
 name: Release binary
 
-# Builds the single-file 'git-nested' executable (see
-# scripts/create-python-exe.sh) and attaches
-# git-nested-<version>-x64-linux.tar.xz to the release, so git-nested can be
-# used on a machine that has no python -- and no pip, no uv -- at all.
+# Builds the single-file 'git-nested' executable for Linux, macOS and Windows
+# (see scripts/create-python-exe.sh) and attaches each archive to the release,
+# so git-nested can be used on a machine that has no python -- and no pip, no
+# uv -- at all.
 #
 # Separate from publish.yml on purpose. That one is triggered by the tag push
 # and uploads to PyPI, while attaching an asset needs the GitHub *release* to
@@ -40,10 +40,27 @@ jobs:
   # test.yml so both exercise the same executable. 'env.REF' is not available
   # to a reusable workflow's inputs, so the ref is spelled out again.
   build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Intel macOS is deliberately absent: those runners are gone, and
+          # the arm64 binary is what a current Mac needs.
+          - target: linux
+            runs-on: ubuntu-latest
+            container: almalinux:8
+          - target: macos
+            runs-on: macos-latest
+            container: ''
+          - target: windows
+            runs-on: windows-latest
+            container: ''
     uses: ./.github/workflows/build-binary.yml
     with:
       ref: ${{ github.event.release.tag_name || inputs.tag || github.ref }}
-      artifact: git-nested-binary
+      artifact: git-nested-binary-${{ matrix.target }}
+      runs-on: ${{ matrix.runs-on }}
+      container: ${{ matrix.container }}
 
   # The whole pytest suite, driven through the binary that is about to be
   # attached -- the check that it is functionally complete, not just startable.
@@ -52,7 +69,7 @@ jobs:
     uses: ./.github/workflows/test-binary.yml
     with:
       ref: ${{ github.event.release.tag_name || inputs.tag || github.ref }}
-      artifact: git-nested-binary
+      artifact: git-nested-binary-linux
 
   # Proves the "runs on any x86_64 Linux" claim rather than assuming it. The
   # binary is dropped into stock distro images that have no python installed,
@@ -83,12 +100,12 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: git-nested-binary
+          name: git-nested-binary-linux
 
-      # Named git-nested-<version>-x64-linux.tar.xz -- resolved by glob since
-      # the version isn't known here.
+      # Named git-nested-<version>-<arch>-linux.tar.xz -- resolved by glob
+      # since the version isn't known here.
       - name: Unpack
-        run: tar -xf git-nested-*-x64-linux.tar.xz
+        run: tar -xf git-nested-*-linux.tar.xz
 
       # git is the one thing that does have to be installed -- git-nested
       # drives it and refuses to start without it. Python deliberately is not:
@@ -150,17 +167,22 @@ jobs:
     permissions:
       contents: write
     steps:
+      # every target's artifact, unpacked side by side. 'build' is a matrix,
+      # and a matrix job's outputs are last-one-wins, so the exact file names
+      # are read off disk here rather than composed from an output.
       - uses: actions/download-artifact@v4
         with:
-          name: git-nested-binary
+          pattern: git-nested-binary-*
+          merge-multiple: true
 
       # --clobber so re-running against an already-attached release replaces
-      # the asset instead of failing halfway. The filename is composed from
-      # 'build's version output -- this is the point that actually names the
-      # release asset, so it uses the real version rather than a glob.
-      - name: Attach git-nested-${{ needs.build.outputs.version }}-x64-linux.tar.xz to ${{ env.REF }}
+      # the assets instead of failing halfway.
+      - name: Attach the binaries to ${{ env.REF }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          ARCHIVE: git-nested-${{ needs.build.outputs.version }}-x64-linux.tar.xz
-        run: gh release upload "$REF" "$ARCHIVE" --clobber
+        run: |
+          mapfile -t assets < <(ls git-nested-*.tar.xz git-nested-*.zip 2>/dev/null)
+          test "${#assets[@]}" -gt 0 || { echo "no archives downloaded" >&2; exit 1; }
+          printf '%s\n' "${assets[@]}"
+          gh release upload "$REF" "${assets[@]}" --clobber

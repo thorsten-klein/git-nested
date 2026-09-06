@@ -9,21 +9,42 @@ on:
 jobs:
   # Builds the standalone executable with the very script the release uses
   # (scripts/create-python-exe.sh), so a change that breaks the freeze -- a new
-  # import, a moved data file -- fails here rather than on release day. The
-  # script smoke-tests the binary it produces; release-binary.yml additionally
-  # runs it across distros before attaching it to a release.
+  # import, a moved data file -- fails here rather than on release day. All
+  # three targets, because a break is usually a break on one of them only. The
+  # script smoke-tests each binary it produces; release-binary.yml additionally
+  # runs the Linux one across distros before attaching it to a release.
   binary:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Intel macOS is deliberately absent: those runners are gone, and
+          # the arm64 binary is what a current Mac needs.
+          - target: linux
+            runs-on: ubuntu-latest
+            container: almalinux:8
+          - target: macos
+            runs-on: macos-latest
+            container: ''
+          - target: windows
+            runs-on: windows-latest
+            container: ''
     uses: ./.github/workflows/build-binary.yml
     with:
-      artifact: git-nested-binary-ci
+      artifact: git-nested-binary-ci-${{ matrix.target }}
+      runs-on: ${{ matrix.runs-on }}
+      container: ${{ matrix.container }}
 
-  # ... and then runs the full pytest suite through that executable, so a
-  # binary that builds but does not work still fails the PR.
+  # ... and then runs the full pytest suite through the Linux executable, so a
+  # binary that builds but does not work still fails the PR. Linux only: the
+  # suite is the same suite either way, and what it is checking here is that
+  # freezing did not drop anything -- a per-platform answer the smoke test in
+  # create-python-exe.sh already gives for the other two.
   binary-test:
     needs: binary
     uses: ./.github/workflows/test-binary.yml
     with:
-      artifact: git-nested-binary-ci
+      artifact: git-nested-binary-ci-linux
 
   test:
     runs-on: ${{ matrix.os }}

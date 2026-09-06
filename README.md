@@ -57,26 +57,34 @@ pip install git+https://github.com/thorsten-klein/git-nested
 #### Method 2: Standalone Executable (no Python needed)
 
 Every [release](https://github.com/thorsten-klein/git-nested/releases) ships
-`git-nested-<version>-x64-linux.tar.xz`: a single file with git-nested, its
-dependencies and a Python interpreter inside. Only git itself has to be
-installed.
+one archive per platform: a single file with git-nested, its dependencies and
+a Python interpreter inside. Only git itself has to be installed.
+
+| Platform | Asset |
+|---|---|
+| Linux (x86_64) | `git-nested-<version>-x64-linux.tar.xz` |
+| macOS (Apple silicon) | `git-nested-<version>-arm64-macos.tar.xz` |
+| Windows (x86_64) | `git-nested-<version>-x64-windows.zip` |
 
 ```bash
-# Find the asset from the latest release
-ASSET=$(curl -sSL https://api.github.com/repos/thorsten-klein/git-nested/releases/latest | grep -o 'https://[^"]*\.tar\.xz')
+# Find the Linux asset of the latest release
+ASSET=$(curl -sSL https://api.github.com/repos/thorsten-klein/git-nested/releases/latest | grep -o 'https://[^"]*x64-linux\.tar\.xz')
 
 # Download the asset and unpack it
 curl -sSL "$ASSET" | tar -xJ
 sudo install git-nested /usr/local/bin/   # any directory on PATH works
 ```
 
-The file has to keep the name `git-nested` — that is how `git nested ...`
-finds it. The archive also contains a versioned copy of the binary (e.g.
-`git-nested-1.2.3`) that `git-nested` symlinks to.
+The file has to keep the name `git-nested` (`git-nested.exe` on Windows) —
+that is how `git nested ...` finds it. Each archive also contains a versioned
+copy of the binary (e.g. `git-nested-1.2.3`) that `git-nested` points to.
 
-Built on x86_64 with glibc 2.28, so it runs on any x86_64 Linux from that
-version onwards (Ubuntu 20.04, Debian 10, RHEL/AlmaLinux 8 and newer). Not on
-musl distros such as Alpine.
+The Linux binary is built on x86_64 with glibc 2.28, so it runs on any x86_64
+Linux from that version onwards (Ubuntu 20.04, Debian 10, RHEL/AlmaLinux 8 and
+newer). Not on musl distros such as Alpine.
+
+The macOS binary is not signed, so macOS quarantines it after a download. Run
+`xattr -d com.apple.quarantine git-nested` once to let it start.
 
 #### Method 3: From Source with Shell Integration
 
