@@ -118,7 +118,7 @@ def test_nested_in_nested_basic(nested_in_nested_repos):
     # Clone level1 (which contains level2, which contains level3) into parent
     result = cmd_git_nested(['clone', str(env.upstream / 'level1'), 'nested1'], cwd=parent)
     assert result.returncode == 0
-    assert "cloned into 'nested1'" in result.stdout
+    assert "cloned into 'nested1'" in result.output
 
     # Verify the structure exists
     assert (parent / 'nested1' / 'level1.txt').is_file()
@@ -248,12 +248,12 @@ def test_nested_in_nested_status(nested_in_nested_repos):
     assert result.returncode == 0
 
     # Should show nested1 at minimum, ideally also nested2 and nested3
-    assert 'nested1' in result.stdout
+    assert 'nested1' in result.output
 
     # Depending on implementation, it might also recursively show deeper nesting
     # This would be the ideal behavior
-    # assert 'nested1/nested2' in result.stdout or 'nested2' in result.stdout
-    # assert 'nested1/nested2/nested3' in result.stdout or 'nested3' in result.stdout
+    # assert 'nested1/nested2' in result.output or 'nested2' in result.output
+    # assert 'nested1/nested2/nested3' in result.output or 'nested3' in result.output
 
 
 def test_pull_sub_nested_using_level_files(nested_in_nested_repos):
