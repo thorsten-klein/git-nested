@@ -74,6 +74,15 @@ markers = [
 ]
 addopts = "--strict-markers"
 
+[tool.coverage.run]
+# `--cov=git_nested` resolves through the editable install's site-packages
+# path. Without this remapping coverage.xml records site-packages filenames,
+# and SonarQube -- which is told `sonar.sources=src` -- silently reports 0%.
+relative_files = true
+
+[tool.coverage.paths]
+source = ["src/git_nested", "*/site-packages/git_nested"]
+
 [tool.coverage.report]
 fail_under = 100
 show_missing = true
@@ -85,14 +94,18 @@ exclude_also = [
 ]
 
 [tool.setuptools]
-py-modules = ["git_nested"]
-package-dir = {"" = "lib"}
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.setuptools_scm]
 fallback_version = "1.0.0"
 
 [tool.setuptools.package-data]
-"*" = ["*.sh", "*.bash"]
+# The previous glob ("*" = ["*.sh", "*.bash"]) matched nothing: there was no
+# package, and no shell scripts under the module's directory.
+"git_nested" = ["py.typed"]
 
 [tool.ruff]
 line-length = 120
@@ -119,7 +132,7 @@ line-ending = "lf"
 preview = true
 
 [tool.complexipy]
-paths = ["lib", "tests"]
+paths = ["src", "tests"]
 max-complexity-allowed = 5
 failed = true
 color = "auto"
@@ -127,11 +140,11 @@ sort = "asc"
 
 [tool.mypy]
 python_version = "3.11"
-files = ["lib"]
+files = ["src"]
 
 [tool.pyright]
 pythonVersion = "3.11"
-include = ["lib"]
+include = ["src"]
 
 [tool.bandit]
 # git-nested's whole job is orchestrating git as a subprocess -- these fire on
@@ -157,7 +170,7 @@ format = "ruff format ."
 lint = "ruff check ."
 mypy = "mypy"
 pyright = "pyright"
-bandit = "bandit -c pyproject.toml -r lib"
+bandit = "bandit -c pyproject.toml -r src"
 "pip-audit" = "pip-audit --skip-editable"
 complexity = "complexipy"
 # Fast inner loop: the unit tests only, and deliberately WITHOUT --cov --
@@ -172,7 +185,7 @@ test = {cmd = "pytest -v -n=auto -W error --cov-config=pyproject.toml --cov=git_
 exe = "scripts/create-python-exe.sh"
 test-exe = ["exe", {cmd = "pytest -v -n=auto -W error", env = {PYTHONIOENCODING = "utf-8", GIT_NESTED_EXE = "dist/git-nested"}}]
 
-clean = "rm -rf dist/ build/ *.egg-info lib/*.egg-info"
+clean = "rm -rf dist/ build/ *.egg-info src/*.egg-info"
 build = ["clean", {cmd = "uv build"}]
 publish-test = {cmd = "uv publish --publish-url https://test.pypi.org/legacy/"}
 publish = "uv publish"

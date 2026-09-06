@@ -1,13 +1,39 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+"""Launcher for running git-nested straight out of a checkout.
+
+`.rc` puts this directory on PATH, so `git nested ...` resolves here. src/ is
+prepended to sys.path so this launcher wins over any pip-installed git_nested,
+which is the precedence the old lib/ layout had.
+
+Not the entry point for anything else: pip installs get the console script
+from [project.scripts], and the frozen binary gets its own generated stub
+(see scripts/create-python-exe.sh, which explains why this file cannot be
+used for the freeze).
+"""
+
 import sys
-import os
 
-# Add the lib directory to the Python path
-lib_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, lib_dir)
+_MIN_PYTHON = (3, 11)
+if sys.version_info < _MIN_PYTHON:
+    # This launcher runs under whatever `python3` PATH resolves to, which on
+    # an older distro can predate the floor in pyproject.toml. Say so plainly:
+    # the alternative is an ImportError traceback from deep inside the package.
+    sys.stderr.write(
+        "git-nested: requires Python {}.{} or newer, but 'python3' here is {}.{}.\n"
+        "            Re-run with a newer interpreter, e.g.\n"
+        "                python{}.{} {} --version\n".format(
+            *_MIN_PYTHON, *sys.version_info[:2], *_MIN_PYTHON, __file__
+        )
+    )
+    raise SystemExit(1)
 
-from git_nested import main
+from pathlib import Path  # noqa: E402  (kept below the version guard)
+
+_SRC = Path(__file__).resolve().parent.parent / "src"
+if _SRC.is_dir():
+    sys.path.insert(0, str(_SRC))
+
+from git_nested import main  # noqa: E402  (path setup must precede the import)
 
 if __name__ == '__main__':
     sys.exit(main())

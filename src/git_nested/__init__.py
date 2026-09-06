@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """git-nested - Git Submodule Alternative.
 
 Copyright 2026 - Thorsten Klein <thorsten.klein.git@gmail.com>
