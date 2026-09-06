@@ -2,6 +2,7 @@
 
 import contextlib
 import io
+import subprocess
 import sys
 
 import git_nested
@@ -67,6 +68,35 @@ def test_git_runner_raises_when_git_version_too_old(monkeypatch):
     monkeypatch.setattr(GitRunner, "get_version", lambda self: "1.0.0")
     with pytest.raises(GitNestedError, match="Requires git version"):
         GitRunner()
+
+
+def test_git_runner_squelches_the_filter_branch_warning(monkeypatch):
+    """git filter-branch sleeps 10s per call unless this is set -- see _git_env."""
+    seen = {}
+
+    def fake_run(cmd, **kwargs):
+        seen.update(kwargs['env'])
+        return subprocess.CompletedProcess(args=cmd, returncode=0, stdout='', stderr='')
+
+    runner = object.__new__(GitRunner)
+    monkeypatch.setattr(git_nested.subprocess, "run", fake_run)
+    runner.run(['status'])
+    assert seen['FILTER_BRANCH_SQUELCH_WARNING'] == '1'
+
+
+def test_git_runner_keeps_a_caller_supplied_env(monkeypatch):
+    """A caller passing env= (the GIT_INDEX_FILE paths) must not lose it, or gain os.environ."""
+    seen = {}
+
+    def fake_run(cmd, **kwargs):
+        seen.update(kwargs['env'])
+        return subprocess.CompletedProcess(args=cmd, returncode=0, stdout='', stderr='')
+
+    runner = object.__new__(GitRunner)
+    monkeypatch.setattr(git_nested.subprocess, "run", fake_run)
+    runner.run(['status'], env={'GIT_INDEX_FILE': '/tmp/idx'})
+    assert seen['GIT_INDEX_FILE'] == '/tmp/idx'
+    assert seen['FILTER_BRANCH_SQUELCH_WARNING'] == '1'
 
 
 def test_git_runner_get_version_raises_when_unparseable(monkeypatch):
