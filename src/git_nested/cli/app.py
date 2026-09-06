@@ -7,20 +7,23 @@ current Flags -- and dispatches argv to the right handler in `commands`.
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 from .. import checks, commands, completion, discovery, output
 from ..errors import GitNestedError
 from ..git import GitRunner
-from ..models import CommandContext, Flags
+from ..models import CommandContext, Flags, NestedConfig
 from ..repo import GitNestedRepo
 from . import parser, setup
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class GitNestedCommand:
     """Handles command-line interface and user I/O."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Wire up the git runner and repo/business-logic layer."""
         self.git = GitRunner()
         # Kept for callers that reach for the business-logic layer through
@@ -44,7 +47,7 @@ class GitNestedCommand:
         for subdir_path in discovery.find_all_nested_repositories(self.git, ctx.flags):
             self.dispatch_command(command, replace(ctx, subdir=subdir_path))
 
-    def main(self, args):
+    def main(self, args: list[str]) -> None:
         """Main entry point."""
         # Before the parser: `__complete` is deliberately not a subcommand.
         # It is an implementation detail of the printed completion scripts,
@@ -66,7 +69,7 @@ class GitNestedCommand:
         finally:
             detach()
 
-    def _run(self, args) -> None:
+    def _run(self, args: list[str]) -> None:
         """Parse `args` and run the command it names, with output already wired up."""
         command, ctx = self.parse_args(args)
         output.set_level(ctx.flags)
@@ -78,7 +81,7 @@ class GitNestedCommand:
         else:
             self.dispatch_command(command, ctx)
 
-    def parse_args(self, args_list):
+    def parse_args(self, args_list: list[str]) -> tuple[str, CommandContext]:
         """Parse command line arguments.
 
         Returns:
@@ -94,7 +97,9 @@ class GitNestedCommand:
 
         handler(ctx)
 
-    def setup_command(self, command, flags, subdir, upstream):
+    def setup_command(
+        self, command: str, flags: Flags, subdir: str | Path | None, upstream: str | None
+    ) -> tuple[Path, Path, str, NestedConfig]:
         """Setup command with parameters.
 
         Returns:

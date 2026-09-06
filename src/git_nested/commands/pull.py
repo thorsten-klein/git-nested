@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import NoReturn
 
 from .. import content, filters, messages, output, refs, worktree
 from ..cli import setup
@@ -98,7 +99,15 @@ def _run_merge_or_rebase(
     return None
 
 
-def _pull_forced(git, flags, subdir, gitnested, subref, config, head_commit) -> None:
+def _pull_forced(
+    git: GitRunner,
+    flags: Flags,
+    subdir: Path,
+    gitnested: Path,
+    subref: str,
+    config: NestedConfig,
+    head_commit: str,
+) -> None:
     """Handle cmd_pull's `--force` path: reclone via do_clone, committing the result if needed."""
     up_to_date, config, nested_commit_ref, upstream_head_commit = clone.do_clone(
         git=git,
@@ -168,11 +177,18 @@ def cmd_pull(ctx: CommandContext) -> None:
     )
 
 
-def _handle_pull_conflict(subdir, subdir_worktree, error_msg, config, flags, subref) -> None:
+def _handle_pull_conflict(
+    subdir: Path,
+    subdir_worktree: Path | None,
+    error_msg: str | None,
+    config: NestedConfig,
+    flags: Flags,
+    subref: str,
+) -> NoReturn:
     """Report a pull's merge/rebase conflict and exit, per do_pull's failure path."""
-    if error_msg is None:
+    if error_msg is None or subdir_worktree is None:
         raise AssertionError(
-            'do_pull returned error_msg=None with success=False and nested_commit_ref set'
+            'do_pull returned error_msg/subdir_worktree=None with success=False and nested_commit_ref set'
         )  # pragma: no cover -- invariant guard, unreachable via the public API
     method = flags.method or config.method
     help_text = messages.pull_conflict_help(subdir, subdir_worktree, method, flags.message_file, subref)
@@ -184,7 +200,15 @@ def _handle_pull_conflict(subdir, subdir_worktree, error_msg, config, flags, sub
 
 
 def _finalize_successful_pull(
-    git, flags, subdir, gitnested, subref, config, nested_commit_ref, subdir_worktree, head_commit
+    git: GitRunner,
+    flags: Flags,
+    subdir: Path,
+    gitnested: Path,
+    subref: str,
+    config: NestedConfig,
+    nested_commit_ref: str | None,
+    subdir_worktree: Path | None,
+    head_commit: str,
 ) -> None:
     """Commit a successfully-pulled nested branch and report success.
 

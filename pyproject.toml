@@ -113,7 +113,7 @@ line-length = 120
 indent-width = 4
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "SIM", "PTH", "RET", "ARG", "C4", "RUF", "D", "T20", "TRY", "PL"]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "PTH", "RET", "ARG", "C4", "RUF", "D", "T20", "TRY", "PL", "ANN"]
 ignore = [
     "E501",    # line length is enforced by the formatter, not the linter
     "TRY003",  # GitNestedError carries the user-facing message; that IS the long
@@ -131,7 +131,9 @@ convention = "google"
 # unused fixture/mock-callback arguments are idiomatic pytest, not a smell;
 # a test's own name is its documentation, so docstrings aren't required; and
 # an end-to-end test is a long straight line of steps by nature (PLR0915).
-"tests/**" = ["ARG001", "ARG002", "ARG005", "D", "PLR0915"]
+# ANN is off here too: a test takes fixtures and returns None, so annotating
+# 730 signatures would say nothing the fixture names do not already say.
+"tests/**" = ["ARG001", "ARG002", "ARG005", "D", "PLR0915", "ANN"]
 # the one place allowed to write to stdout -- everything else goes through it.
 "src/git_nested/output.py" = ["T201"]
 

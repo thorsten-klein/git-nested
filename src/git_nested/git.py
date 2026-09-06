@@ -8,6 +8,7 @@ import shutil
 import subprocess
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any  # kwargs forwarded to subprocess.run, whose own stub types them Any
 
 from . import output
 from .constants import REQUIRED_GIT_VERSION
@@ -32,12 +33,12 @@ def _git_env(env: dict[str, str] | None) -> dict[str, str]:
 class GitRunner:
     """Simplified git command execution."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Check the environment and record the detected git version."""
         self.check()
         self.version = self.get_version()
 
-    def run(self, args: Sequence[str | Path], may_fail=False, **kwargs) -> subprocess.CompletedProcess:
+    def run(self, args: Sequence[str | Path], may_fail: bool = False, **kwargs: Any) -> subprocess.CompletedProcess:  # noqa: ANN401
         """Run git command."""
         # Convert any Path objects to strings
         cmd = ['git'] + [str(arg) for arg in args]
@@ -54,7 +55,7 @@ class GitRunner:
         # Command succeeded
         return result
 
-    def check_output(self, args: Sequence[str | Path], may_fail=False, **kwargs) -> str:
+    def check_output(self, args: Sequence[str | Path], may_fail: bool = False, **kwargs: Any) -> str:  # noqa: ANN401
         """Run git command and return its stripped stdout."""
         result = self.run(args=args, may_fail=may_fail, **kwargs)
         return result.stdout.strip()
@@ -82,19 +83,19 @@ class GitRunner:
         result = self.run(['merge-base', '--is-ancestor', commit, list_head], may_fail=True)
         return result.returncode == 0
 
-    def check(self):
+    def check(self) -> None:
         """Check that environment is suitable."""
         if not shutil.which('git'):
             raise GitNestedError("git is not on PATH")
         version = self.get_version()
 
-        def version_tuple(v):
+        def version_tuple(v: str) -> tuple[int, ...]:
             return tuple(map(int, (v.split("."))))
 
         if version_tuple(version) < version_tuple(REQUIRED_GIT_VERSION):
             raise GitNestedError(f"git {REQUIRED_GIT_VERSION} or newer is required, but this is {version}")
 
-    def get_version(self):
+    def get_version(self) -> str:
         """Return the installed git version string (e.g. '2.43.0')."""
         git_version = self.check_output(['--version'])
         # Bounded digit groups (rather than unbounded `\d+`) keep this linear: an
