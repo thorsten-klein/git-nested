@@ -5,6 +5,7 @@ import textwrap
 import pytest
 import yaml
 from conftest import assert_commit_count, clone_repo, cmd_git_nested, create_upstream_repo, tree
+
 from git_nested import GitNestedError
 
 

@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 from fakes import FakeGit
+
 from git_nested import Flags, GitNestedError, GitNestedRepo, NestedConfig
 
 # ============================================================================

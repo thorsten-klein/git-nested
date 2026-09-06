@@ -74,13 +74,13 @@ fi
 # typically root, from a build run inside a container with the checkout
 # mounted, which is precisely how the portable binary is built.
 clean_in_tree_build_artifacts() {
-    rm -rf "$REPO_ROOT/build" "$REPO_ROOT"/*.egg-info "$REPO_ROOT"/lib/*.egg-info
+    rm -rf "$REPO_ROOT/build" "$REPO_ROOT"/*.egg-info "$REPO_ROOT"/src/*.egg-info
 }
 if ! clean_in_tree_build_artifacts; then
-    echo "ERROR: cannot remove $REPO_ROOT/build (or lib/*.egg-info) -- left by a build" >&2
+    echo "ERROR: cannot remove $REPO_ROOT/build (or src/*.egg-info) -- left by a build" >&2
     echo "ERROR: that ran as a different user, e.g. as root inside a container." >&2
     echo "ERROR: Remove them with the same user, e.g.:" >&2
-    echo "ERROR:   docker run --rm -v \"$REPO_ROOT\":/src alpine rm -rf /src/build /src/lib/git_nested.egg-info" >&2
+    echo "ERROR:   docker run --rm -v \"$REPO_ROOT\":/src alpine rm -rf /src/build /src/src/git_nested.egg-info" >&2
     exit 1
 fi
 
@@ -100,10 +100,11 @@ echo ">>> installing git-nested + pyinstaller==$PYINSTALLER_VERSION"
 "$VENV_PY" -m pip install --quiet "$REPO_ROOT" "pyinstaller==$PYINSTALLER_VERSION"
 
 # lib/git-nested, the launcher used from a checkout, is not usable here: it has
-# no .py suffix (PyInstaller wants a python source file) and it prepends its own
-# directory to sys.path, which inside a frozen binary points at a lib/ that does
-# not exist. The three lines below are the same entry point without either
-# problem -- git_nested is imported from the archive, exactly as installed.
+# no .py suffix (PyInstaller wants a python source file) and it prepends the
+# checkout's src/ to sys.path, which inside a frozen binary points at a
+# directory that does not exist. The three lines below are the same entry
+# point without either problem -- git_nested is imported from the archive,
+# exactly as installed.
 cat > "$BUILD_DIR/git-nested-entry.py" <<'EOF'
 import sys
 from git_nested import main

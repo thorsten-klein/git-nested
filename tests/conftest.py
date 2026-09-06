@@ -11,9 +11,10 @@ import textwrap
 from pathlib import Path
 from types import SimpleNamespace
 
-import git_nested
 import pytest
 import yaml
+
+import git_nested
 
 # Path to a standalone git-nested executable (see scripts/create-python-exe.sh)
 # to run the whole suite against instead of the git_nested module in this
