@@ -11,6 +11,7 @@ import git_nested
 from git_nested import Flags, GitNestedError, GitNestedRepo, GitRunner, NestedConfig, _version, refs
 from git_nested import __main__ as dunder_main
 from git_nested import git as git_module
+from git_nested.cli import main as cli_main
 
 # ============================================================================
 # Version detection
@@ -208,7 +209,9 @@ def test_main_exits_130_on_keyboard_interrupt(monkeypatch):
         def main(self, args):
             raise KeyboardInterrupt
 
-    monkeypatch.setattr(git_nested, "GitNestedCommand", RaisingCommand)
+    # Patch where main() looks the class up, not the git_nested re-export --
+    # patching the re-export would succeed and change nothing.
+    monkeypatch.setattr(cli_main, "GitNestedCommand", RaisingCommand)
     with pytest.raises(SystemExit) as exc_info:
         git_nested.main()
     assert exc_info.value.code == 130

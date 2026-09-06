@@ -71,30 +71,27 @@ def _is_self_repo(node: ast.expr) -> bool:
     )
 
 
-def _facade_call_sites(path: Path) -> list[str]:
-    """Every `self.repo.<name>` access in one file."""
+def _facade_call_sites(path: Path) -> list[tuple[str, str]]:
+    """Every `self.repo.<name>` access in one file, as (location, name)."""
     tree = ast.parse(path.read_text())
     return [
-        f"{path.name}:{n.lineno} self.repo.{n.attr}"
+        (f"{path.name}:{n.lineno}", n.attr)
         for n in ast.walk(tree)
         if isinstance(n, ast.Attribute) and _is_self_repo(n.value)
     ]
 
 
-def _facade_scanned_files() -> list[Path]:
-    """Production packages that must call free functions directly.
+def test_no_call_site_resolves_through_the_facade():
+    """Every `self.repo.<name>` must name an attribute the class really has.
 
-    Empty until cli/ and commands/ are extracted; the assertion below is what
-    keeps them from growing `self.repo.` call sites once they exist.
+    A name only __getattr__ can resolve is invisible to mypy and pyright,
+    which is the whole reason the split was worth doing. The facade exists
+    for downstream callers, not for us.
     """
-    return sorted(SRC.glob("cli/**/*.py")) + sorted(SRC.glob("commands/**/*.py"))
-
-
-def test_production_code_does_not_call_through_the_facade():
-    """The facade is for downstream callers; our own code must not need it.
-
-    Routing through __getattr__ would hide every signature from mypy and
-    pyright, which is the whole reason the split was worth doing.
-    """
-    offenders = [site for path in _facade_scanned_files() for site in _facade_call_sites(path)]
+    offenders = [
+        f"{where} self.repo.{name}"
+        for path in sorted(SRC.rglob("*.py"))
+        for where, name in _facade_call_sites(path)
+        if not hasattr(type(GitNestedRepo()), name)
+    ]
     assert not offenders
