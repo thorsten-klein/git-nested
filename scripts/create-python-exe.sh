@@ -139,7 +139,7 @@ echo ">>> installing git-nested + pyinstaller==$PYINSTALLER_VERSION"
 "$VENV_PY" -m pip install --quiet --upgrade pip
 "$VENV_PY" -m pip install --quiet "$(native_path "$REPO_ROOT")" "pyinstaller==$PYINSTALLER_VERSION"
 
-# lib/git-nested, the launcher used from a checkout, is not usable here: it has
+# bin/git-nested, the launcher used from a checkout, is not usable here: it has
 # no .py suffix (PyInstaller wants a python source file) and it prepends the
 # checkout's src/ to sys.path, which inside a frozen binary points at a
 # directory that does not exist. The three lines below are the same entry

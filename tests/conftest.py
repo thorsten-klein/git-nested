@@ -345,9 +345,9 @@ def env(tmp_path):
         'HOME': str(test_env.test_home),
         'GIT_CONFIG_GLOBAL': str(test_env.test_home / '.gitconfig'),
         'GIT_CONFIG_SYSTEM': '/dev/null',
-        # lib/ holds the 'git-nested' launcher `git nested` dispatches to --
+        # bin/ holds the 'git-nested' launcher `git nested` dispatches to --
         # replaced by the directory of the frozen binary when testing that.
-        'PATH': f"{GIT_NESTED_EXE.parent if GIT_NESTED_EXE else root_dir / 'lib'}:{os.getenv('PATH')}",
+        'PATH': f"{GIT_NESTED_EXE.parent if GIT_NESTED_EXE else root_dir / 'bin'}:{os.getenv('PATH')}",
     }
 
     with update_env(env_vars):
@@ -604,7 +604,7 @@ def cmd_git_nested_subprocess(args, cwd, check: bool = True):
 
     Invoked as `git nested`, not as the executable directly: that is how users
     run it, and it only works if git finds a 'git-nested' on PATH -- which the
-    env fixture points at either lib/ or the frozen binary.
+    env fixture points at either bin/ or the frozen binary.
     """
     args = shlex.split(args) if isinstance(args, str) else [str(a) for a in args]
 
