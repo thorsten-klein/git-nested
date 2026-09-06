@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import shutil
-from contextlib import chdir
 from pathlib import Path
 
 from . import checks
+from ._compat import chdir
 from .git import GitRunner
 
 

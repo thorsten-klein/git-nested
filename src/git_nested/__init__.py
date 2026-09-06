@@ -9,8 +9,7 @@ Copyright 2026 - Thorsten Klein <thorsten.klein.git@gmail.com>
 # without the import cycles a package of this shape would otherwise grow.
 from __future__ import annotations
 
-from contextlib import chdir
-
+from ._compat import chdir
 from ._version import VERSION
 from .cli.app import GitNestedCommand
 from .cli.main import main

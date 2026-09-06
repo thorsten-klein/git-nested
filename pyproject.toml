@@ -8,9 +8,9 @@ dynamic = ["version"]
 description = "Git Submodule Alternative"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
-    "PyYAML>=6.0",
+    "PyYAML>=6.0,<7",
 ]
 authors = [
     {name = "Thorsten Klein", email = "thorsten.klein.git@gmail.com"}
@@ -21,6 +21,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Version Control :: Git",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -139,11 +140,11 @@ color = "auto"
 sort = "asc"
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.10"
 files = ["src"]
 
 [tool.pyright]
-pythonVersion = "3.11"
+pythonVersion = "3.10"
 include = ["src"]
 
 [tool.bandit]

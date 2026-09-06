@@ -13,7 +13,7 @@ used for the freeze).
 
 import sys
 
-_MIN_PYTHON = (3, 11)
+_MIN_PYTHON = (3, 10)
 if sys.version_info < _MIN_PYTHON:
     # This launcher runs under whatever `python3` PATH resolves to, which on
     # an older distro can predate the floor in pyproject.toml. Say so plainly:
