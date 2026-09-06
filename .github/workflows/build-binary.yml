@@ -1,10 +1,14 @@
 name: Build binary
 
-# Builds the standalone 'git-nested' executable and uploads it as an artifact.
-# Called by test.yml (so every push/PR proves the recipe still builds) and by
-# release-binary.yml (which attaches it to the release) -- so what CI exercises
-# is built by exactly the recipe that ships, rather than a lookalike that can
-# drift away from it.
+# Builds the standalone 'git-nested' executable for one target and uploads it
+# as an artifact. Called by test.yml (so every push/PR proves the recipe still
+# builds) and by release-binary.yml (which attaches it to the release) -- so
+# what CI exercises is built by exactly the recipe that ships, rather than a
+# lookalike that can drift away from it.
+#
+# One call builds one target: PyInstaller freezes for the machine it runs on
+# and nothing else, so Linux, macOS and Windows binaries come from three calls
+# with different 'runs-on'/'container', not from one job.
 on:
   workflow_call:
     inputs:
@@ -18,30 +22,66 @@ on:
         type: string
         required: false
         default: git-nested-binary
+      runs-on:
+        description: 'Runner to build on -- ubuntu-latest, macos-latest, windows-latest'
+        type: string
+        required: false
+        default: ubuntu-latest
+      container:
+        description: 'Container to build inside (Linux only). Empty: build on the runner itself.'
+        type: string
+        required: false
+        default: almalinux:8
+      python-version:
+        description: 'Python to freeze, e.g. 3.12'
+        type: string
+        required: false
+        default: '3.12'
     outputs:
+      archive:
+        description: 'File name of the built archive, e.g. git-nested-1.2.3-x64-linux.tar.xz. Only meaningful for a single (non-matrix) call.'
+        value: ${{ jobs.build.outputs.archive }}
       version:
-        description: 'Version of the built git-nested, e.g. 1.2.3 -- for composing the exact git-nested-<version>-x64-linux.tar.xz filename in a caller'
+        description: 'Version of the built git-nested, e.g. 1.2.3'
         value: ${{ jobs.build.outputs.version }}
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    # A PyInstaller binary links the glibc of the machine that built it, and
-    # glibc is only backward compatible -- built on ubuntu-latest it would
-    # refuse to start on anything older than that runner. AlmaLinux 8 has
-    # glibc 2.28, the oldest that still runs the node20 the actions below
-    # need, which covers every distro from Ubuntu 20.04 / Debian 10 /
-    # Fedora 29 / RHEL 8 onwards. glibc-based distros only -- musl ones
-    # (Alpine) can never run this binary.
-    container: almalinux:8
+    runs-on: ${{ inputs.runs-on }}
+    # An empty string here means "no container", which is what the macOS and
+    # Windows callers pass -- containers are a Linux-runner feature.
+    #
+    # For Linux the default is almalinux:8, and that is a portability
+    # decision, not a convenience one: a PyInstaller binary links the glibc of
+    # the machine that built it, and glibc is only backward compatible, so
+    # built on ubuntu-latest it would refuse to start on anything older than
+    # that runner. AlmaLinux 8 has glibc 2.28, the oldest that still runs the
+    # node20 the actions below need, which covers every distro from Ubuntu
+    # 20.04 / Debian 10 / Fedora 29 / RHEL 8 onwards. glibc-based distros only
+    # -- musl ones (Alpine) can never run this binary.
+    container: ${{ inputs.container }}
+    # bash everywhere, including Windows, where the default is pwsh --
+    # create-python-exe.sh is one script for all three targets.
+    defaults:
+      run:
+        shell: bash
     outputs:
+      archive: ${{ steps.build.outputs.archive }}
       version: ${{ steps.build.outputs.version }}
     steps:
       # Before the checkout -- without git, actions/checkout silently falls
       # back to downloading a tarball, and a checkout with no .git has no
-      # tags for setuptools-scm to derive the version from.
+      # tags for setuptools-scm to derive the version from. Only the container
+      # needs this; a hosted runner ships all of it.
       - name: Install build prerequisites
-        run: dnf -y install python3.12 python3.12-pip git tar xz
+        if: inputs.container != ''
+        run: dnf -y install "python${{ inputs.python-version }}" "python${{ inputs.python-version }}-pip" git tar xz
+
+      # ... and the runners get their python from here instead.
+      - uses: actions/setup-python@v7
+        if: inputs.container == ''
+        with:
+          python-version: ${{ inputs.python-version }}
 
       - uses: actions/checkout@v7
         with:
@@ -58,21 +98,40 @@ jobs:
       - name: Build the executable
         id: build
         run: |
-          scripts/create-python-exe.sh --output dist --python python3.12
-          # 'git-nested Version: X.Y.Z' -> X.Y.Z. Exposed as a job output so a
-          # caller can compose the exact git-nested-<version>-x64-linux.tar.xz
-          # filename itself (e.g. release-binary.yml's 'gh release upload')
-          # instead of globbing for it.
-          echo "version=$(dist/git-nested --version | head -1 | cut -d' ' -f3)" >> "$GITHUB_OUTPUT"
+          # In the container python is installed under its versioned name; on
+          # a runner setup-python puts a plain 'python' on PATH.
+          if [ -n "${{ inputs.container }}" ]; then
+              PY="python${{ inputs.python-version }}"
+          else
+              PY=python
+          fi
+          scripts/create-python-exe.sh --output dist --python "$PY"
+          # The archive name carries the version and the target
+          # (git-nested-<version>-<arch>-<os>.tar.xz, .zip on Windows), so it
+          # cannot be spelled out ahead of time -- it is published as an
+          # output for callers that need the exact name.
+          #
+          # nullglob: only one of the two patterns ever matches (a build
+          # produces .tar.xz or .zip, never both) -- without it the unmatched
+          # pattern is passed to ls literally, ls exits non-zero trying to
+          # read it, and pipefail+errexit abort the step right here with no
+          # visible error (ls's message went to /dev/null).
+          shopt -s nullglob
+          ARCHIVE="$(ls dist/*.tar.xz dist/*.zip 2>/dev/null | head -1)"
+          test -n "$ARCHIVE" || { echo "no archive produced" >&2; exit 1; }
+          echo "archive=$(basename "$ARCHIVE")" >> "$GITHUB_OUTPUT"
+          # 'git-nested Version: X.Y.Z' -> X.Y.Z
+          EXE=dist/git-nested
+          [ -f "$EXE" ] || EXE=dist/git-nested.exe
+          echo "version=$("$EXE" --version | head -1 | cut -d' ' -f3)" >> "$GITHUB_OUTPUT"
 
-      # the .tar.xz rather than the bare executable. It is what a release
-      # actually ships, and unlike a zipped artifact it keeps the exec bit,
-      # so consumers just untar and run it. Named git-nested-<version>-x64-linux
-      # by create-python-exe.sh, so the version can't be spelled out here --
-      # matched by glob instead (see steps.build.outputs.version for callers
-      # that need the exact name).
+      # the archive rather than the bare executable. It is what a release
+      # actually ships, and on the two platforms where it is a .tar.xz it
+      # keeps the exec bit as well, so consumers just untar and run it.
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.artifact }}
-          path: dist/git-nested-*-x64-linux.tar.xz
+          path: |
+            dist/*.tar.xz
+            dist/*.zip
           if-no-files-found: error

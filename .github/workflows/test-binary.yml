@@ -1,7 +1,7 @@
 name: Test binary
 
-# Runs the *whole* pytest suite against the standalone executable instead of
-# against the git_nested module in the checkout: conftest's GIT_NESTED_EXE
+# Runs the *whole* pytest suite against the standalone Linux executable rather
+# than against the git_nested module in the checkout: conftest's GIT_NESTED_EXE
 # routes every cmd_git_nested() call through `git nested ...` on PATH, so the
 # ~130 tests drive the frozen binary as a user would. That is what catches the
 # failures unique to freezing -- a module PyInstaller did not collect, package
@@ -62,13 +62,13 @@ jobs:
 
       # into its own directory: the env fixture puts the binary's directory on
       # PATH, and the repo root is not a good thing to put there. Named
-      # git-nested-<version>-x64-linux.tar.xz, so matched by glob. 'git-nested'
+      # git-nested-<version>-<arch>-linux.tar.xz, so matched by glob. 'git-nested'
       # inside is a symlink to the versioned binary, so both land in bin/
       # together.
       - name: Unpack the binary
         run: |
           mkdir -p bin
-          tar -C bin -xf git-nested-*-x64-linux.tar.xz
+          tar -C bin -xf git-nested-*-linux.tar.xz
           bin/git-nested --version
 
       # no coverage flags: the code being executed lives in another process
