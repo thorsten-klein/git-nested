@@ -17,7 +17,7 @@ def create_worktree(git: GitRunner, branch: str, git_tmp: Path) -> Path:
     return subdir_worktree
 
 
-def remove_worktree(git: GitRunner, worktree: Path | None):
+def remove_worktree(git: GitRunner, worktree: Path | None) -> None:
     """Remove worktree."""
     if not worktree:
         return
@@ -33,7 +33,7 @@ def remove_worktree(git: GitRunner, worktree: Path | None):
     git.run(['worktree', 'prune'])
 
 
-def delete_branch(git: GitRunner, branch: str, git_tmp: Path):
+def delete_branch(git: GitRunner, branch: str, git_tmp: Path) -> None:
     """Delete a branch."""
     subdir_worktree = git_tmp / branch
     remove_worktree(git, subdir_worktree)

@@ -113,9 +113,15 @@ line-length = 120
 indent-width = 4
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "SIM", "PTH", "RET", "ARG", "C4", "RUF", "D"]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "PTH", "RET", "ARG", "C4", "RUF", "D", "T20", "TRY", "PL", "ANN"]
 ignore = [
-    "E501", # line length is enforced by the formatter, not the linter
+    "E501",    # line length is enforced by the formatter, not the linter
+    "TRY003",  # GitNestedError carries the user-facing message; that IS the long
+               # message outside the exception class, and there is one exception class
+    "PLR0913", # complexipy caps cognitive complexity at 5, which forces functions to
+               # be split, which pushes their state out into parameters. The two rules
+               # pull opposite ways and complexipy is the one measuring readability
+    "PLR2004", # what it finds here is `len(parts) != 2` -- naming that 2 hides it
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -123,8 +129,13 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 # unused fixture/mock-callback arguments are idiomatic pytest, not a smell;
-# a test's own name is its documentation, so docstrings aren't required.
-"tests/**" = ["ARG001", "ARG002", "ARG005", "D"]
+# a test's own name is its documentation, so docstrings aren't required; and
+# an end-to-end test is a long straight line of steps by nature (PLR0915).
+# ANN is off here too: a test takes fixtures and returns None, so annotating
+# 730 signatures would say nothing the fixture names do not already say.
+"tests/**" = ["ARG001", "ARG002", "ARG005", "D", "PLR0915", "ANN"]
+# the one place allowed to write to stdout -- everything else goes through it.
+"src/git_nested/output.py" = ["T201"]
 
 [tool.ruff.format]
 quote-style = "preserve"
@@ -141,11 +152,29 @@ sort = "asc"
 
 [tool.mypy]
 python_version = "3.10"
-files = ["src"]
+files = ["src", "tests"]
+# Both conftest.py files would otherwise claim the module name "conftest" and
+# mypy stops at the collision. With explicit bases they are tests.conftest and
+# tests.unit.conftest instead -- at the cost of the sibling imports pytest's
+# own sys.path insertion makes work, which the override below waves through.
+mypy_path = "src:."
+explicit_package_bases = true
+
+# The tests are checked for the mistakes that matter in a test -- a call with
+# the wrong arguments, an attribute that is not there -- but not required to
+# annotate themselves; see the ANN per-file-ignore for why.
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = ["conftest", "fakes"]
+ignore_missing_imports = true
 
 [tool.pyright]
 pythonVersion = "3.10"
-include = ["src"]
+include = ["src", "tests"]
+extraPaths = ["src", "tests"]
 
 [tool.bandit]
 # git-nested's whole job is orchestrating git as a subprocess -- these fire on

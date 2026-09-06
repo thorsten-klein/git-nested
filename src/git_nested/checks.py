@@ -76,7 +76,7 @@ def _check_head_and_index_clean(git: GitRunner, command: str, pwd: Path) -> None
         raise GitNestedError(f"{pwd}: can't {command}, the index has changes")
 
 
-def check_worktree_clean(git: GitRunner, command: str):
+def check_worktree_clean(git: GitRunner, command: str) -> None:
     """Ensure working copy has no uncommitted changes."""
     if command not in ['clone', 'init', 'pull', 'push', 'branch', 'commit', 'diff']:
         return
@@ -92,7 +92,7 @@ def check_worktree_clean(git: GitRunner, command: str):
     _check_head_and_index_clean(git, command, pwd)
 
 
-def check_subdir_for_init(git: GitRunner, subdir: Path, gitnested: Path):
+def check_subdir_for_init(git: GitRunner, subdir: Path, gitnested: Path) -> None:
     """Check subdir is ready for init."""
     if not subdir.exists():
         raise GitNestedError(f"{subdir}: does not exist")

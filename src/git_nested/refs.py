@@ -9,7 +9,7 @@ from .errors import GitNestedError
 from .git import GitRunner
 
 
-def create_nested_ref(git: GitRunner, subref: str, ref_type: str, commit: str):
+def create_nested_ref(git: GitRunner, subref: str, ref_type: str, commit: str) -> str:
     """Create a git ref pointing to commit."""
     ref_name = f'refs/nested/{subref}/{ref_type}'
     git.run(['update-ref', ref_name, commit])

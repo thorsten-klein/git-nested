@@ -72,7 +72,13 @@ def _do_clone_dispatch(
 
 
 def _do_clone_forced(
-    git: GitRunner, flags: Flags, config: NestedConfig, subdir: Path, gitnested: Path, subref: str, branch
+    git: GitRunner,
+    flags: Flags,
+    config: NestedConfig,
+    subdir: Path,
+    gitnested: Path,
+    subref: str,
+    branch: str | None,
 ) -> tuple[bool, NestedConfig, str]:
     """Handle the force-reclone branch of do_clone.
 
