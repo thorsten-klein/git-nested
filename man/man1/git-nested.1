@@ -1,0 +1,141 @@
+.TH GIT-NESTED 1 "2026-09-06" "git-nested" "Git Nested Manual"
+.SH NAME
+git-nested \- keep another repository inside a subdirectory of your own
+.SH SYNOPSIS
+.B git nested
+.RI [ options ]
+.I command
+.RI [ args ]
+.SH DESCRIPTION
+.B git-nested
+puts the contents of another repository into a subdirectory of yours and
+commits them as ordinary files. Anyone who clones your repository gets those
+files with it. There is nothing extra to initialise, no second set of access
+rights to hand out, and every commit of yours is complete on its own.
+.PP
+Each such subdirectory holds a
+.B .gitnested
+file recording where the content came from and how far it has been kept up to
+date. That file is what
+.B git nested pull
+and
+.B git nested push
+use to move changes between your subdirectory and its upstream.
+.SH COMMANDS
+.TP
+.B branch
+create a branch holding the local nested commits
+.TP
+.B clean
+remove the branches, refs and remotes nested operations created
+.TP
+.B clone
+clone an upstream repository into a subdirectory
+.TP
+.B commit
+add a nested branch to the current history as one commit
+.TP
+.B completion
+print the shell completion script for git-nested
+.TP
+.B config
+read or write a nested repository's configuration
+.TP
+.B diff
+show a nested repository's local changes against upstream
+.TP
+.B fetch
+fetch upstream content for a nested repository
+.TP
+.B init
+turn an existing subdirectory into a nested repository
+.TP
+.B pull
+update a nested repository from its upstream
+.TP
+.B push
+push a nested repository's local changes upstream
+.TP
+.B status
+report on the nested repositories of this repository
+.TP
+.B version
+print version information
+.PP
+Run
+.BI "git nested " command " --help"
+for what a command does, its options and some examples.
+.SH OPTIONS
+These are accepted before any command.
+.TP
+.B \-\-version
+print the git-nested version number
+.TP
+.BR \-q ", " \-\-quiet
+report only warnings and errors
+.TP
+.BR \-v ", " \-\-verbose
+narrate the steps being taken; twice to log every git command
+.TP
+.BR \-d ", " \-\-debug
+log every git command as it is issued
+.SH FILES
+.TP
+.I <subdir>/.gitnested
+YAML, one per nested subdirectory, committed to your repository and never
+pushed upstream. It records the upstream remote and branch, the last upstream
+commit taken, the commit of yours the two were last equal at, and whether
+pulls merge or rebase. Read and write it with
+.BR "git nested config" .
+.SH EXAMPLES
+.PP
+Take a library into
+.IR ext/lib :
+.PP
+.RS
+.nf
+git nested clone https://github.com/user/lib ext/lib
+.fi
+.RE
+.PP
+Bring in what upstream has done since:
+.PP
+.RS
+.nf
+git nested pull ext/lib
+.fi
+.RE
+.PP
+Send your changes back:
+.PP
+.RS
+.nf
+git nested push ext/lib
+.fi
+.RE
+.PP
+See where every nested subdirectory stands:
+.PP
+.RS
+.nf
+git nested status
+.fi
+.RE
+.SH EXIT STATUS
+.TP
+.B 0
+success
+.TP
+.B 1
+the command failed; the reason is on standard error
+.TP
+.B 130
+interrupted
+.SH SEE ALSO
+.BR git (1),
+.BR git-submodule (1),
+.BR git-subtree (1)
+.PP
+https://github.com/thorsten-klein/git-nested
+.SH AUTHOR
+Thorsten Klein. Based on git-subrepo by Ingy döt Net.

@@ -178,7 +178,12 @@ if [ "$ARCHIVE" = 1 ]; then
     # needs nothing here -- the binary prints its own script, so
     # `eval "$(git-nested completion bash)"` works from the tarball too.
     cp "$REPO_ROOT/LICENSE" "$BUILD_DIR/dist/LICENSE"
-    XZ_OPT=-9 tar -C "$BUILD_DIR/dist" -caf "$OUTPUT_DIR/$ARCHIVE_NAME" "git-nested-$VERSION" git-nested LICENSE
+    # The manual page too, under the man1/ that MANPATH expects, so that
+    # `export MANPATH=<unpacked>/man:$MANPATH` is all `git nested --help`
+    # needs -- git answers --help by opening the manual and nothing else.
+    mkdir -p "$BUILD_DIR/dist/man/man1"
+    cp "$REPO_ROOT/man/man1/git-nested.1" "$BUILD_DIR/dist/man/man1/git-nested.1"
+    XZ_OPT=-9 tar -C "$BUILD_DIR/dist" -caf "$OUTPUT_DIR/$ARCHIVE_NAME" "git-nested-$VERSION" git-nested LICENSE man
 fi
 
 echo

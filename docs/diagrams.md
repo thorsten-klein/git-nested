@@ -439,6 +439,37 @@ sequenceDiagram
 
 ---
 
+## diff
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant git-nested
+    participant Git
+
+    User->>git-nested: git nested diff <subdir>
+    git-nested->>Git: rev-parse --git-dir
+    git-nested->>Git: symbolic-ref --short --quiet HEAD
+    git-nested->>Git: rev-parse --is-inside-work-tree
+    Note over git-nested: Read .gitnested config
+
+    git-nested->>Git: fetch --no-tags --quiet <remote> <branch>
+    git-nested->>Git: rev-parse FETCH_HEAD^0
+    git-nested->>Git: update-ref refs/nested/<subref>/fetch FETCH_HEAD^0
+
+    git-nested->>Git: rev-parse HEAD:<subdir>
+    Note over git-nested: The tree of the subdir as committed locally
+
+    opt filter configured
+        Note over git-nested: Build a filtered copy of the upstream commit
+    end
+
+    git-nested->>Git: diff <local tree> <upstream> -- ':(exclude,glob)**/.gitnested*'
+    Note over git-nested: The .gitnested files are git-nested's own<br/>bookkeeping and never part of the comparison
+```
+
+---
+
 ## clean
 
 ```mermaid
@@ -467,4 +498,43 @@ sequenceDiagram
             git-nested->>Git: update-ref -d refs/original/refs/heads/nested/<subref>/*
         end
     end
+```
+
+---
+
+## config
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant git-nested
+    participant Git
+
+    User->>git-nested: git nested config <subdir> [<key> [<value>]]
+    git-nested->>Git: rev-parse --git-dir
+    git-nested->>Git: symbolic-ref --short --quiet HEAD
+    git-nested->>Git: rev-parse --is-inside-work-tree
+
+    alt No value given
+        Note over git-nested: Read <subdir>/.gitnested and print
+    else Value given
+        Note over git-nested: Reject a read-only field or an invalid value
+        Note over git-nested: Write <subdir>/.gitnested
+        git-nested->>Git: add -f -- <subdir>/.gitnested
+    end
+```
+
+---
+
+## version
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant git-nested
+    participant Git
+
+    User->>git-nested: git nested version
+    Note over git-nested: Runs outside a repository too --<br/>no repository checks are made
+    git-nested->>Git: --version
 ```

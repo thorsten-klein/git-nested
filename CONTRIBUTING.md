@@ -49,21 +49,47 @@ Please be respectful and constructive in all interactions with the community. We
    uv run poe all
    ```
 
-### Running Tests Individually
+### How the Tests Are Laid Out
+
+```
+tests/
+  conftest.py   shared fixtures and the git-nested runner
+  unit/         fast, no repositories -- one function at a time, with fakes
+  e2e/          real git repositories in a temp dir, driven through the CLI
+```
+
+Each directory is also a marker (`-m unit`, `-m e2e`), applied by path, so a
+new test file needs nothing added to it.
+
+### Running Tests
 
 ```bash
-# Run all tests
+# Everything, with the coverage gate
 uv run poe test
 
-# Run specific test file
+# Just the unit tests -- seconds, and no coverage gate to trip over
+uv run poe test-unit
+
+# One file
 uv run poe test tests/e2e/test_clone.py
 
-# Run with verbose output
-uv run poe test -vv
-
-# You can also run pytest directly
-uv run pytest
+# Or pytest directly
+uv run pytest -k clone
 ```
+
+`poe test` requires **100% line coverage** and fails below it. New code needs
+a test that reaches it; a line that genuinely cannot be reached gets a
+`# pragma: no cover` with a comment saying why.
+
+Tests run in parallel and touch real repositories, so a flake is possible.
+To hunt one down:
+
+```bash
+uv run poe flakefinder
+```
+
+It reruns the suite 200 times over. Give it a `-k` to narrow it down to the
+test you suspect.
 
 ### Testing the Standalone Executable
 

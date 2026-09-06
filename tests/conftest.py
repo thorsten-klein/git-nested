@@ -642,10 +642,12 @@ def cmd_git_nested_subprocess(args, cwd, check: bool = True):
     args = shlex.split(args) if isinstance(args, str) else [str(a) for a in args]
 
     # `git nested --help` never reaches git-nested: git answers every
-    # '--help'/'-h' itself by opening man git-nested, which is not installed
-    # and exits 16. Only the help output is unreachable that way, so those
-    # calls go straight to the executable -- which is also what git's own man
-    # page tells users to do when there is no manual entry.
+    # '--help'/'-h' itself by opening man git-nested. The manual page ships
+    # in man/ and `.rc` puts it on MANPATH, but the test environment sets
+    # only PATH -- deliberately, so that the suite does not need `man`
+    # installed at all. Those calls therefore go straight to the executable,
+    # which is what git's own man page tells users to do when there is no
+    # manual entry.
     cmd = ['git-nested'] if {'--help', '-h'} & set(args) else ['git', 'nested']
 
     result = subprocess.run(cmd + args, cwd=cwd, capture_output=True, text=True, check=False)
