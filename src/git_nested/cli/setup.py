@@ -17,7 +17,7 @@ from ..git import GitRunner
 from ..models import Flags, NestedConfig
 
 
-def _resolve_gitnested_file(subdir: Path, flags: Flags) -> Path:
+def resolve_gitnested_file(subdir: Path, flags: Flags) -> Path:
     """Determine the .gitnested (or highest .gitnested.levelN) file to use for subdir."""
     gitnested = subdir / GITNESTED_FILENAME
 
@@ -106,7 +106,7 @@ def setup_command(
     subref = refs.sanitize_subref(git, str(subdir))
 
     # Determine the appropriate .gitnested file to use by detecting existing level files
-    gitnested = _resolve_gitnested_file(subdir, flags)
+    gitnested = resolve_gitnested_file(subdir, flags)
 
     if not flags.force:
         _check_existing_worktree(git, flags, command, subdir, gitnested)

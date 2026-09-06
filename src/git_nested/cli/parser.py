@@ -143,5 +143,7 @@ def parse_args(git: GitRunner, args_list: list[str]) -> tuple[str, CommandContex
         upstream=upstream,
         nested_commit_ref=nested_commit_ref,
         completion_shell=getattr(args, 'shell', None),
+        config_key=getattr(args, 'key', None),
+        config_value=getattr(args, 'value', None),
     )
     return args.command, context
