@@ -245,7 +245,7 @@ def cmd_push(ctx: CommandContext) -> None:
     )
     subdir, gitnested, subref, config = setup.setup_command(git, 'push', flags, subdir, upstream)
 
-    output.verbose(f"Pushing {subdir} to upstream", flags)
+    output.verbose(f"Pushing {subdir} to upstream")
     success, branch_name, subdir_worktree, branch_created, new_commit = do_push(
         git=git,
         flags=flags,
@@ -257,7 +257,7 @@ def cmd_push(ctx: CommandContext) -> None:
         branch=nested_commit_ref,
     )
 
-    if _handle_push_failure(success, subdir_worktree, subdir, flags):
+    if _handle_push_failure(success, subdir_worktree, subdir):
         return
 
     # do_push only returns success=True together with a non-None new_commit
@@ -268,7 +268,7 @@ def cmd_push(ctx: CommandContext) -> None:
         )  # pragma: no cover -- invariant guard, unreachable via the public API
 
     if branch_created:
-        output.verbose(f"Remove branch 'nested/{subref}'.", flags)
+        output.verbose(f"Remove branch 'nested/{subref}'.")
         worktree.delete_branch(git, f'nested/{subref}', git_tmp)
 
     # Update .gitnested if --commit or if --remote/--branch specified
@@ -277,11 +277,10 @@ def cmd_push(ctx: CommandContext) -> None:
 
     output.say(
         f"Nested repository '{subdir}' pushed to '{config.remote}' ({branch_name}).",
-        flags,
     )
 
 
-def _handle_push_failure(success, subdir_worktree, subdir, flags) -> bool:
+def _handle_push_failure(success, subdir_worktree, subdir) -> bool:
     """Handle a failed do_push call (rebase failure or nothing to push).
 
     Returns:
@@ -289,11 +288,11 @@ def _handle_push_failure(success, subdir_worktree, subdir, flags) -> bool:
     """
     if not success and subdir_worktree:
         # Rebase failed
-        output.say('The "git rebase" command failed', flags)
+        output.say('The "git rebase" command failed')
         sys.exit(1)
 
     if not success:
-        output.say(f"Nested repository '{subdir}' has no new commits to push.", flags)
+        output.say(f"Nested repository '{subdir}' has no new commits to push.")
         return True
 
     return False
@@ -301,7 +300,7 @@ def _handle_push_failure(success, subdir_worktree, subdir, flags) -> bool:
 
 def _record_push_commit(git, flags, subdir, gitnested, config, new_commit, head_commit):
     """Update `.gitnested` and create a commit recording the push (the --commit flag)."""
-    output.verbose(f"Put updates into '{subdir}/.gitnested' file.", flags)
+    output.verbose(f"Put updates into '{subdir}/.gitnested' file.")
 
     gitfile.update_gitrepo_file(
         git=git,

@@ -51,7 +51,21 @@ class GitNestedCommand:
         if completion.handle_dunder_complete(self.git, args):
             return
 
+        # The handler goes on before the parser runs, because the parser is
+        # itself allowed to report a bad command line; it comes off again in
+        # a finally, because a single process may run many commands (the
+        # test suite runs hundreds) and a handler left attached would print
+        # every later line once more per command.
+        detach = output.configure()
+        try:
+            self._run(args)
+        finally:
+            detach()
+
+    def _run(self, args) -> None:
+        """Parse `args` and run the command it names, with output already wired up."""
         command, ctx = self.parse_args(args)
+        output.set_level(ctx.flags)
         self.git.check()
         ctx.git_tmp, ctx.head_commit = checks.check_repository(self.git, command)
 

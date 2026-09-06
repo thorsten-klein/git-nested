@@ -28,7 +28,7 @@ def do_pull(
     Returns:
         tuple: (success, nested_commit_ref, subdir_worktree, error_msg)
     """
-    upstream_head_commit = fetch.do_fetch(git, flags, config, subref)
+    upstream_head_commit = fetch.do_fetch(git, config, subref)
 
     # Force reclone is handled entirely by the caller (cmd_pull), which
     # never calls do_pull() when flags.force is set.
@@ -39,7 +39,7 @@ def do_pull(
     worktree.delete_branch(git, branch, git_tmp)
     nested_commit_ref = branch
 
-    output.verbose(f"Create nested branch '{branch}'.", flags)
+    output.verbose(f"Create nested branch '{branch}'.")
     subdir_worktree = content.create_nested_branch(
         git=git,
         flags=flags,
@@ -128,7 +128,7 @@ def _pull_forced(git, flags, subdir, gitnested, subref, config, head_commit) -> 
             subdir_worktree=None,
             command='clone',
         )
-    output.say(f"Nested repository '{subdir}' pulled from '{config.remote}' ({config.branch}).", flags)
+    output.say(f"Nested repository '{subdir}' pulled from '{config.remote}' ({config.branch}).")
 
 
 def _build_pull_conflict_help(subdir, subdir_worktree, method, flags, subref) -> str:
@@ -202,7 +202,7 @@ def cmd_pull(ctx: CommandContext) -> None:
     )
 
     if not success and pulled_commit_ref is None:
-        output.say(f"Nested repository '{subdir}' is up to date with upstream branch '{config.branch}'.", flags)
+        output.say(f"Nested repository '{subdir}' is up to date with upstream branch '{config.branch}'.")
         return
 
     if not success:
@@ -223,11 +223,11 @@ def _handle_pull_conflict(subdir, subdir_worktree, error_msg, config, flags, sub
             'do_pull returned error_msg=None with success=False and nested_commit_ref set'
         )  # pragma: no cover -- invariant guard, unreachable via the public API
     # Print the error message to stdout
-    output.say(error_msg, flags)
+    output.say(error_msg)
     # Merge/rebase failed
     method = flags.method or config.method
     msg = _build_pull_conflict_help(subdir, subdir_worktree, method, flags, subref)
-    print(msg, file=sys.stderr)
+    output.say(msg)
     sys.exit(1)
 
 
@@ -242,7 +242,7 @@ def _finalize_successful_pull(
         raise AssertionError(
             'do_pull returned success=True without nested_commit_ref/subdir_worktree set'
         )  # pragma: no cover -- invariant guard, unreachable via the public API
-    output.verbose(f"Commit the new '{nested_commit_ref}' content.", flags)
+    output.verbose(f"Commit the new '{nested_commit_ref}' content.")
     upstream_head_commit = git.check_output(['rev-parse', f'refs/nested/{subref}/fetch'])
     content.commit_nested_branch(
         git=git,
@@ -256,4 +256,4 @@ def _finalize_successful_pull(
         subdir_worktree=subdir_worktree,
         command='pull',
     )
-    output.say(f"Nested repository '{subdir}' pulled from '{config.remote}' ({config.branch}).", flags)
+    output.say(f"Nested repository '{subdir}' pulled from '{config.remote}' ({config.branch}).")

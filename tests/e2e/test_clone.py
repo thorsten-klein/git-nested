@@ -111,5 +111,4 @@ def test_clone_with_quiet_verbose(foo_bar_cloned):
         * Put info into 'bar2/.gitnested' file.
         * Commit .gitnested update to the current branch.
         Nested repository '{env.upstream}/bar' (master) cloned into 'bar2'.""")
-    assert result.stderr.strip() == ""
     assert (env.workspace / 'foo' / 'bar2').is_dir()

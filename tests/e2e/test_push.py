@@ -528,9 +528,9 @@ def test_push_rebase_conflict_during_branch_creation(foo_bar_cloned_and_nested):
     # already-fetched upstream then conflicts while (re)building the nested branch.
     result = cmd_git_nested('push -M rebase --force bar --branch=master', cwd=env.workspace / 'foo', check=False)
     assert result.returncode == 1
-    # git's own rebase output follows, naming a commit sha, so only the two
-    # lines git-nested contributes are pinned here.
-    assert result.output.startswith('The "git rebase" command failed')
+    # git's own rebase output is interleaved and names a commit sha, so only
+    # the two lines git-nested contributes are pinned here.
+    assert 'The "git rebase" command failed' in result.output
     assert "git-nested: Command failed: 'git rebase refs/nested/bar/fetch nested/bar'." in result.output
 
 

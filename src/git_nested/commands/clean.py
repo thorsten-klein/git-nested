@@ -52,4 +52,4 @@ def cmd_clean(ctx: CommandContext) -> None:
     subdir, _, _, _ = setup.setup_command(git, 'clean', flags, subdir, upstream)
 
     for item in do_clean(git, flags, subdir, git_tmp):
-        output.say(f"Removed {item}.", flags)
+        output.say(f"Removed {item}.")

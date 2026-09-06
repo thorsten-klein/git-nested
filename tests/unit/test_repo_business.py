@@ -6,7 +6,18 @@ import pytest
 import yaml
 from fakes import FakeGit
 
-from git_nested import Flags, GitNestedError, NestedConfig, checks, content, discovery, filters, gitfile, history
+from git_nested import (
+    Flags,
+    GitNestedError,
+    NestedConfig,
+    checks,
+    content,
+    discovery,
+    filters,
+    gitfile,
+    history,
+    output,
+)
 from git_nested.commands import fetch, push, status
 
 # ============================================================================
@@ -16,9 +27,8 @@ from git_nested.commands import fetch, push, status
 
 def test_do_fetch_raises_when_remote_is_none():
     config = NestedConfig(remote='none', branch='main')
-    flags = Flags()
     with pytest.raises(GitNestedError, match="Remote is 'none'"):
-        fetch.do_fetch(git=None, flags=flags, config=config, subref='sub')
+        fetch.do_fetch(git=None, config=config, subref='sub')
 
 
 # ============================================================================
@@ -437,7 +447,8 @@ def test_sync_gitnested_files_also_updates_sibling_regular_file(tmp_path):
 # ============================================================================
 
 
-def test_finalize_commit_logs_when_there_is_nothing_to_commit(capsys):
+def test_finalize_commit_logs_when_there_is_nothing_to_commit(printing, no_colour, capsys):
+    output.set_level(Flags(verbose=1))
     git = (
         FakeGit()
         .respond('diff', '--cached', '--quiet', returncode=0)
@@ -455,4 +466,4 @@ def test_finalize_commit_logs_when_there_is_nothing_to_commit(capsys):
         subdir_worktree=None,
         command='pull',
     )
-    assert "No changes to commit for .gitnested update" in capsys.readouterr().out
+    assert "No changes to commit for .gitnested update" in capsys.readouterr().err

@@ -93,7 +93,7 @@ def _create_one_level_file(git: GitRunner, flags: Flags, gitnested_path: str, le
     gitnested_file = Path(gitnested_path)
     level_file = gitnested_file.parent / f'{GITNESTED_LEVEL_PREFIX}{level}'
 
-    output.verbose(f"Creating {level_file} for sub-nested repository", flags)
+    output.verbose(f"Creating {level_file} for sub-nested repository")
 
     # Copy the .gitnested content to .gitnested.levelN, but clear the parent field
     # The parent field from the intermediate repo doesn't apply in this context
