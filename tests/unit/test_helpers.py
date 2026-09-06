@@ -1,15 +1,24 @@
 """Unit tests for small, git-repo-independent (or nearly so) git_nested helpers"""
 
-import contextlib
-import io
 import subprocess
 import sys
 
 import pytest
 
 import git_nested
-from git_nested import Flags, GitNestedError, GitNestedRepo, GitRunner, NestedConfig
+from git_nested import (
+    Flags,
+    GitNestedError,
+    GitRunner,
+    NestedConfig,
+    _version,
+    discovery,
+    gitfile,
+    refs,
+)
 from git_nested import __main__ as dunder_main
+from git_nested import git as git_module
+from git_nested.cli import main as cli_main
 
 # ============================================================================
 # Version detection
@@ -20,15 +29,15 @@ def test_detect_version_falls_back_when_package_not_installed(monkeypatch):
     """_detect_version() returns the placeholder when the package isn't installed"""
 
     def raise_not_found(name):
-        raise git_nested.PackageNotFoundError(name)
+        raise _version.PackageNotFoundError(name)
 
-    monkeypatch.setattr(git_nested, "_pkg_version", raise_not_found)
-    assert git_nested._detect_version() == "0.99.99"
+    monkeypatch.setattr(_version, "_pkg_version", raise_not_found)
+    assert _version._detect_version() == "0.99.99"
 
 
 def test_detect_version_returns_installed_version():
     """_detect_version() returns whatever importlib.metadata reports when installed"""
-    assert git_nested._detect_version() == git_nested._pkg_version("git-nested")
+    assert _version._detect_version() == _version._pkg_version("git-nested")
 
 
 # ============================================================================
@@ -66,7 +75,7 @@ def test_dunder_main_is_wired_to_the_package_entry_point():
 
 
 def test_git_runner_raises_when_git_not_on_path(monkeypatch):
-    monkeypatch.setattr(git_nested.shutil, "which", lambda name: None)
+    monkeypatch.setattr(git_module.shutil, "which", lambda name: None)
     with pytest.raises(GitNestedError, match="Can't find 'git' in PATH"):
         GitRunner()
 
@@ -86,7 +95,7 @@ def test_git_runner_squelches_the_filter_branch_warning(monkeypatch):
         return subprocess.CompletedProcess(args=cmd, returncode=0, stdout='', stderr='')
 
     runner = object.__new__(GitRunner)
-    monkeypatch.setattr(git_nested.subprocess, "run", fake_run)
+    monkeypatch.setattr(git_module.subprocess, "run", fake_run)
     runner.run(['status'])
     assert seen['FILTER_BRANCH_SQUELCH_WARNING'] == '1'
 
@@ -100,7 +109,7 @@ def test_git_runner_keeps_a_caller_supplied_env(monkeypatch):
         return subprocess.CompletedProcess(args=cmd, returncode=0, stdout='', stderr='')
 
     runner = object.__new__(GitRunner)
-    monkeypatch.setattr(git_nested.subprocess, "run", fake_run)
+    monkeypatch.setattr(git_module.subprocess, "run", fake_run)
     runner.run(['status'], env={'GIT_INDEX_FILE': '/tmp/idx'})
     assert seen['GIT_INDEX_FILE'] == '/tmp/idx'
     assert seen['FILTER_BRANCH_SQUELCH_WARNING'] == '1'
@@ -114,35 +123,17 @@ def test_git_runner_get_version_raises_when_unparseable(monkeypatch):
 
 
 # ============================================================================
-# GitNestedRepo
+# Business-logic helpers
 # ============================================================================
 
 
-def test_repo_say_prints_when_not_quiet():
-    stdout = io.StringIO()
-    repo = GitNestedRepo()
-    with contextlib.redirect_stdout(stdout):
-        repo.say("hello", Flags(quiet=False))
-    assert stdout.getvalue().strip() == "hello"
-
-
-def test_repo_say_silent_when_quiet():
-    stdout = io.StringIO()
-    repo = GitNestedRepo()
-    with contextlib.redirect_stdout(stdout):
-        repo.say("hello", Flags(quiet=True))
-    assert stdout.getvalue() == ""
-
-
 def test_extract_level_number_rejects_non_digit_suffix():
-    repo = GitNestedRepo()
-    assert repo._extract_level_number('nested1/.gitnested.levelX', 'nested1') is None
+    assert gitfile._extract_level_number('nested1/.gitnested.levelX', 'nested1') is None
 
 
 def test_create_one_level_file_returns_when_source_missing(tmp_path):
     """The recursive level-file writer is a no-op when its source .gitnested is gone"""
-    repo = GitNestedRepo()
-    result = repo._create_one_level_file(
+    result = gitfile._create_one_level_file(
         git=None,
         flags=Flags(),
         gitnested_path=str(tmp_path / "sub" / ".gitnested"),
@@ -153,17 +144,17 @@ def test_create_one_level_file_returns_when_source_missing(tmp_path):
 
 
 def test_guess_subdir_raises_without_remote():
-    repo = GitNestedRepo()
     with pytest.raises(GitNestedError, match="No remote specified"):
-        repo.guess_subdir("")
+        refs.guess_subdir("")
 
 
 def test_sanitize_subref_raises_when_unsanitizable(monkeypatch):
     """Force the 'even sanitized, still not a valid ref' guard for an input we can't otherwise construct"""
-    repo = GitNestedRepo()
-    monkeypatch.setattr(GitNestedRepo, "_is_valid_ref", lambda self, git, ref: False)
+    # Patch the definition in git_nested.refs, not any re-export of it: only
+    # the definition is what sanitize_subref's own call resolves through.
+    monkeypatch.setattr(refs, "_is_valid_ref", lambda git, ref: False)
     with pytest.raises(GitNestedError, match="Can't determine valid subref"):
-        repo.sanitize_subref(git=None, ref="whatever")
+        refs.sanitize_subref(git=None, ref="whatever")
 
 
 def test_get_default_branch_falls_back_to_main(tmp_path, monkeypatch):
@@ -174,8 +165,7 @@ def test_get_default_branch_falls_back_to_main(tmp_path, monkeypatch):
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(empty_home / ".gitconfig"))
     monkeypatch.setenv("GIT_CONFIG_SYSTEM", "/dev/null")
     git = object.__new__(GitRunner)
-    repo = GitNestedRepo()
-    assert repo.get_default_branch(git) == "main"
+    assert discovery.get_default_branch(git) == "main"
 
 
 # ============================================================================
@@ -205,7 +195,9 @@ def test_main_exits_130_on_keyboard_interrupt(monkeypatch):
         def main(self, args):
             raise KeyboardInterrupt
 
-    monkeypatch.setattr(git_nested, "GitNestedCommand", RaisingCommand)
+    # Patch where main() looks the class up, not the git_nested re-export --
+    # patching the re-export would succeed and change nothing.
+    monkeypatch.setattr(cli_main, "GitNestedCommand", RaisingCommand)
     with pytest.raises(SystemExit) as exc_info:
         git_nested.main()
     assert exc_info.value.code == 130
