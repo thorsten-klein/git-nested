@@ -71,6 +71,12 @@ python_functions = ["test_*"]
 [tool.coverage.report]
 fail_under = 100
 show_missing = true
+# `if TYPE_CHECKING:` bodies never execute at runtime, so they are not
+# reachable statements -- without this they would count against the 100% gate.
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "@overload",
+]
 
 [tool.setuptools]
 py-modules = ["git_nested"]
@@ -132,7 +138,14 @@ include = ["lib"]
 skips = ["B404", "B603", "B607"]
 
 [tool.poe.tasks]
-all = ["pre-commit", "lint", "format", "mypy", "pyright", "bandit", "pip-audit", "complexity", "test"]
+all = ["lock-check", "pre-commit", "lint", "format", "mypy", "pyright", "bandit", "pip-audit", "complexity", "test"]
+# Every workflow installs with `uv sync --frozen`, so a pyproject dependency
+# edit without a matching `uv lock` fails in CI as an opaque sync error. This
+# turns that into a local, named failure instead. It is a poe task rather than
+# a pre-commit hook on purpose: this file's header rules out duplicating a
+# pinned tool there, and a uv-pre-commit hook would be a second, independently
+# pinned uv drifting from the one CI runs.
+"lock-check" = "uv lock --check"
 "pre-commit" = "pre-commit run --all-files --show-diff-on-failure"
 format = "ruff format ."
 lint = "ruff check ."
@@ -141,6 +154,9 @@ pyright = "pyright"
 bandit = "bandit -c pyproject.toml -r lib"
 "pip-audit" = "pip-audit --skip-editable"
 complexity = "complexipy"
+# Fast inner loop: the unit tests only, and deliberately WITHOUT --cov --
+# `fail_under = 100` would otherwise fail every partial run.
+test-unit = {cmd = "pytest -v -n=auto -W error test/unittest", env = {PYTHONIOENCODING = "utf-8"}}
 flakefinder = "pytest -n=auto -W error --flake-finder --flake-runs=200"
 test = {cmd = "pytest -v -n=auto -W error --cov-config=pyproject.toml --cov=git_nested --junitxml=junit.xml -o junit_family=legacy --cov-report=term --cov-report=html --cov-report=xml", env = {PYTHONIOENCODING = "utf-8"}}
 
