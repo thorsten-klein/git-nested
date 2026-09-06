@@ -11,6 +11,7 @@ from git_nested import completion
 from git_nested.cli.spec import VALID_COMMAND_OPTIONS
 from git_nested.completion import scripts
 from git_nested.constants import COMPLETION_SHELLS
+from git_nested.gitfile import CONFIG_FIELDS
 
 
 @pytest.fixture
@@ -128,6 +129,27 @@ def test_commit_offers_the_nested_branches_too(git):
 
 def test_completion_offers_the_shells(git):
     assert words(git, 'git nested completion ')[: len(COMPLETION_SHELLS)] == list(COMPLETION_SHELLS)
+
+
+def test_config_offers_its_own_keys(git):
+    git.respond('ls-files', stdout='ext/lib/.gitnested\n')
+    assert words(git, 'git nested config ext/lib ')[: len(CONFIG_FIELDS)] == list(CONFIG_FIELDS)
+
+
+def test_every_config_key_carries_its_description(git):
+    git.respond('ls-files', stdout='ext/lib/.gitnested\n')
+    offered = dict(completion.candidates(git, ['git-nested', 'config', 'ext/lib', '']))
+    assert all(offered[field] for field in CONFIG_FIELDS)
+
+
+def test_the_value_of_a_config_key_is_offered(git):
+    git.respond('ls-files', stdout='ext/lib/.gitnested\n')
+    assert words(git, 'git nested config ext/lib method ')[:2] == ['merge', 'rebase']
+
+
+def test_a_config_key_with_no_enumerable_value_offers_only_flags(git):
+    git.respond('ls-files', stdout='ext/lib/.gitnested\n')
+    assert words(git, 'git nested config ext/lib remote ') == ['-h', '--help']
 
 
 def test_the_shells_are_described(git):

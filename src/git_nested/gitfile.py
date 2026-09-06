@@ -14,6 +14,23 @@ from .errors import GitNestedError
 from .git import GitRunner
 from .models import Flags, NestedConfig
 
+# The fields of a .gitnested file, in the order `git nested config` prints
+# them, and what each one is. The nested operations write the whole file, so
+# this is also what `config` is allowed to talk about.
+CONFIG_FIELDS: dict[str, str] = {
+    'remote': "the upstream repository",
+    'branch': "the upstream branch",
+    'method': "how upstream history is joined: 'merge' or 'rebase'",
+    'commit': "the upstream commit currently nested",
+    'parent': "the commit the nested history hangs off",
+    'filter': "the paths of the upstream repository that are nested",
+    'cmdver': "the git-nested version that last wrote this file",
+}
+
+# The rest are written by the nested operations themselves; setting one by
+# hand would describe a state the repository is not in.
+WRITABLE_CONFIG_FIELDS = ('remote', 'branch', 'method', 'parent')
+
 
 def create_level_gitnested_files(
     git: GitRunner, flags: Flags, subdir: Path, head_commit: str, level: int | None = None

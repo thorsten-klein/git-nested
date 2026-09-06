@@ -258,11 +258,27 @@ git nested clean --help
 
 #### `git nested config`
 
-Read or update the configuration of a nested repository.
+Read or update the `.gitnested` configuration of a nested repository.
 
 ```bash
-git nested config --help
+git nested config <subdir>                  # print every field the file sets
+git nested config <subdir> <key>            # print one field
+git nested config <subdir> <key> <value>    # set one field
 ```
+
+| Key | Meaning | Writable |
+| --- | --- | --- |
+| `remote` | the upstream repository | yes |
+| `branch` | the upstream branch | yes |
+| `method` | how upstream history is joined: `merge` or `rebase` | yes |
+| `parent` | the commit the nested history hangs off | yes |
+| `commit` | the upstream commit currently nested | no |
+| `filter` | the paths of the upstream repository that are nested | no |
+| `cmdver` | the git-nested version that last wrote this file | no |
+
+The read-only keys are written by the nested operations themselves; setting one
+by hand would describe a state the repository is not in. A write stages the
+changed `.gitnested` file, it does not commit it.
 
 **Example:**
 ```bash

@@ -13,7 +13,7 @@ from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 
-from .. import discovery
+from .. import discovery, gitfile
 from ..cli.spec import (
     COMMAND_HELP,
     GLOBAL_ARG_SPECS,
@@ -96,7 +96,13 @@ def _directories(_git: GitRunner, cur: str) -> list[Candidate]:
     return [(f"{entry.as_posix()}/", '') for entry in entries]
 
 
+def _config_keys(_git: GitRunner, _cur: str) -> list[Candidate]:
+    """The fields of a .gitnested file, described."""
+    return list(gitfile.CONFIG_FIELDS.items())
+
+
 _POSITIONAL_CANDIDATES: dict[str, Callable[[GitRunner, str], list[Candidate]]] = {
+    'key': _config_keys,
     'nested_branch': _nested_branches,
     'nested_commit_ref': _nested_branches,
     'shell': _shells,
@@ -108,6 +114,12 @@ _POSITIONAL_CANDIDATES: dict[str, Callable[[GitRunner, str], list[Candidate]]] =
 # the shell completes better itself), so it offers nothing.
 _VALUE_CANDIDATES: dict[str, list[Candidate]] = {
     'method': [('merge', "merge the upstream history"), ('rebase', "rebase onto the upstream history")],
+}
+
+# `config <subdir> <key> <value>`: what the third positional may be, keyed
+# by the second. A key absent from here takes a value nothing can enumerate.
+_CONFIG_VALUE_CANDIDATES: dict[str, list[Candidate]] = {
+    'method': _VALUE_CANDIDATES['method'],
 }
 
 
@@ -176,14 +188,19 @@ def _consumed_positionals(prev: list[str]) -> list[str]:
     return positionals
 
 
-def _positional_candidates(git: GitRunner, cur: str, command: str, index: int) -> list[Candidate]:
-    """Candidates for the positional at `index` of `command`, if it has one left."""
+def _positional_candidates(git: GitRunner, cur: str, command: str, positionals: list[str]) -> list[Candidate]:
+    """Candidates for the next positional of `command`, if it has one left."""
+    # positionals[0] is the command itself, so the argument already typed
+    # ahead of the one being completed sits at positionals[index].
     specs = POSITIONALS.get(command, [])
+    index = len(positionals) - 1
     if index >= len(specs):
         return []
     name = specs[index][0]
     if name == 'subdir' and command in _NEW_SUBDIR_COMMANDS:
         return _directories(git, cur)
+    if name == 'value':
+        return _CONFIG_VALUE_CANDIDATES.get(positionals[index], [])
     provider = _POSITIONAL_CANDIDATES.get(name)
     return provider(git, cur) if provider else []
 
@@ -201,7 +218,7 @@ def _command_candidates(git: GitRunner, cur: str, positionals: list[str]) -> lis
     if cur.startswith('-'):
         return _flag_candidates(command)
     return [
-        *_positional_candidates(git, cur, command, len(positionals) - 1),
+        *_positional_candidates(git, cur, command, positionals),
         *_flag_candidates(command),
     ]
 
