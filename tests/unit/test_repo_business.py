@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from fakes import FakeGit
+from fakes import NO_GIT, FakeGit
 
 from git_nested import (
     Flags,
@@ -28,7 +28,7 @@ from git_nested.commands import fetch, push, status
 def test_do_fetch_raises_when_remote_is_none():
     config = NestedConfig(remote='none', branch='main')
     with pytest.raises(GitNestedError, match="the remote is 'none'"):
-        fetch.do_fetch(git=None, config=config, subref='sub')
+        fetch.do_fetch(git=NO_GIT, config=config, subref='sub')
 
 
 # ============================================================================

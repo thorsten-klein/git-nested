@@ -152,11 +152,29 @@ sort = "asc"
 
 [tool.mypy]
 python_version = "3.10"
-files = ["src"]
+files = ["src", "tests"]
+# Both conftest.py files would otherwise claim the module name "conftest" and
+# mypy stops at the collision. With explicit bases they are tests.conftest and
+# tests.unit.conftest instead -- at the cost of the sibling imports pytest's
+# own sys.path insertion makes work, which the override below waves through.
+mypy_path = "src:."
+explicit_package_bases = true
+
+# The tests are checked for the mistakes that matter in a test -- a call with
+# the wrong arguments, an attribute that is not there -- but not required to
+# annotate themselves; see the ANN per-file-ignore for why.
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = ["conftest", "fakes"]
+ignore_missing_imports = true
 
 [tool.pyright]
 pythonVersion = "3.10"
-include = ["src"]
+include = ["src", "tests"]
+extraPaths = ["src", "tests"]
 
 [tool.bandit]
 # git-nested's whole job is orchestrating git as a subprocess -- these fire on
