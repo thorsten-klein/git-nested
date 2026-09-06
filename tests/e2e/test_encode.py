@@ -37,8 +37,7 @@ def test_encode(foo_bar_cloned, dirname, expected_dirname, sanitized_ref):
     # Clone with original dirname, expect it to be normalized
     assert not (env.workspace / 'foo' / dirname).exists()
     result = cmd_git_nested(['clone', str(env.upstream / 'bar'), '--', dirname], cwd=env.workspace / 'foo')
-    assert result.stdout.strip() == f"Nested repository '{env.upstream}/bar' (master) cloned into '{expected_dirname}'."
-    assert result.stderr.strip() == ""
+    assert result.output.strip() == f"Nested repository '{env.upstream}/bar' (master) cloned into '{expected_dirname}'."
     assert (env.workspace / 'foo' / dirname).exists()
 
     # Add new file to bar and push
@@ -51,12 +50,12 @@ def test_encode(foo_bar_cloned, dirname, expected_dirname, sanitized_ref):
     # Pull using original name
     assert not (env.workspace / 'foo' / dirname / 'Bar2').exists()
     result = cmd_git_nested(['pull', '--', dirname], cwd=env.workspace / 'foo')
-    assert result.stdout.strip() == f"Nested repository '{expected_dirname}' pulled from '{env.upstream}/bar' (master)."
+    assert result.output.strip() == f"Nested repository '{expected_dirname}' pulled from '{env.upstream}/bar' (master)."
     assert (env.workspace / 'bar' / 'Bar2').exists()
 
     # Create a branch
     result = cmd_git_nested(['branch', '--force', '--', dirname], cwd=env.workspace / 'foo')
     assert (
-        result.stdout.strip()
+        result.output.strip()
         == f"Created branch 'nested/{sanitized_ref}' and worktree '.git/tmp/nested/{sanitized_ref}'."
     )

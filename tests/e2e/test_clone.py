@@ -12,7 +12,7 @@ def test_clone_into_empty_repo(env):
     env.run(['git', 'init'], cwd=empty_dir)
     assert (env.workspace / 'empty' / '.git').is_dir()
     result = cmd_git_nested(f'clone {env.upstream}/bar', cwd=empty_dir, check=False)
-    assert result.stderr.strip() == "git-nested: You can't clone into an empty repository"
+    assert result.output.strip() == "git-nested: You can't clone into an empty repository"
 
     # assert that repo has no changes
     result = env.run(['git', 'status', '-s'], cwd=empty_dir)
@@ -32,7 +32,7 @@ def test_basic_clone(foo_bar_cloned):
 
     # Do the nested clone and test the output
     result = cmd_git_nested(f'clone {env.upstream}/bar', cwd=env.workspace / 'foo')
-    assert result.stdout.strip() == f"Nested repository '{env.upstream}/bar' (master) cloned into 'bar'."
+    assert result.output.strip() == f"Nested repository '{env.upstream}/bar' (master) cloned into 'bar'."
 
     # Check no remotes created
     result = env.run(['git', 'remote', '-v'], cwd=env.workspace / 'foo')
@@ -78,11 +78,11 @@ def test_clone_tags(foo_bar_cloned):
     result = cmd_git_nested(
         f'clone {env.upstream}/bar light -b lightweight_tag ', cwd=env.workspace / 'foo', check=False
     )
-    assert result.stdout.strip() == f"Nested repository '{env.upstream}/bar' (lightweight_tag) cloned into 'light'."
+    assert result.output.strip() == f"Nested repository '{env.upstream}/bar' (lightweight_tag) cloned into 'light'."
 
     # Clone with annotated tag
     result = cmd_git_nested(f'clone {env.upstream}/bar annotated -b annotated_tag', cwd=env.workspace / 'foo')
-    assert result.stdout.strip() == f"Nested repository '{env.upstream}/bar' (annotated_tag) cloned into 'annotated'."
+    assert result.output.strip() == f"Nested repository '{env.upstream}/bar' (annotated_tag) cloned into 'annotated'."
 
 
 def test_clone_with_quiet_verbose(foo_bar_cloned):
@@ -92,14 +92,13 @@ def test_clone_with_quiet_verbose(foo_bar_cloned):
     # Test clone with --quiet
     result = cmd_git_nested(f'--quiet clone {env.upstream}/bar bar1', cwd=env.workspace / 'foo')
     assert result.returncode == 0
-    assert result.stdout.strip() == ""
-    assert result.stderr.strip() == ""
+    assert result.output.strip() == ""
     assert (env.workspace / 'foo' / 'bar1').is_dir()
 
     # Test clone with --verbose
     result = cmd_git_nested(f'--verbose clone {env.upstream}/bar bar2', cwd=env.workspace / 'foo')
     assert result.returncode == 0
-    assert result.stdout.strip() == textwrap.dedent(f"""\
+    assert result.output.strip() == textwrap.dedent(f"""\
         * Check for worktree with branch nested/bar2
         * Determine the upstream head branch.
         * Fetch the upstream: {env.upstream}/bar (master).
