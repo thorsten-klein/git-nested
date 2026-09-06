@@ -100,6 +100,13 @@ echo 'source /path/to/git-nested/.rc' >> ~/.bashrc
 source ~/.bashrc
 ```
 
+`.rc` works for bash and zsh. Fish has its own:
+
+```fish
+git clone https://github.com/thorsten-klein/git-nested /path/to/git-nested
+echo 'source /path/to/git-nested/.fish.rc' >> ~/.config/fish/config.fish
+```
+
 #### Method 4: From Source (Manual)
 
 ```bash
@@ -132,6 +139,21 @@ parser is built from, so the offered commands, flags and values always match
 the version you have installed. It completes nested repository subdirectories
 and branch names too, by asking git.
 
+#### Manual Page
+
+`git nested --help` opens the manual page, so git has to be able to find it.
+Methods 3 and 4 ship it in `man/`, and `.rc` puts that on `MANPATH` for you;
+otherwise add it yourself:
+
+```bash
+export MANPATH="/path/to/git-nested/man:$MANPATH"
+```
+
+The standalone tarball contains the same page under `man/man1/`.
+
+Per-command help needs nothing set up: `git nested pull --help` and the rest
+print their options and a few examples directly.
+
 ### Usage
 
 ```bash
@@ -150,13 +172,28 @@ git nested status
 
 ## Commands
 
-#### `git nested help`
-
-Show help documentation.
+#### Getting help
 
 ```bash
-git nested --help
+git nested --help          # the manual page
+git nested pull --help     # one command: what it does, its options, examples
 ```
+
+#### How much it tells you
+
+These work with every command. They only affect what git-nested says about
+its work, which goes to stderr -- a result you would pipe somewhere (`status`,
+`diff`, `config`, `completion`) goes to stdout and is never gated.
+
+```bash
+git nested pull ext/lib -q     # only warnings and errors
+git nested pull ext/lib        # the default: what changed
+git nested pull ext/lib -v     # plus each step as it is taken
+git nested pull ext/lib -vv    # plus every git command that is run
+```
+
+Colour is used when the output is a terminal. `NO_COLOR=1` turns it off,
+`FORCE_COLOR=1` keeps it on when piping.
 
 #### `git nested clone`
 
@@ -365,16 +402,18 @@ git nested --version
 
 Each nested repository has a `.gitnested` metadata file that tracks its relationship with upstream:
 
-```ini
-[nested]
-    filter: list                            # Clone filter (e.g., blob:none, tree:0)
-    remote: https://github.com/user/repo    # Upstream repository URL
-    branch: main                             # Tracked branch
-    commit: abc123...                        # Current commit from upstream
-    parent: def456...                        # Parent commit in main repo
-    method: merge                            # Integration method (merge/rebase)
-    cmdver: 1.0.0                            # git-nested version used
+```yaml
+remote: https://github.com/user/repo   # where the content comes from
+branch: main                           # the branch tracked there
+commit: abc123...                      # the last upstream commit taken
+parent: def456...                      # your commit the two were last equal at
+method: merge                          # how pulls join upstream: merge or rebase
+cmdver: 1.0.0                          # the git-nested version that wrote this
+filter: []                             # paths to limit the nested repo to
 ```
+
+Read and write it with [`git nested config`](#git-nested-config) rather than
+by hand.
 
 This file:
 - Is committed to your parent repository
@@ -396,48 +435,18 @@ git nested clean <subdir>   # Clean up temporary branches
 
 ## Development
 
-### Setting Up Development Environment
+Everything about working on git-nested -- setting up, running the tests,
+the checks that have to pass, the commit message convention -- is in
+[CONTRIBUTING.md](CONTRIBUTING.md). The short version:
 
 ```bash
-# Install dependencies with uv (recommended)
-uv sync --dev
-
-# Or with pip
-pip install -e ".[dev]"
+uv sync          # install everything
+uv run poe all   # the full gate: lint, types, security, complexity, tests
+uv run poe test  # just the tests
 ```
 
-### Development Workflow
-
-```bash
-# Run all checks (recommended before committing)
-uv run poe all
-
-# Or run individual checks:
-uv run poe lint       # Check code quality with ruff
-uv run poe format     # Format code with ruff
-uv run poe test       # Run test suite with pytest
-```
-
-## Testing
-
-### Running Tests
-
-```bash
-
-# Optional: Setup a venv using a specific python version
-uv venv --python 3.11
-
-# All Python tests with pytest
-uv run poe test
-
-# Specific test file
-uv run poe test tests/e2e/test_clone.py
-# or
-uv run pytest tests/e2e/test_clone.py
-
-# With verbose output
-uv run poe test -vv
-```
+[docs/diagrams.md](docs/diagrams.md) shows the git commands each subcommand
+runs, which is the fastest way to understand what one actually does.
 
 ## Authors
 
@@ -451,27 +460,7 @@ uv run poe test -vv
 
 ## License
 
-MIT License
-
-Copyright (c) 2026-present Thorsten Klein
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+MIT. See [LICENSE](LICENSE).
 
 ## Acknowledgments
 
@@ -486,13 +475,6 @@ git-nested is a Python rewrite with some modified features and improvements.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Clone your fork locally
-3. Create your feature branch (`git checkout -b feature/amazing-feature`)
-4. Make your changes and add tests
-5. Run all checks (`uv run poe all`)
-6. Commit your changes (`git commit -m 'Add amazing feature'`)
-7. Push to your fork (`git push origin feature/amazing-feature`)
-8. Open a Pull Request on GitHub
+Pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to
+set up, what has to pass before a change can be merged, and how commits should
+be worded.

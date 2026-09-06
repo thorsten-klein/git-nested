@@ -228,7 +228,12 @@ if [ "$ARCHIVE" = 1 ]; then
     # needs nothing here -- the binary prints its own script, so
     # `eval "$(git-nested completion bash)"` works from the archive too.
     cp "$REPO_ROOT/LICENSE" "$BUILD_DIR/dist/LICENSE"
-    ARCHIVE_MEMBERS="git-nested-$VERSION$EXE_SUFFIX $EXE_NAME LICENSE"
+    # The manual page too, under the man1/ that MANPATH expects, so that
+    # `export MANPATH=<unpacked>/man:$MANPATH` is all `git nested --help`
+    # needs -- git answers --help by opening the manual and nothing else.
+    mkdir -p "$BUILD_DIR/dist/man/man1"
+    cp "$REPO_ROOT/man/man1/git-nested.1" "$BUILD_DIR/dist/man/man1/git-nested.1"
+    ARCHIVE_MEMBERS="git-nested-$VERSION$EXE_SUFFIX $EXE_NAME LICENSE man"
     if [ "$ARCHIVE_EXT" = zip ]; then
         # Written by the build venv's python rather than a 'zip' binary: a
         # Windows runner has the former and not always the latter.
