@@ -2,6 +2,7 @@ import contextlib
 import io
 
 import pytest
+
 from git_nested import GitNested, GitNestedError
 
 

@@ -5,9 +5,11 @@ import io
 import subprocess
 import sys
 
-import git_nested
 import pytest
+
+import git_nested
 from git_nested import Flags, GitNestedError, GitNestedRepo, GitRunner, NestedConfig
+from git_nested import __main__ as dunder_main
 
 # ============================================================================
 # Version detection
@@ -51,6 +53,11 @@ def test_nested_config_from_file_missing_branch(tmp_path):
     gitnested.write_text("nested:\n  remote: https://example.com/repo.git\n")
     with pytest.raises(GitNestedError, match="Missing required 'branch'"):
         NestedConfig.from_file(gitnested)
+
+
+def test_dunder_main_is_wired_to_the_package_entry_point():
+    """`python -m git_nested` must reach the same main() the console script does."""
+    assert dunder_main.main is git_nested.main
 
 
 # ============================================================================

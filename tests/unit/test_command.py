@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+
 from git_nested import Flags, GitNestedCommand, GitNestedError
 
 
