@@ -1,7 +1,5 @@
 """Tests for git nested branch command"""
 
-import time
-
 from conftest import (
     assert_commit,
     assert_commit_count,
@@ -9,7 +7,17 @@ from conftest import (
     git_get_commit_msg,
     git_read_head,
     git_rev_parse,
+    update_env,
 )
+
+# A commit date comfortably after anything the fixtures create. Used where a
+# test needs two git operations to land at distinguishable times -- git takes
+# both dates from the environment, so this replaces a real sleep with an
+# instant, deterministic jump.
+_LATER_COMMIT_DATE = {
+    'GIT_AUTHOR_DATE': '2030-01-01T00:00:00+00:00',
+    'GIT_COMMITTER_DATE': '2030-01-01T00:00:00+00:00',
+}
 
 
 def test_branch(foo_bar_cloned_and_nested):
@@ -52,10 +60,11 @@ def test_branch(foo_bar_cloned_and_nested):
     original_head_commit = git_rev_parse(['HEAD'], cwd=env.workspace / 'foo')
     original_gitnested = (env.workspace / 'foo' / 'bar' / '.gitnested').read_text()
 
-    # Make sure that time stamps differ
-    time.sleep(1)
-
-    result = cmd_git_nested('branch bar', cwd=env.workspace / 'foo')
+    # Make sure that time stamps differ. A fixed later date rather than a real
+    # sleep: git reads these from the environment, so the clock never has to
+    # actually advance for the commits to land at a distinct time.
+    with update_env(_LATER_COMMIT_DATE):
+        result = cmd_git_nested('branch bar', cwd=env.workspace / 'foo')
     assert result.stdout.strip() == "Created branch 'nested/bar' and worktree '.git/tmp/nested/bar'."
 
     # Check temporary directory exists
@@ -272,11 +281,11 @@ def test_branch_with_force(foo_bar_cloned_and_nested):
     result = cmd_git_nested('branch bar --force', cwd=env.workspace / 'foo')
     assert result.stdout.strip() == "Created branch 'nested/bar' and worktree '.git/tmp/nested/bar'."
 
-    # sleep to have different timestamps in git
-    time.sleep(1)
-
-    # Create branch again with --force. The resulting branch should be deterministic.
-    result = cmd_git_nested('branch bar --force', cwd=env.workspace / 'foo')
+    # Rebuild at a different timestamp. That is the whole point of the
+    # assertion below: the rebuilt commits keep their hashes because they
+    # take their dates from the source commits, not from 'now'.
+    with update_env(_LATER_COMMIT_DATE):
+        result = cmd_git_nested('branch bar --force', cwd=env.workspace / 'foo')
     assert result.stdout.strip() == "Created branch 'nested/bar' and worktree '.git/tmp/nested/bar'."
 
     branch_commits_2 = git_get_commit_msg(tmp_worktree, args=['--pretty=format:"%h %s"']).strip().splitlines()
