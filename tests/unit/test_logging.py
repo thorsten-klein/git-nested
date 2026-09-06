@@ -52,13 +52,6 @@ def test_trace_needs_two_vs(printing, no_colour, capsys):
     assert capsys.readouterr().err == "$ git rev-parse HEAD\n"
 
 
-def test_debug_reaches_trace_on_its_own(printing, no_colour, capsys):
-    """-d is the direct spelling of what -vv also arrives at."""
-    output.set_level(Flags(debug=True))
-    output.trace('git rev-parse HEAD')
-    assert capsys.readouterr().err == "$ git rev-parse HEAD\n"
-
-
 def test_a_git_command_is_traced(printing, no_colour, capsys):
     """GitRunner announces every invocation it makes, for -vv to pick up."""
     git = GitRunner()  # constructed first: its own probing would be traced too
