@@ -4,16 +4,13 @@
 Copyright 2026 - Thorsten Klein <thorsten.klein.git@gmail.com>
 """
 
-# PEP 604 `X | Y` unions appear throughout this module's annotations (e.g.
-# Flags' fields below), but requires-python floors at 3.9, where that syntax
-# only works at class-body evaluation time from 3.10 on. Postponed evaluation
-# (PEP 563) makes every annotation a lazily-parsed string instead, so `X | Y`
-# is never actually evaluated at import time on 3.9 -- without this, importing
-# this module on 3.9 raises TypeError before a single command runs.
+# Postponed evaluation (PEP 563). The 3.9 floor that originally required this
+# is gone, but it stays: annotations become lazily-parsed strings, which is
+# what lets modules reference each other's types under `if TYPE_CHECKING:`
+# without the import cycles a package of this shape would otherwise grow.
 from __future__ import annotations
 
 import argparse
-import contextlib
 import os
 import re
 import shutil
@@ -22,6 +19,7 @@ import sys
 import tempfile
 import textwrap
 from collections.abc import Callable, Sequence
+from contextlib import chdir
 from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
@@ -47,22 +45,6 @@ GITNESTED_FILENAME = '.gitnested'
 GITNESTED_LEVEL_PREFIX = '.gitnested.level'
 FETCH_HEAD_REV = 'FETCH_HEAD^0'
 GIT_LOG_DATE_DEFAULT_FLAG = '--date=default'
-
-
-@contextlib.contextmanager
-def chdir(path):
-    """Backport of contextlib.chdir stdlib class added in Python 3.11.
-
-    The current working directory is temporarily changed to given path
-    for the duration of the `with` block. When the block exits, the
-    working directory is restored to its original value.
-    """
-    oldpwd = Path.cwd()
-    os.chdir(path)
-    try:
-        yield
-    finally:
-        os.chdir(oldpwd)
 
 
 class GitNestedError(Exception):
