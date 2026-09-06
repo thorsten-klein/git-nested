@@ -2,60 +2,51 @@ import contextlib
 import io
 
 import pytest
-from git_nested import GitNested, GitNestedError
+
+from git_nested import Flags, GitNested, GitNestedError, output
 
 
 def test_log_disabled():
     """Test verbose() doesn't print when verbose=False"""
     stdout = io.StringIO()
-    runner = GitNested()
-    runner.flags.verbose = False
     with contextlib.redirect_stdout(stdout):
-        runner.verbose("this is my text")
+        output.verbose("this is my text", Flags(verbose=False))
     assert stdout.getvalue() == ""
 
 
 def test_log_verbose():
     """Test verbose() prints with verbose=True"""
     stdout = io.StringIO()
-    runner = GitNested()
-    runner.flags.verbose = True
     with contextlib.redirect_stdout(stdout):
-        runner.verbose("this is my text")
+        output.verbose("this is my text", Flags(verbose=True))
     assert stdout.getvalue().strip() == "* this is my text"
 
 
 def test_say_normal():
     """Test say() prints when quiet=False"""
     stdout = io.StringIO()
-    runner = GitNested()
-    runner.flags.quiet = False
     with contextlib.redirect_stdout(stdout):
-        runner.say("normal message")
+        output.say("normal message", Flags(quiet=False))
     assert stdout.getvalue().strip() == "normal message"
 
 
 def test_say_quiet():
     """Test say() doesn't print when quiet=True"""
     stdout = io.StringIO()
-    runner = GitNested()
-    runner.flags.quiet = True
     with contextlib.redirect_stdout(stdout):
-        runner.say("should not appear")
+        output.say("should not appear", Flags(quiet=True))
     assert stdout.getvalue() == ""
 
 
 def test_say_multiple_messages():
     """Test say() with multiple messages"""
     stdout = io.StringIO()
-    runner = GitNested()
-    runner.flags.quiet = False
     with contextlib.redirect_stdout(stdout):
-        runner.say("first message")
-        runner.say("second message")
-    output = stdout.getvalue()
-    assert "first message" in output
-    assert "second message" in output
+        output.say("first message", Flags(quiet=False))
+        output.say("second message", Flags(quiet=False))
+    printed = stdout.getvalue()
+    assert "first message" in printed
+    assert "second message" in printed
 
 
 def test_error_prints_to_stderr():
@@ -90,9 +81,9 @@ def test_error_format():
     runner = GitNested()
     with contextlib.redirect_stderr(stderr), pytest.raises(GitNestedError):
         runner.error("test")
-    output = stderr.getvalue()
-    assert output.startswith("git-nested:")
-    assert "test" in output
+    printed = stderr.getvalue()
+    assert printed.startswith("git-nested:")
+    assert "test" in printed
 
 
 def test_usage_error_prints_to_stderr():
@@ -118,9 +109,9 @@ def test_usage_error_format():
     runner = GitNested()
     with contextlib.redirect_stderr(stderr), pytest.raises(SystemExit):
         runner.usage_error("invalid option")
-    output = stderr.getvalue()
-    assert output.startswith("git-nested:")
-    assert "invalid option" in output
+    printed = stderr.getvalue()
+    assert printed.startswith("git-nested:")
+    assert "invalid option" in printed
 
 
 def test_error_vs_usage_error_difference():
@@ -139,21 +130,17 @@ def test_error_vs_usage_error_difference():
 def test_log_message_with_special_characters():
     """Test verbose() with special characters"""
     stdout = io.StringIO()
-    runner = GitNested()
-    runner.flags.verbose = True
     with contextlib.redirect_stdout(stdout):
-        runner.verbose("message with #, &, @, and 日本語")
+        output.verbose("message with #, &, @, and 日本語", Flags(verbose=True))
     assert "message with #, &, @, and 日本語" in stdout.getvalue()
 
 
 def test_say_message_with_newlines():
     """Test say() preserves newlines in message"""
     stdout = io.StringIO()
-    runner = GitNested()
-    runner.flags.quiet = False
     with contextlib.redirect_stdout(stdout):
-        runner.say("line1\nline2\nline3")
-    output = stdout.getvalue().splitlines()
-    assert "line1" in output
-    assert "line2" in output
-    assert "line3" in output
+        output.say("line1\nline2\nline3", Flags(quiet=False))
+    printed = stdout.getvalue().splitlines()
+    assert "line1" in printed
+    assert "line2" in printed
+    assert "line3" in printed
