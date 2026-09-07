@@ -23,7 +23,6 @@ def find_all_nested_repositories(git: GitRunner, flags: Flags) -> list[Path]:
     tracked_files = git.check_output(['ls-files'])
     gitnesteds = sorted(Path(line).parent for line in tracked_files.splitlines() if line.endswith(GITNESTED_FILENAME))
     if not flags.all_deep:
-        # Filter the paths to contain only outermost nested repository paths
         gitnesteds = _outermost_paths(gitnesteds)
     return gitnesteds
 

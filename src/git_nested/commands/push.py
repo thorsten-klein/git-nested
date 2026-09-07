@@ -80,7 +80,6 @@ def _push_verify_or_refetch(git: GitRunner, flags: Flags, config: NestedConfig, 
         return upstream
     if not flags.force:
         raise GitNestedError(f"upstream {branch_name} has commits you do not have; pull first")
-    # Force mode: fetch original branch to be based on correct commit
     git.run(['fetch', '--no-tags', '--quiet', config.remote, config.branch])
     return git.check_output(['rev-parse', FETCH_HEAD_REV])
 
@@ -270,7 +269,6 @@ def cmd_push(ctx: CommandContext) -> None:
         output.verbose(f"removing branch nested/{subref}")
         worktree.delete_branch(git, f'nested/{subref}', git_tmp)
 
-    # Update .gitnested if --commit or if --remote/--branch specified
     if flags.commit:
         _record_push_commit(git, flags, subdir, gitnested, config, new_commit, head_commit)
 
@@ -284,7 +282,6 @@ def _handle_push_failure(success: bool, subdir_worktree: Path | None, subdir: Pa
         True if the caller should stop (push did not succeed), else False.
     """
     if not success and subdir_worktree:
-        # Rebase failed
         output.error(f"{subdir}: git rebase failed, so nothing was pushed")
 
     if not success:

@@ -64,7 +64,6 @@ def cmd_init(ctx: CommandContext) -> None:
     flags, subdir, upstream, head_commit = ctx.flags, ctx.subdir, ctx.upstream, ctx.head
     subdir, gitnested, subref, config = setup.setup_command(git, 'init', flags, subdir, upstream)
 
-    # Set defaults
     config.remote = config.remote or 'none'
     config.branch = config.branch or discovery.get_default_branch(git)
 

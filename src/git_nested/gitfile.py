@@ -38,20 +38,12 @@ def create_level_gitnested_files(
     """Create .gitnested.levelN files for nested-in-nested repositories.
 
     This allows sub-nested repositories to be pulled/pushed independently
-    even when they are nested within another nested repository.
-
-    Args:
-        git: GitRunner instance
-        flags: Command flags
-        subdir: The subdirectory being cloned/pulled
-        head_commit: The parent commit (will be used as parent for level files)
-        level: The nesting level (auto-detected if None)
+    even when they are nested within another nested repository. `level` is
+    auto-detected from existing level files when not given.
     """
-    # Auto-detect the level based on existing .gitnested.level* files in subdir
     if level is None:
         level = _detect_next_level(git, subdir)
 
-    # Find all .gitnested files within the subdirectory (excluding the subdir's own .gitnested)
     all_files = git.check_output(['ls-files', '--', subdir], may_fail=True) or ''
 
     gitnested_files = [line for line in all_files.splitlines() if _is_nested_gitnested_file(line, subdir)]
@@ -67,13 +59,13 @@ def _is_nested_gitnested_file(line: str, subdir: Path) -> bool:
 
 def _detect_next_level(git: GitRunner, subdir: Path) -> int:
     """Auto-detect the next .gitnested.levelN number for subdir from existing level files."""
-    # Check what level files exist in the subdir itself
     all_files = git.check_output(['ls-files', '--', subdir], may_fail=True) or ''
     existing_levels = [
         lvl for lvl in (_extract_level_number(line, subdir) for line in all_files.splitlines()) if lvl is not None
     ]
 
-    # Start at level 2 (first sub-nested), or one above the highest existing level
+    # Level 1 is the plain .gitnested of the outer nested repo, so the first
+    # sub-nested repo inside it starts numbering at 2.
     return max(existing_levels) + 1 if existing_levels else 2
 
 
@@ -81,7 +73,6 @@ def _extract_level_number(line: str, subdir: Path) -> int | None:
     """Extract the N from a `.gitnested.levelN` git-tracked path, or None if line isn't one."""
     if not (GITNESTED_LEVEL_PREFIX in line and line.startswith(f'{subdir}/{GITNESTED_LEVEL_PREFIX}')):
         return None
-    # Extract level number
     parts = line.split(GITNESTED_LEVEL_PREFIX)
     if len(parts) != 2 or not parts[1].isdigit():
         return None
@@ -95,22 +86,18 @@ def _create_one_level_file(git: GitRunner, flags: Flags, gitnested_path: str, le
 
     output.verbose(f"creating {level_file} for the sub-nested repository")
 
-    # Copy the .gitnested content to .gitnested.levelN, but clear the parent field
-    # The parent field from the intermediate repo doesn't apply in this context
-    # It will be set correctly on the first pull/push operation
     if not gitnested_file.exists():
         return
     data = yamlio._read_yaml_config(gitnested_file)
-    # Clear the parent field - it will be set on first pull/push
+    # The parent field describes lineage in the intermediate repo's context,
+    # which doesn't apply here; it gets set correctly on this sub-nested
+    # repo's own first pull/push.
     if 'nested' in data:
         data['nested']['parent'] = ''
 
-    # Write the modified config to .gitnested.levelN
     yamlio._write_yaml_config(level_file, data)
-    # Add the level file to git
     git.run(['add', '-f', '--', str(level_file)])
 
-    # Recursively check for deeper nesting with incremented level
     sub_subdir = gitnested_file.parent
     create_level_gitnested_files(git, flags, sub_subdir, head_commit, level + 1)
 
@@ -122,7 +109,6 @@ def read_config(gitnested: Path, flags: Flags) -> NestedConfig:
 
     config = NestedConfig.from_file(gitnested)
 
-    # Apply explicitly given flags
     if flags.remote:
         config.remote = flags.remote
     if flags.branch:
@@ -148,11 +134,9 @@ def update_gitrepo_file(
     if initial and _recreate_gitnested_from_parent(git, gitnested, head_commit):
         initial = False
 
-    # Load existing data or create new
     data = yamlio._read_yaml_config(gitnested) if gitnested.exists() else {}
     nested = data.setdefault('nested', {})
 
-    # Update fields
     nested['commit'] = upstream_head_commit
     nested['method'] = flags.method or config.method or 'merge'
     nested['cmdver'] = VERSION
@@ -163,7 +147,6 @@ def update_gitrepo_file(
     _update_branch_field(nested, initial, flags, config, command)
     _update_parent_field(git, nested, head_commit, nested_commit_ref, upstream_head_commit)
 
-    # Write YAML file and stage it
     yamlio._write_yaml_config(gitnested, data)
     git.run(['add', '-f', '--', gitnested])
 

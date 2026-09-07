@@ -25,11 +25,9 @@ def do_clone(
     Returns:
         tuple: (up_to_date, updated_config, nested_commit_ref, upstream_head_commit)
     """
-    # Check if we can clone (fail if HEAD doesn't exist)
     if not git.rev_exists('HEAD'):
         raise GitNestedError("can't clone into a repository that has no commits yet")
 
-    # Turn off force unless really a reclone
     force = _effective_force(flags, gitnested)
 
     up_to_date, config, upstream_head_commit = _do_clone_dispatch(git, flags, config, subdir, gitnested, subref, force)
@@ -99,7 +97,6 @@ def _do_clone_forced(
     if not branch:
         output.verbose("determining the upstream default branch")
         config.branch = discovery.get_upstream_branch(git, config)
-        # Fetch again from the new branch
         upstream_head_commit = fetch.do_fetch(git, config, subref)
 
     return False, config, upstream_head_commit

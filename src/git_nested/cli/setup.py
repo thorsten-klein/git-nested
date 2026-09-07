@@ -20,7 +20,6 @@ def resolve_gitnested_file(subdir: Path) -> Path:
     """Determine the .gitnested (or highest .gitnested.levelN) file to use for subdir."""
     gitnested = subdir / GITNESTED_FILENAME
 
-    # Search for .gitnested.levelN files to determine the correct level
     level_files = sorted([
         f
         for f in subdir.glob(f'{GITNESTED_LEVEL_PREFIX}*')
@@ -89,7 +88,6 @@ def setup_command(
 
     subref = refs.sanitize_subref(git, str(subdir))
 
-    # Determine the appropriate .gitnested file to use by detecting existing level files
     gitnested = resolve_gitnested_file(subdir)
 
     if not flags.force:
@@ -97,7 +95,6 @@ def setup_command(
 
     config = _load_config_for_setup(command, gitnested, flags, upstream)
 
-    # Apply overrides (from command line flags)
     if flags.remote:
         config.remote = flags.remote
     if flags.branch:

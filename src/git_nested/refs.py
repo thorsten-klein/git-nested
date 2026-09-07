@@ -34,10 +34,8 @@ def _is_valid_ref(git: GitRunner, ref: str) -> bool:
 
 def _strip_forbidden_ref_chars(sanitized: str) -> str:
     """Replace or trim characters that aren't allowed in a git ref name."""
-    # Remove forbidden characters
     for c in ['~', '..', ' ', '/']:
         sanitized = sanitized.replace(c, '_')
-    # Remove forbidden leading characters
     if sanitized[:1] in ('.', '-'):
         sanitized = '_' + sanitized[1:]
     if sanitized.endswith('.lock'):  # .lock ending is not allowed
@@ -50,11 +48,9 @@ def _strip_forbidden_ref_chars(sanitized: str) -> str:
 
 def sanitize_subref(git: GitRunner, ref: str) -> str:
     """Sanitize subref to be a valid git ref."""
-    # Check if already valid (check-ref-format succeeds), so no encoding needed
     if _is_valid_ref(git, ref):
         return ref
 
-    # URL encode the subdir, then remove forbidden characters
     sanitized = _strip_forbidden_ref_chars(quote(ref, safe='/'))
 
     if not _is_valid_ref(git, sanitized):
