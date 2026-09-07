@@ -56,7 +56,6 @@ def do_pull(
 
     error_msg = _run_merge_or_rebase(git, method, merge_target, branch, config, subdir_worktree)
     if error_msg:
-        # Merge/rebase failed - return failure with error message
         return False, nested_commit_ref, subdir_worktree, error_msg
 
     refs.create_nested_ref(git, subref, 'branch', branch)

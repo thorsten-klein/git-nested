@@ -41,7 +41,6 @@ def create_nested_branch(
         first_gitrepo_commit = None
         history._create_branch_without_parent(git, subref, branch)
 
-    # Remove .gitnested file
     history._filter_branch_history(git, branch, first_gitrepo_commit)
 
     subdir_worktree = worktree.create_worktree(git, branch, git_tmp)
@@ -74,8 +73,6 @@ def commit_nested_branch(
     else:
         filters._place_filtered_content(git, subdir, config, nested_commit_ref)
 
-    # Create .gitnested.levelN files for nested-in-nested repositories
-    # Level will be auto-detected based on existing level files
     gitfile.create_level_gitnested_files(git, flags, subdir, head_commit)
 
     _sync_gitnested_files(git, flags, config, gitnested, upstream_head_commit, nested_commit_ref, head_commit, command)
@@ -134,8 +131,8 @@ def _sync_gitnested_files(
     )
     git.run(['add', '-f', '--', gitnested])
 
-    # If this is a .gitnested.levelN file, also update the regular .gitnested
-    # so that when the nested repo is operated on directly, it has current info
+    # Keep the regular .gitnested in step too, so that operating on the nested
+    # repo directly (rather than through the outer one) still sees current info.
     if GITNESTED_LEVEL_PREFIX not in str(gitnested):
         return
     regular_gitnested = gitnested.parent / GITNESTED_FILENAME
@@ -181,7 +178,6 @@ def _finalize_commit(
     command: str,
 ) -> None:
     """Commit the staged .gitnested update (if any), clean up, and record the commit ref."""
-    # Check if there are changes to commit
     result = git.run(['diff', '--cached', '--quiet'], may_fail=True)
     has_changes = result.returncode != 0
 

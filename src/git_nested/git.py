@@ -40,7 +40,6 @@ class GitRunner:
 
     def run(self, args: Sequence[str | Path], may_fail: bool = False, **kwargs: Any) -> subprocess.CompletedProcess:  # noqa: ANN401
         """Run git command."""
-        # Convert any Path objects to strings
         cmd = ['git'] + [str(arg) for arg in args]
         output.trace(' '.join(cmd))
         kwargs['env'] = _git_env(kwargs.get('env'))
@@ -49,10 +48,8 @@ class GitRunner:
             if not may_fail:
                 raise GitNestedError(f"command failed: {' '.join(cmd)}\n{result.stderr!s}")
 
-            # Exception occurred but may_fail=True: Create a fake CompletedProcess for exception case
             return subprocess.CompletedProcess(args=cmd, returncode=-1, stdout=result.stdout, stderr=result.stderr)
 
-        # Command succeeded
         return result
 
     def check_output(self, args: Sequence[str | Path], may_fail: bool = False, **kwargs: Any) -> str:  # noqa: ANN401

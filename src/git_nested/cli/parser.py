@@ -143,7 +143,6 @@ def parse_args(git: GitRunner, args_list: list[str]) -> tuple[str, CommandContex
         tuple: (command, context). The context's git_tmp/head_commit are left
         unset -- only the caller knows whether the command runs in a repository.
     """
-    # Subparsers handle the positional and optional arguments of each command.
     args = build_arg_parser().parse_args(args_list)
 
     if args.version:

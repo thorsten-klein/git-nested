@@ -1,55 +1,22 @@
 # Contributing to git-nested
 
-Thank you for your interest in contributing to git-nested! This document provides guidelines and instructions for contributing to the project.
+## Setup
 
-## Code of Conduct
+```bash
+git clone https://github.com/YOUR_USERNAME/git-nested
+cd git-nested
+uv sync --dev      # or: pip install -e ".[dev]"
+uv run poe all     # verify your setup: the full gate
+```
 
-Please be respectful and constructive in all interactions with the community. We aim to maintain a welcoming and inclusive environment for all contributors.
+## Making changes
 
-## Getting Started
+1. Branch off `main`.
+2. Make your change and add tests for it.
+3. Run `uv run poe all` before opening a PR.
+4. Open a PR against `main` and fill out the template.
 
-### Setting Up Your Development Environment
-
-1. Fork the repository on GitHub
-2. Clone your fork locally:
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/git-nested
-   cd git-nested
-   ```
-
-3. Install development dependencies:
-   ```bash
-   # Using uv (recommended)
-   uv sync --dev
-
-   # Or using pip
-   pip install -e ".[dev]"
-   ```
-
-4. Verify your setup:
-   ```bash
-   uv run poe all
-   ```
-
-## Development Workflow
-
-### Making Changes
-
-1. Create a feature branch from `main`:
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-
-2. Make your changes, following the coding standards below
-
-3. Add or update tests to cover your changes
-
-4. Run all checks before committing:
-   ```bash
-   uv run poe all
-   ```
-
-### How the Tests Are Laid Out
+## How the tests are laid out
 
 ```
 tests/
@@ -61,195 +28,68 @@ tests/
 Each directory is also a marker (`-m unit`, `-m e2e`), applied by path, so a
 new test file needs nothing added to it.
 
-### Running Tests
-
 ```bash
-# Everything, with the coverage gate
-uv run poe test
-
-# Just the unit tests -- seconds, and no coverage gate to trip over
-uv run poe test-unit
-
-# One file
-uv run poe test tests/e2e/test_clone.py
-
-# Or pytest directly
-uv run pytest -k clone
+uv run poe test         # everything, with the coverage gate
+uv run poe test-unit    # just the unit tests -- seconds, no coverage gate
+uv run poe test tests/e2e/test_clone.py   # one file
+uv run pytest -k clone                    # or pytest directly
 ```
 
-`poe test` requires **100% line coverage** and fails below it. New code needs
-a test that reaches it; a line that genuinely cannot be reached gets a
-`# pragma: no cover` with a comment saying why.
+`poe test` requires **100% line coverage** and fails below it. A line that
+genuinely cannot be reached gets a `# pragma: no cover` with a comment saying
+why.
 
-Tests run in parallel and touch real repositories, so a flake is possible.
-To hunt one down:
+Tests run in parallel against real repositories, so a flake is possible. To
+hunt one down:
 
 ```bash
-uv run poe flakefinder
+uv run poe flakefinder   # reruns the suite 200 times; add -k to narrow it
 ```
 
-It reruns the suite 200 times over. Give it a `-k` to narrow it down to the
-test you suspect.
-
-### Testing the Standalone Executable
+### The standalone executable
 
 Releases ship a single-file executable built with PyInstaller
 (`scripts/create-python-exe.sh`). Freezing can break things the module tests
-never see — an import PyInstaller did not collect, missing package metadata —
-so the whole suite can be run *through* the binary instead:
+never see, so the whole suite can also run *through* the binary:
 
 ```bash
-# Build dist/git-nested and run every test against it
-uv run poe test-exe
-
-# Just build it
-uv run poe exe
-
-# Or point the tests at any executable you already have
-GIT_NESTED_EXE=dist/git-nested uv run pytest
+uv run poe test-exe   # build dist/git-nested and test it
+uv run poe exe        # just build it
+GIT_NESTED_EXE=dist/git-nested uv run pytest   # test an existing binary
 ```
 
-With `GIT_NESTED_EXE` set, `cmd_git_nested()` in `tests/conftest.py` runs
-`git nested ...` as a subprocess against that binary rather than calling the
-module in-process; without it, nothing changes. CI does both: `test.yml` builds
-the binary and runs the suite against it on every PR, and `release-binary.yml`
-repeats that plus a run across six distro images before attaching the asset to
-a release.
+CI does both: `test.yml` builds the binary and tests it on every PR;
+`release-binary.yml` repeats that across six distro images before attaching
+the asset to a release.
 
-### Code Quality
+## Code quality
 
-`uv run poe all` runs the full gate CI enforces: repo hygiene, linting,
-formatting, static typing, security, dependency, and complexity checks, then
-the test suite. Each has its own `poe` task if you want to run just one:
+`uv run poe all` runs the full gate CI enforces. Each check has its own task:
 
 ```bash
-# Repo-wide hygiene (whitespace, YAML/TOML/JSON parseability, shebangs, ...)
-uv run poe pre-commit
-
-# Lint and auto-format with Ruff (https://github.com/astral-sh/ruff)
-uv run poe lint
-uv run poe format
-
-# Static typing -- mypy and pyright are both run since they catch
-# different things; passing both is required
-uv run poe mypy
-uv run poe pyright
-
-# Security linting (bandit) and dependency vulnerability scanning (pip-audit)
-uv run poe bandit
-uv run poe pip-audit
-
-# Cognitive complexity (complexipy); threshold is set in pyproject.toml's
-# [tool.complexipy] to catch complexity creep in new code, not to demand
-# every existing function be simple
-uv run poe complexity
+uv run poe pre-commit   # repo hygiene: whitespace, YAML/TOML/JSON, shebangs
+uv run poe lint         # ruff lint
+uv run poe format       # ruff format
+uv run poe mypy         # static typing
+uv run poe pyright      # static typing (different checker, both must pass)
+uv run poe bandit       # security linting
+uv run poe pip-audit    # dependency vulnerability scan
+uv run poe complexity   # cognitive complexity (complexipy)
 ```
 
-Make sure all checks pass before submitting your PR.
+## Commit messages
 
-## Coding Standards
-
-- Follow [PEP 8](https://pep8.org/) style guidelines (enforced by Ruff)
-- Write clear, descriptive commit messages
-- Add docstrings to all public functions and classes
-- Keep functions focused and single-purpose
-- Use type hints where appropriate
-- Write self-documenting code with meaningful variable names
-
-## Testing Guidelines
-
-- Write tests for all new features and bug fixes
-- Ensure existing tests still pass
-- Aim for high test coverage on modified code
-- Use descriptive test names that explain what is being tested
-- Group related tests in the same test file
-
-## Commit Message Guidelines
-
-Write clear and descriptive commit messages:
-
-- Use the imperative mood ("Add feature" not "Added feature")
-- Keep the first line under 72 characters
-- Reference issues and PRs where relevant
-- Provide additional context in the body if needed
-
-Example:
-```
-Add support for shallow clones with --depth option
-
-Implements shallow clone functionality to reduce clone time
-and disk space for large repositories.
-
-Fixes #123
-```
-
-## Submitting a Pull Request
-
-1. Push your changes to your fork:
-   ```bash
-   git push origin feature/your-feature-name
-   ```
-
-2. Open a Pull Request on GitHub against the `main` branch
-
-3. Fill out the PR template with:
-   - Clear description of the changes
-   - Motivation and context
-   - How the changes have been tested
-   - Any breaking changes or migration notes
-   - Related issue numbers
-
-4. Wait for review and address any feedback
-
-5. Once approved, a maintainer will merge your PR
-
-## Pull Request Review Process
-
-- All PRs require at least one review before merging
-- CI checks must pass (tests, linting, formatting)
-- Reviewers may request changes or clarifications
-- Be responsive to feedback and questions
-- Maintainers will merge once all requirements are met
-
-## Reporting Bugs
-
-If you find a bug, please open an issue on GitHub with:
-
-- Clear, descriptive title
-- Steps to reproduce the issue
-- Expected behavior vs actual behavior
-- Your environment (OS, Python version, git version)
-- Any relevant error messages or logs
-- Minimal reproduction example if possible
-
-## Requesting Features
-
-Feature requests are welcome! Please:
-
-- Check existing issues to avoid duplicates
-- Clearly describe the feature and its use case
-- Explain why it would be useful to other users
-- Consider submitting a PR if you can implement it
+Imperative mood ("Add", not "Added"), first line under 72 characters,
+reference issues where relevant.
 
 ## Documentation
 
-- Update documentation for any user-facing changes
-- Add docstrings to new functions and classes
-- Update README.md if adding new commands or features
-- Include code examples where helpful
+Update [README.md](README.md) for user-facing changes and
+[docs/diagrams.md](docs/diagrams.md) when a command's underlying git calls
+change.
 
-## Questions?
+## Reporting bugs and security issues
 
-- Check existing documentation and issues first
-- Open a GitHub issue for questions about contributing
-- Be patient and respectful when asking for help
-
-## License
-
-By contributing to git-nested, you agree that your contributions will be licensed under the MIT License.
-
-## Recognition
-
-Contributors will be recognized in the project. Significant contributors may be added to the AUTHORS or CONTRIBUTORS file.
-
-Thank you for contributing to git-nested!
+Open a GitHub issue with steps to reproduce, expected vs. actual behaviour,
+and your git-nested/git/Python versions. For security vulnerabilities, see
+[SECURITY.md](SECURITY.md) instead of opening a public issue.

@@ -14,15 +14,18 @@ sequenceDiagram
 
     User->>git-nested: git nested clone <subdir> <remote>
     git-nested->>Git: rev-parse --git-dir
+    git-nested->>Git: rev-parse --git-common-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
     git-nested->>Git: update-index -q --ignore-submodules --refresh
     git-nested->>Git: diff-files --quiet --ignore-submodules
+    git-nested->>Git: rev-list HEAD -1
+    Note over git-nested: Validate HEAD exists<br/>(skip the two checks below if it does not)
     git-nested->>Git: rev-parse --verify HEAD
     git-nested->>Git: diff-index --quiet --ignore-submodules HEAD
     git-nested->>Git: diff-index --quiet --cached --ignore-submodules HEAD
-    git-nested->>Git: rev-list HEAD -1
-    Note over git-nested: Validate HEAD exists
+    git-nested->>Git: rev-parse --show-prefix
+    git-nested->>Git: rev-parse HEAD
 
     opt No branch specified
         git-nested->>Git: ls-remote --symref <remote>
@@ -65,6 +68,7 @@ sequenceDiagram
 
     User->>git-nested: git nested init <subdir>
     git-nested->>Git: rev-parse --git-dir
+    git-nested->>Git: rev-parse --git-common-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
     git-nested->>Git: update-index -q --ignore-submodules --refresh
@@ -72,6 +76,8 @@ sequenceDiagram
     git-nested->>Git: rev-parse --verify HEAD
     git-nested->>Git: diff-index --quiet --ignore-submodules HEAD
     git-nested->>Git: diff-index --quiet --cached --ignore-submodules HEAD
+    git-nested->>Git: rev-parse --show-prefix
+    git-nested->>Git: rev-parse HEAD
     git-nested->>Git: ls-files -- <subdir>
     Note over git-nested: Validate subdir is tracked
 
@@ -103,8 +109,11 @@ sequenceDiagram
 
     User->>git-nested: git nested fetch <subdir>
     git-nested->>Git: rev-parse --git-dir
+    git-nested->>Git: rev-parse --git-common-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
+    git-nested->>Git: rev-parse --show-prefix
+    git-nested->>Git: rev-parse HEAD
     Note over git-nested: Read .gitnested config
 
     rect rgb(230, 245, 255)
@@ -127,6 +136,7 @@ sequenceDiagram
 
     User->>git-nested: git nested pull <subdir>
     git-nested->>Git: rev-parse --git-dir
+    git-nested->>Git: rev-parse --git-common-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
     git-nested->>Git: update-index -q --ignore-submodules --refresh
@@ -134,6 +144,8 @@ sequenceDiagram
     git-nested->>Git: rev-parse --verify HEAD
     git-nested->>Git: diff-index --quiet --ignore-submodules HEAD
     git-nested->>Git: diff-index --quiet --cached --ignore-submodules HEAD
+    git-nested->>Git: rev-parse --show-prefix
+    git-nested->>Git: rev-parse HEAD
 
     rect rgb(230, 245, 255)
         Note over git-nested,Git: do_fetch
@@ -153,7 +165,7 @@ sequenceDiagram
 
         rect rgb(230, 245, 255)
             Note over git-nested,Git: create_nested_branch
-            git-nested->>Git: rev-list nested/<subref> -1
+            git-nested->>Git: rev-list refs/heads/nested/<subref> -1
             Note over git-nested: Check branch existence
 
             alt Has parent commit (incremental)
@@ -215,6 +227,7 @@ sequenceDiagram
 
     User->>git-nested: git nested push <subdir>
     git-nested->>Git: rev-parse --git-dir
+    git-nested->>Git: rev-parse --git-common-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
     git-nested->>Git: update-index -q --ignore-submodules --refresh
@@ -222,6 +235,8 @@ sequenceDiagram
     git-nested->>Git: rev-parse --verify HEAD
     git-nested->>Git: diff-index --quiet --ignore-submodules HEAD
     git-nested->>Git: diff-index --quiet --cached --ignore-submodules HEAD
+    git-nested->>Git: rev-parse --show-prefix
+    git-nested->>Git: rev-parse HEAD
 
     git-nested->>Git: rev-parse --show-toplevel
     Note over git-nested: Derive push branch name
@@ -245,7 +260,7 @@ sequenceDiagram
 
     rect rgb(230, 245, 255)
         Note over git-nested,Git: create_nested_branch
-        git-nested->>Git: rev-list nested/<subref> -1
+        git-nested->>Git: rev-list refs/heads/nested/<subref> -1
         Note over git-nested: (Same branch creation as in pull — see pull diagram)
         git-nested->>Git: branch nested/<subref> <commit>
         git-nested->>Git: filter-branch -f --prune-empty --tree-filter 'rm -f .gitnested' -- <range>
@@ -293,6 +308,7 @@ sequenceDiagram
 
     User->>git-nested: git nested branch <subdir>
     git-nested->>Git: rev-parse --git-dir
+    git-nested->>Git: rev-parse --git-common-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
     git-nested->>Git: update-index -q --ignore-submodules --refresh
@@ -300,6 +316,8 @@ sequenceDiagram
     git-nested->>Git: rev-parse --verify HEAD
     git-nested->>Git: diff-index --quiet --ignore-submodules HEAD
     git-nested->>Git: diff-index --quiet --cached --ignore-submodules HEAD
+    git-nested->>Git: rev-parse --show-prefix
+    git-nested->>Git: rev-parse HEAD
 
     opt --fetch flag
         rect rgb(230, 245, 255)
@@ -315,7 +333,7 @@ sequenceDiagram
         git-nested->>Git: branch -D nested/<subref>
     end
 
-    git-nested->>Git: rev-list nested/<subref> -1
+    git-nested->>Git: rev-list refs/heads/nested/<subref> -1
     Note over git-nested: Check branch existence
 
     rect rgb(230, 245, 255)
@@ -354,6 +372,7 @@ sequenceDiagram
 
     User->>git-nested: git nested commit <subdir>
     git-nested->>Git: rev-parse --git-dir
+    git-nested->>Git: rev-parse --git-common-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
     git-nested->>Git: update-index -q --ignore-submodules --refresh
@@ -361,6 +380,8 @@ sequenceDiagram
     git-nested->>Git: rev-parse --verify HEAD
     git-nested->>Git: diff-index --quiet --ignore-submodules HEAD
     git-nested->>Git: diff-index --quiet --cached --ignore-submodules HEAD
+    git-nested->>Git: rev-parse --show-prefix
+    git-nested->>Git: rev-parse HEAD
 
     opt --fetch flag
         rect rgb(230, 245, 255)
@@ -403,8 +424,11 @@ sequenceDiagram
 
     User->>git-nested: git nested status
     git-nested->>Git: rev-parse --git-dir
+    git-nested->>Git: rev-parse --git-common-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
+    git-nested->>Git: rev-parse --show-prefix
+    git-nested->>Git: rev-parse HEAD
 
     git-nested->>Git: ls-files
     Note over git-nested: Find all .gitnested files
@@ -449,8 +473,16 @@ sequenceDiagram
 
     User->>git-nested: git nested diff <subdir>
     git-nested->>Git: rev-parse --git-dir
+    git-nested->>Git: rev-parse --git-common-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
+    git-nested->>Git: update-index -q --ignore-submodules --refresh
+    git-nested->>Git: diff-files --quiet --ignore-submodules
+    git-nested->>Git: rev-parse --verify HEAD
+    git-nested->>Git: diff-index --quiet --ignore-submodules HEAD
+    git-nested->>Git: diff-index --quiet --cached --ignore-submodules HEAD
+    git-nested->>Git: rev-parse --show-prefix
+    git-nested->>Git: rev-parse HEAD
     Note over git-nested: Read .gitnested config
 
     git-nested->>Git: fetch --no-tags --quiet <remote> <branch>
@@ -480,8 +512,11 @@ sequenceDiagram
 
     User->>git-nested: git nested clean <subdir>
     git-nested->>Git: rev-parse --git-dir
+    git-nested->>Git: rev-parse --git-common-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
+    git-nested->>Git: rev-parse --show-prefix
+    git-nested->>Git: rev-parse HEAD
 
     Note over git-nested: Remove worktree (if exists)
     git-nested->>Git: worktree prune
@@ -512,8 +547,11 @@ sequenceDiagram
 
     User->>git-nested: git nested config <subdir> [<key> [<value>]]
     git-nested->>Git: rev-parse --git-dir
+    git-nested->>Git: rev-parse --git-common-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
+    git-nested->>Git: rev-parse --show-prefix
+    git-nested->>Git: rev-parse HEAD
 
     alt No value given
         Note over git-nested: Read <subdir>/.gitnested and print
