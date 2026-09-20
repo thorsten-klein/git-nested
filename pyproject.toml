@@ -121,6 +121,7 @@ ignore = [
     "PLR0913", # complexipy caps cognitive complexity at 5, which forces functions to
                # be split, which pushes their state out into parameters. The two rules
                # pull opposite ways and complexipy is the one measuring readability
+    "PLR0917", # the positional-only twin of PLR0913 (stable since ruff 0.16), same reasoning
     "PLR2004", # what it finds here is `len(parts) != 2` -- naming that 2 hides it
 ]
 

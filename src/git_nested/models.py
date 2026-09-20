@@ -20,15 +20,15 @@ class Flags:
 
     all: bool = False
     all_deep: bool = False
-    branch: None | str = None
+    branch: str | None = None
     commit: bool = False
-    filter: None | list[str] = None
+    filter: list[str] | None = None
     force: bool = False
     fetch: bool = False
-    message: None | str = None
-    message_file: None | str = None
-    method: None | str = None
-    remote: None | str = None
+    message: str | None = None
+    message_file: str | None = None
+    method: str | None = None
+    remote: str | None = None
     squash: bool = False
     update: bool = False
     quiet: bool = False
@@ -42,7 +42,7 @@ class NestedConfig:
     remote: str = ''
     branch: str = ''
     commit: str = ''
-    filter: None | list[str] = None
+    filter: list[str] | None = None
     parent: str = ''
     method: str = 'merge'
 
