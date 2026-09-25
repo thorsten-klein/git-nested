@@ -135,3 +135,5 @@ jobs:
             dist/*.tar.xz
             dist/*.zip
           if-no-files-found: error
+          # main keeps its builds for a month, branch and PR builds only for two days.
+          retention-days: ${{ github.ref == 'refs/heads/main' && 30 || 2 }}
