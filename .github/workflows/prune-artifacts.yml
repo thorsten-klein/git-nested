@@ -1,0 +1,53 @@
+name: Prune artifacts
+
+# Keeps only the newest main builds of each binary artifact and deletes the
+# older ones, so they stop piling up against the repository's Actions storage
+# quota. Builds of other branches and PRs are neither counted nor touched;
+# they expire after two days on their own. The upload step's retention-days is
+# only an upper bound; this caps the count as well.
+#
+# Runs on every main commit, the branch whose builds are kept longest. It
+# starts alongside that commit's own build, so the new artifact isn't there
+# yet: up to $keep + 1 builds exist until the next main commit.
+on:
+  push:
+    branches:
+    - main
+  # on-demand -- 'Run workflow' in the Actions tab, or `gh workflow run prune-artifacts.yml`
+  workflow_dispatch:
+    inputs:
+      keep:
+        description: 'How many of the newest main artifacts to keep per artifact name'
+        type: number
+        default: 3
+
+permissions:
+  actions: write
+
+# two prunes at once would only race each other deleting the same artifacts.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete all but the newest builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          KEEP: ${{ inputs.keep || 3 }}
+        run: |
+          # Per artifact name ("git-nested-binary-ci-linux", ...), newest
+          # first, main builds only; everything after the first $KEEP is
+          # deleted. Other artifacts (dist) and other branches' builds are
+          # not touched.
+          gh api --paginate "repos/$REPO/actions/artifacts?per_page=100" \
+              --jq '.artifacts[] | select(.expired == false) | select(.name | startswith("git-nested-binary-")) | select(.workflow_run.head_branch == "main") | [.name, .created_at, .id] | @tsv' \
+            | sort -k1,1 -k2,2r \
+            | awk -F'\t' -v keep="$KEEP" '{ if (++n[$1] > keep) print $3, $1 }' \
+            | while read -r id name; do
+                echo "delete $name (artifact $id)"
+                gh api -X DELETE "repos/$REPO/actions/artifacts/$id"
+              done
