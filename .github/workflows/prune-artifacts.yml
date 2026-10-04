@@ -1,0 +1,57 @@
+name: Prune artifacts
+
+# Caps how many binary artifacts pile up against the repository's Actions
+# storage quota, per artifact name and branch: main keeps its newest 3 builds,
+# every other branch (PR branches included) only its newest 1. The upload
+# step's retention-days (30 days main, 2 days elsewhere) is only an upper
+# bound; this caps the count as well.
+#
+# Runs once the workflows that build the artifacts have finished, so the
+# artifact of the run that triggered it already exists and the caps hold
+# exactly. workflow_run only fires for workflow files on the default branch,
+# so changes to this file take effect once merged.
+on:
+  workflow_run:
+    workflows:
+    - Run Tests
+    - Release binary
+    types:
+    - completed
+  # on-demand -- 'Run workflow' in the Actions tab, or `gh workflow run prune-artifacts.yml`
+  workflow_dispatch:
+    inputs:
+      keep:
+        description: 'How many of the newest main artifacts to keep per artifact name (other branches keep 1)'
+        type: number
+        default: 3
+
+permissions:
+  actions: write
+
+# two prunes at once would only race each other deleting the same artifacts.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete all but the newest builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          KEEP: ${{ inputs.keep || 3 }}
+        run: |
+          # Per artifact name and branch ("git-nested-binary-ci-linux" on
+          # "main", ...), newest first; everything after the first $KEEP on
+          # main, or after the first 1 on any other branch, is deleted. Other
+          # artifacts (dist) are not touched.
+          gh api --paginate "repos/$REPO/actions/artifacts?per_page=100" \
+              --jq '.artifacts[] | select(.expired == false) | select(.name | startswith("git-nested-binary-")) | [.name + " " + .workflow_run.head_branch, .created_at, .id, .workflow_run.head_branch] | @tsv' \
+            | sort -t $'\t' -k1,1 -k2,2r \
+            | awk -F'\t' -v keep="$KEEP" '{ if (++n[$1] > ($4 == "main" ? keep : 1)) print $3, $1 }' \
+            | while read -r id name; do
+                echo "delete $name (artifact $id)"
+                gh api -X DELETE "repos/$REPO/actions/artifacts/$id"
+              done
