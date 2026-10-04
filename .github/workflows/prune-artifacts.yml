@@ -6,11 +6,17 @@ name: Prune artifacts
 # step's retention-days (30 days main, 2 days elsewhere) is only an upper
 # bound; this caps the count as well.
 #
-# Runs on every push to any branch. It starts alongside that commit's own
-# build, so the new artifact isn't there yet: up to one more build than the
-# cap exists until the next push to that branch.
+# Runs once the workflows that build the artifacts have finished, so the
+# artifact of the run that triggered it already exists and the caps hold
+# exactly. workflow_run only fires for workflow files on the default branch,
+# so changes to this file take effect once merged.
 on:
-  push:
+  workflow_run:
+    workflows:
+    - Run Tests
+    - Release binary
+    types:
+    - completed
   # on-demand -- 'Run workflow' in the Actions tab, or `gh workflow run prune-artifacts.yml`
   workflow_dispatch:
     inputs:
