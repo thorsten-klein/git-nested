@@ -159,6 +159,15 @@ def test_sanitize_subref_raises_when_unsanitizable(monkeypatch):
         refs.sanitize_subref(git=NO_GIT, ref="whatever")
 
 
+def test_strip_forbidden_ref_chars_drops_a_trailing_dot():
+    """A ref name cannot end with a dot.
+
+    The e2e encoding tests reach this too, but with directory names Windows
+    cannot create, so there it is only covered here.
+    """
+    assert refs._strip_forbidden_ref_chars('trailing-dots...') == 'trailing-dots_'
+
+
 def test_get_default_branch_falls_back_to_main(tmp_path, monkeypatch):
     """When init.defaultbranch isn't configured anywhere, fall back to 'main'"""
     empty_home = tmp_path / "home"
