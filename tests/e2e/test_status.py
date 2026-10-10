@@ -10,11 +10,11 @@ def test_status(foo_bar_cloned):
     env = foo_bar_cloned
 
     # Clone multiple nesteds, including nested ones
-    cmd_git_nested(f'clone {env.upstream}/bar', cwd=env.workspace / 'foo')
-    cmd_git_nested(f'clone {env.upstream}/foo bar/foo', cwd=env.workspace / 'foo')
+    cmd_git_nested(f'clone {env.upstream.as_posix()}/bar', cwd=env.workspace / 'foo')
+    cmd_git_nested(f'clone {env.upstream.as_posix()}/foo bar/foo', cwd=env.workspace / 'foo')
     (env.workspace / 'foo' / 'lib').mkdir()
-    cmd_git_nested(f'clone {env.upstream}/bar lib/bar', cwd=env.workspace / 'foo')
-    cmd_git_nested(f'clone {env.upstream}/foo lib/bar/foo', cwd=env.workspace / 'foo')
+    cmd_git_nested(f'clone {env.upstream.as_posix()}/bar lib/bar', cwd=env.workspace / 'foo')
+    cmd_git_nested(f'clone {env.upstream.as_posix()}/foo lib/bar/foo', cwd=env.workspace / 'foo')
 
     bar_upstream = git_rev_parse(['--short', 'HEAD'], env.upstream / 'bar')
     foo_upstream = git_rev_parse(['--short', 'HEAD'], env.upstream / 'foo')
@@ -28,14 +28,14 @@ def test_status(foo_bar_cloned):
     assert result.stdout.strip() == textwrap.dedent(f"""\
         2 nested repositories:
         Git nested repository 'bar':
-          Remote URL:      {env.upstream}/bar
+          Remote URL:      {env.upstream.as_posix()}/bar
           Upstream Ref:    {bar_upstream}
           Tracking Branch: master
           Pulled Commit:   {bar_upstream}
           Pull Parent:     {foo_upstream}
 
         Git nested repository 'lib/bar':
-          Remote URL:      {env.upstream}/bar
+          Remote URL:      {env.upstream.as_posix()}/bar
           Upstream Ref:    {bar_upstream}
           Tracking Branch: master
           Pulled Commit:   {bar_upstream}
@@ -47,28 +47,28 @@ def test_status(foo_bar_cloned):
     assert result.stdout.strip() == textwrap.dedent(f"""\
         4 nested repositories:
         Git nested repository 'bar':
-          Remote URL:      {env.upstream}/bar
+          Remote URL:      {env.upstream.as_posix()}/bar
           Upstream Ref:    {bar_upstream}
           Tracking Branch: master
           Pulled Commit:   {bar_upstream}
           Pull Parent:     {foo_upstream}
 
         Git nested repository 'bar/foo':
-          Remote URL:      {env.upstream}/foo
+          Remote URL:      {env.upstream.as_posix()}/foo
           Upstream Ref:    {foo_upstream}
           Tracking Branch: master
           Pulled Commit:   {foo_upstream}
           Pull Parent:     {pull_parent3}
 
         Git nested repository 'lib/bar':
-          Remote URL:      {env.upstream}/bar
+          Remote URL:      {env.upstream.as_posix()}/bar
           Upstream Ref:    {bar_upstream}
           Tracking Branch: master
           Pulled Commit:   {bar_upstream}
           Pull Parent:     {pull_parent2}
 
         Git nested repository 'lib/bar/foo':
-          Remote URL:      {env.upstream}/foo
+          Remote URL:      {env.upstream.as_posix()}/foo
           Upstream Ref:    {foo_upstream}
           Tracking Branch: master
           Pulled Commit:   {foo_upstream}
@@ -80,14 +80,14 @@ def test_status(foo_bar_cloned):
     assert result.stdout.strip() == textwrap.dedent(f"""\
         2 nested repositories:
         Git nested repository 'bar':
-          Remote URL:      {env.upstream}/bar
+          Remote URL:      {env.upstream.as_posix()}/bar
           Upstream Ref:    {bar_upstream}
           Tracking Branch: master
           Pulled Commit:   {bar_upstream}
           Pull Parent:     {foo_upstream}
 
         Git nested repository 'lib/bar':
-          Remote URL:      {env.upstream}/bar
+          Remote URL:      {env.upstream.as_posix()}/bar
           Upstream Ref:    {bar_upstream}
           Tracking Branch: master
           Pulled Commit:   {bar_upstream}
@@ -99,7 +99,7 @@ def test_status_quiet(foo_bar_cloned):
     env = foo_bar_cloned
 
     # Clone a nested
-    cmd_git_nested(f'clone {env.upstream}/bar', cwd=env.workspace / 'foo')
+    cmd_git_nested(f'clone {env.upstream.as_posix()}/bar', cwd=env.workspace / 'foo')
 
     # -q trims the report down to the bare subdir list, but a report is what
     # `status` is for, so it is still printed.

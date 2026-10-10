@@ -15,7 +15,7 @@ def test_rebase(foo_bar_cloned):
     # Create branch1, add file, clone nested, create branch2, add file
     env.run(['git', 'switch', '-c', 'branch1'], cwd=env.workspace / 'foo')
     env.add_new_files('foo1', cwd=env.workspace / 'foo')
-    cmd_git_nested(['clone', str(env.upstream / 'bar')], env.workspace / 'foo')
+    cmd_git_nested(['clone', (env.upstream / 'bar').as_posix()], env.workspace / 'foo')
 
     env.run(['git', 'branch', 'branch2'], cwd=env.workspace / 'foo')
     env.add_new_files('foo2', cwd=env.workspace / 'foo')

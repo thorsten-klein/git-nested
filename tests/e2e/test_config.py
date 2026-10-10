@@ -12,7 +12,7 @@ def test_config_prints_every_field(foo_bar_cloned_and_nested):
 
     fields = dict(line.split(' ', 1) for line in result.stdout.splitlines())
     assert list(fields) == ['remote', 'branch', 'method', 'commit', 'parent', 'cmdver']
-    assert fields['remote'] == str(env.upstream / 'bar')
+    assert fields['remote'] == (env.upstream / 'bar').as_posix()
     assert fields['method'] == 'merge'
 
 
@@ -26,7 +26,9 @@ def test_config_prints_one_field(foo_bar_cloned_and_nested):
 def test_config_prints_a_filter_as_one_line(foo_bar_cloned):
     """A filter is a YAML list; it prints as one space-separated line."""
     env = foo_bar_cloned
-    cmd_git_nested(['clone', str(env.upstream / 'bar'), '--filter', 'doc', '--filter', 'src'], env.workspace / 'foo')
+    cmd_git_nested(
+        ['clone', (env.upstream / 'bar').as_posix(), '--filter', 'doc', '--filter', 'src'], env.workspace / 'foo'
+    )
 
     result = cmd_git_nested('config bar filter', cwd=env.workspace / 'foo')
     assert result.stdout.strip() == 'doc src'

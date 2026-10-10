@@ -50,7 +50,7 @@ def create_upstream_level2_with_nested(env):
     subprocess.run(['git', 'commit', '-m', 'Add level2 content'], cwd=work_dir, check=True, capture_output=True)
 
     # Clone level3 as a nested repository inside level2
-    result = cmd_git_nested(['clone', str(env.upstream / 'level3'), 'nested3'], cwd=work_dir)
+    result = cmd_git_nested(['clone', (env.upstream / 'level3').as_posix(), 'nested3'], cwd=work_dir)
     assert result.returncode == 0
 
     # Push level2 (now containing nested level3) to upstream
@@ -71,7 +71,7 @@ def create_upstream_level1_with_nested(env):
     subprocess.run(['git', 'commit', '-m', 'Add level1 content'], cwd=work_dir, check=True, capture_output=True)
 
     # Clone level2 (which contains nested level3) as a nested repository inside level1
-    result = cmd_git_nested(['clone', str(env.upstream / 'level2'), 'nested2'], cwd=work_dir)
+    result = cmd_git_nested(['clone', (env.upstream / 'level2').as_posix(), 'nested2'], cwd=work_dir)
     assert result.returncode == 0
 
     # Push level1 (now containing nested level2 which contains nested level3) to upstream
@@ -111,7 +111,7 @@ def test_nested_in_nested_basic(nested_in_nested_repos):
     subprocess.run(['git', 'commit', '-m', 'Initial commit'], cwd=parent, check=True, capture_output=True)
 
     # Clone level1 (which contains level2, which contains level3) into parent
-    result = cmd_git_nested(['clone', str(env.upstream / 'level1'), 'nested1'], cwd=parent)
+    result = cmd_git_nested(['clone', (env.upstream / 'level1').as_posix(), 'nested1'], cwd=parent)
     assert result.returncode == 0
     assert "nested1: cloned from" in result.output
 
@@ -130,7 +130,7 @@ def test_nested_in_nested_basic(nested_in_nested_repos):
     # Level 1: regular .gitnested for the immediate nested repo
     assert_gitnested_field(
         parent / 'nested1' / '.gitnested',
-        remote=str(env.upstream / 'level1'),
+        remote=(env.upstream / 'level1').as_posix(),
         branch='master',
     )
 
@@ -141,7 +141,7 @@ def test_nested_in_nested_basic(nested_in_nested_repos):
     )
     assert_gitnested_field(
         parent / 'nested1' / 'nested2' / '.gitnested.level2',
-        remote=str(env.upstream / 'level2'),
+        remote=(env.upstream / 'level2').as_posix(),
         branch='master',
     )
 
@@ -151,7 +151,7 @@ def test_nested_in_nested_basic(nested_in_nested_repos):
     )
     assert_gitnested_field(
         parent / 'nested1' / 'nested2' / 'nested3' / '.gitnested.level3',
-        remote=str(env.upstream / 'level3'),
+        remote=(env.upstream / 'level3').as_posix(),
         branch='master',
     )
 
@@ -175,13 +175,13 @@ def test_nested_in_nested_pull(nested_in_nested_repos):
     subprocess.run(['git', 'commit', '-m', 'Initial commit'], cwd=parent, check=True, capture_output=True)
 
     # Clone the nested hierarchy
-    result = cmd_git_nested(['clone', str(env.upstream / 'level1'), 'nested1'], cwd=parent)
+    result = cmd_git_nested(['clone', (env.upstream / 'level1').as_posix(), 'nested1'], cwd=parent)
     assert result.returncode == 0
 
     # Make changes in level3 upstream
     level3_work = env.upstream / 'level3.tmp'
     level3_work.mkdir(exist_ok=True)
-    subprocess.run(['git', 'clone', str(env.upstream / 'level3'), level3_work], check=True, capture_output=True)
+    subprocess.run(['git', 'clone', (env.upstream / 'level3').as_posix(), level3_work], check=True, capture_output=True)
     subprocess.run(['git', 'config', 'user.name', 'Test'], cwd=level3_work, check=True)
     subprocess.run(['git', 'config', 'user.email', 'test@test'], cwd=level3_work, check=True)
     (level3_work / 'level3.txt').write_text('This is level 3 - updated\n')
@@ -192,7 +192,7 @@ def test_nested_in_nested_pull(nested_in_nested_repos):
     # Pull the update through the nested hierarchy
     # First, pull into level2's nested3
     level2_work = env.workspace / 'level2_work'
-    subprocess.run(['git', 'clone', str(env.upstream / 'level2'), level2_work], check=True, capture_output=True)
+    subprocess.run(['git', 'clone', (env.upstream / 'level2').as_posix(), level2_work], check=True, capture_output=True)
     subprocess.run(['git', 'config', 'user.name', 'Test'], cwd=level2_work, check=True)
     subprocess.run(['git', 'config', 'user.email', 'test@test'], cwd=level2_work, check=True)
 
@@ -203,7 +203,7 @@ def test_nested_in_nested_pull(nested_in_nested_repos):
 
     # Then pull into level1's nested2
     level1_work = env.workspace / 'level1_work'
-    subprocess.run(['git', 'clone', str(env.upstream / 'level1'), level1_work], check=True, capture_output=True)
+    subprocess.run(['git', 'clone', (env.upstream / 'level1').as_posix(), level1_work], check=True, capture_output=True)
     subprocess.run(['git', 'config', 'user.name', 'Test'], cwd=level1_work, check=True)
     subprocess.run(['git', 'config', 'user.email', 'test@test'], cwd=level1_work, check=True)
 
@@ -235,7 +235,7 @@ def test_nested_in_nested_status(nested_in_nested_repos):
     subprocess.run(['git', 'commit', '-m', 'Initial commit'], cwd=parent, check=True, capture_output=True)
 
     # Clone the nested hierarchy
-    result = cmd_git_nested(['clone', str(env.upstream / 'level1'), 'nested1'], cwd=parent)
+    result = cmd_git_nested(['clone', (env.upstream / 'level1').as_posix(), 'nested1'], cwd=parent)
     assert result.returncode == 0
 
     # Check status
@@ -266,12 +266,12 @@ def test_pull_sub_nested_using_level_files(nested_in_nested_repos):
     subprocess.run(['git', 'commit', '-m', 'Initial commit'], cwd=parent, check=True, capture_output=True)
 
     # Clone the nested hierarchy
-    result = cmd_git_nested(['clone', str(env.upstream / 'level1'), 'nested1'], cwd=parent)
+    result = cmd_git_nested(['clone', (env.upstream / 'level1').as_posix(), 'nested1'], cwd=parent)
     assert result.returncode == 0
 
     # Make changes in level2 upstream (add a new file to avoid conflicts)
     level2_work = env.workspace / 'level2_work'
-    subprocess.run(['git', 'clone', str(env.upstream / 'level2'), level2_work], check=True, capture_output=True)
+    subprocess.run(['git', 'clone', (env.upstream / 'level2').as_posix(), level2_work], check=True, capture_output=True)
     subprocess.run(['git', 'config', 'user.name', 'Test'], cwd=level2_work, check=True)
     subprocess.run(['git', 'config', 'user.email', 'test@test'], cwd=level2_work, check=True)
     (level2_work / 'new_file.txt').write_text('This is a new file in level2\n')
@@ -305,7 +305,7 @@ def test_four_levels_deep(nested_in_nested_repos):
     subprocess.run(['git', 'commit', '-m', 'Add level0 content'], cwd=work_dir, check=True, capture_output=True)
 
     # Clone level1 (with all its nested content) into level0
-    result = cmd_git_nested(['clone', str(env.upstream / 'level1'), 'nested1'], cwd=work_dir)
+    result = cmd_git_nested(['clone', (env.upstream / 'level1').as_posix(), 'nested1'], cwd=work_dir)
     assert result.returncode == 0
 
     subprocess.run(['git', 'push', str(level0_path), 'master'], cwd=work_dir, check=True, capture_output=True)
@@ -320,7 +320,7 @@ def test_four_levels_deep(nested_in_nested_repos):
     subprocess.run(['git', 'add', 'README.md'], cwd=parent, check=True, capture_output=True)
     subprocess.run(['git', 'commit', '-m', 'Initial commit'], cwd=parent, check=True, capture_output=True)
 
-    result = cmd_git_nested(['clone', str(env.upstream / 'level0'), 'nested0'], cwd=parent)
+    result = cmd_git_nested(['clone', (env.upstream / 'level0').as_posix(), 'nested0'], cwd=parent)
     assert result.returncode == 0
 
     # Verify all 4 levels exist

@@ -14,7 +14,7 @@ def test_filemode_preserved_through_pull_and_push(foo_bar_cloned):
     env = foo_bar_cloned
 
     create_upstream_repo(env.upstream / 'leg')
-    clone_repo(str(env.upstream / 'leg'), env.workspace / 'leg')
+    clone_repo((env.upstream / 'leg').as_posix(), env.workspace / 'leg')
 
     # Create an executable script and a regular file in the upstream nested repo
     leg = env.workspace / 'leg'
@@ -29,7 +29,7 @@ def test_filemode_preserved_through_pull_and_push(foo_bar_cloned):
     assert_commit_count(leg, 1)
 
     # Clone the nested repo into foo
-    cmd_git_nested(f'clone {env.upstream}/leg leg', cwd=env.workspace / 'foo')
+    cmd_git_nested(f'clone {env.upstream.as_posix()}/leg leg', cwd=env.workspace / 'foo')
 
     foo_leg = env.workspace / 'foo' / 'leg'
     assert _is_executable(foo_leg / 'run.sh'), "run.sh should be executable after clone"

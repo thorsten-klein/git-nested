@@ -1,5 +1,6 @@
 """Tests extraction of a nested repository"""
 
+import sys
 import textwrap
 
 import pytest
@@ -14,7 +15,7 @@ def test_consumer_with_filter(foo_bar_cloned):
     env = foo_bar_cloned
 
     create_upstream_repo(env.upstream / 'leg')
-    clone_repo(str(env.upstream / 'leg'), env.workspace / 'leg')
+    clone_repo((env.upstream / 'leg').as_posix(), env.workspace / 'leg')
 
     env.add_new_files('subdirA/somefile', cwd=env.workspace / 'leg')
     env.add_new_files('subdirA/otherfile', cwd=env.workspace / 'leg')
@@ -29,7 +30,9 @@ def test_consumer_with_filter(foo_bar_cloned):
     assert_commit_count(env.workspace / 'leg', 6)
 
     # add nested repository leg
-    cmd_git_nested(f'clone {env.upstream}/leg leg --filter=subdirA --filter=subdirC', cwd=env.workspace / 'foo')
+    cmd_git_nested(
+        f'clone {env.upstream.as_posix()}/leg leg --filter=subdirA --filter=subdirC', cwd=env.workspace / 'foo'
+    )
     assert (env.workspace / 'foo' / 'leg' / 'subdirA').exists()
     assert not (env.workspace / 'foo' / 'leg' / 'subdirB').exists()
     assert (env.workspace / 'foo' / 'leg' / 'subdirC').exists()
@@ -59,14 +62,14 @@ def test_pull_conflicts_on_change_to_filtered_out_file(foo_bar_cloned):
     env = foo_bar_cloned
 
     create_upstream_repo(env.upstream / 'leg')
-    clone_repo(str(env.upstream / 'leg'), env.workspace / 'leg')
+    clone_repo((env.upstream / 'leg').as_posix(), env.workspace / 'leg')
 
     env.add_new_files('subdirA/somefile', cwd=env.workspace / 'leg')
     env.add_new_files('subdirB/somefile', cwd=env.workspace / 'leg')
     env.run(['git', 'push'], cwd=env.workspace / 'leg')
 
     # clone leg with a filter that excludes subdirB entirely
-    cmd_git_nested(f'clone {env.upstream}/leg leg --filter=subdirA', cwd=env.workspace / 'foo')
+    cmd_git_nested(f'clone {env.upstream.as_posix()}/leg leg --filter=subdirA', cwd=env.workspace / 'foo')
     assert (env.workspace / 'foo' / 'leg' / 'subdirA').exists()
     assert not (env.workspace / 'foo' / 'leg' / 'subdirB').exists()
 
@@ -90,7 +93,7 @@ def test_filter_pull(foo_bar_cloned):
     env = foo_bar_cloned
 
     create_upstream_repo(env.upstream / 'leg')
-    clone_repo(str(env.upstream / 'leg'), env.workspace / 'leg')
+    clone_repo((env.upstream / 'leg').as_posix(), env.workspace / 'leg')
 
     env.add_new_files('subdirA/somefile', cwd=env.workspace / 'leg')
     env.add_new_files('subdirA/otherfile', cwd=env.workspace / 'leg')
@@ -105,7 +108,7 @@ def test_filter_pull(foo_bar_cloned):
     assert_commit_count(env.workspace / 'leg', 6)
 
     # clone leg without filters — all subdirs should be present
-    cmd_git_nested(f'clone {env.upstream}/leg leg', cwd=env.workspace / 'foo')
+    cmd_git_nested(f'clone {env.upstream.as_posix()}/leg leg', cwd=env.workspace / 'foo')
     assert tree(env.workspace / 'foo' / 'leg') == textwrap.dedent("""\
         ├── subdirA
         │   ├── otherfile
@@ -180,7 +183,7 @@ def test_filter_regex(foo_bar_cloned):
     env = foo_bar_cloned
 
     create_upstream_repo(env.upstream / 'leg')
-    clone_repo(str(env.upstream / 'leg'), env.workspace / 'leg')
+    clone_repo((env.upstream / 'leg').as_posix(), env.workspace / 'leg')
 
     env.add_new_files('subdirA/file1', cwd=env.workspace / 'leg')
     env.add_new_files('subdirA/file2', cwd=env.workspace / 'leg')
@@ -196,7 +199,7 @@ def test_filter_regex(foo_bar_cloned):
     #   - subdir[AC]/.* selects everything under subdirA and subdirC
     #   - docs/.*\.md selects only markdown files under docs
     cmd_git_nested(
-        ['clone', f'{env.upstream}/leg', 'leg', '--filter=subdir[AC]/.*', '--filter=docs/.*\\.md'],
+        ['clone', f'{env.upstream.as_posix()}/leg', 'leg', '--filter=subdir[AC]/.*', '--filter=docs/.*\\.md'],
         cwd=env.workspace / 'foo',
     )
     assert tree(env.workspace / 'foo' / 'leg') == textwrap.dedent("""\
@@ -240,7 +243,7 @@ def test_filter_invalid_regex(foo_bar_cloned):
     env = foo_bar_cloned
 
     create_upstream_repo(env.upstream / 'leg')
-    clone_repo(str(env.upstream / 'leg'), env.workspace / 'leg')
+    clone_repo((env.upstream / 'leg').as_posix(), env.workspace / 'leg')
 
     env.add_new_files('subdirA/file1', cwd=env.workspace / 'leg')
     env.run(['git', 'push'], cwd=env.workspace / 'leg')
@@ -248,7 +251,7 @@ def test_filter_invalid_regex(foo_bar_cloned):
     # '[unclosed' is neither a tree, a blob, nor a valid regex
     with pytest.raises(GitNestedError, match=r"invalid filter pattern \[unclosed"):
         cmd_git_nested(
-            ['clone', f'{env.upstream}/leg', 'leg', '--filter=[unclosed'],
+            ['clone', f'{env.upstream.as_posix()}/leg', 'leg', '--filter=[unclosed'],
             cwd=env.workspace / 'foo',
         )
 
@@ -258,7 +261,7 @@ def test_filter_regex_overlaps_literal(foo_bar_cloned):
     env = foo_bar_cloned
 
     create_upstream_repo(env.upstream / 'leg')
-    clone_repo(str(env.upstream / 'leg'), env.workspace / 'leg')
+    clone_repo((env.upstream / 'leg').as_posix(), env.workspace / 'leg')
 
     env.add_new_files('subdirA/file1', cwd=env.workspace / 'leg')
     env.add_new_files('subdirA/file2', cwd=env.workspace / 'leg')
@@ -273,7 +276,7 @@ def test_filter_regex_overlaps_literal(foo_bar_cloned):
     # exercises the file_path.exists() skip branch) and adds subdirB/file1 and
     # subdirC/file1.
     cmd_git_nested(
-        ['clone', f'{env.upstream}/leg', 'leg', '--filter=subdirA', '--filter=subdir.*/file1'],
+        ['clone', f'{env.upstream.as_posix()}/leg', 'leg', '--filter=subdirA', '--filter=subdir.*/file1'],
         cwd=env.workspace / 'foo',
     )
     assert tree(env.workspace / 'foo' / 'leg') == textwrap.dedent("""\
@@ -291,6 +294,9 @@ def test_filter_keeps_file_mode_and_content(foo_bar_cloned):
     """Files placed through a literal or regex filter keep their mode, symlinks and bytes"""
     env = foo_bar_cloned
     leg = env.workspace / 'leg'
+    # A Windows checkout keeps neither the executable bit nor symlinks on disk,
+    # so there the modes are set in the index and the symlink is left out.
+    windows = sys.platform == 'win32'
 
     create_upstream_repo(env.upstream / 'leg')
     clone_repo(str(env.upstream / 'leg'), leg)
@@ -299,10 +305,10 @@ def test_filter_keeps_file_mode_and_content(foo_bar_cloned):
     (leg / 'run.sh').write_text('#!/bin/sh\n')
     (leg / 'tools' / 'build.sh').write_text('#!/bin/sh\n')
     (leg / 'logo.bin').write_bytes(b'\x89PNG\r\n\x00\xff')
-    (leg / 'link').symlink_to('run.sh')
-    (leg / 'run.sh').chmod(0o755)
-    (leg / 'tools' / 'build.sh').chmod(0o755)
+    if not windows:
+        (leg / 'link').symlink_to('run.sh')
     env.run(['git', 'add', '.'], cwd=leg)
+    env.run(['git', 'update-index', '--chmod=+x', 'run.sh', 'tools/build.sh'], cwd=leg)
     env.run(['git', 'commit', '--quiet', '-m', 'add special files'], cwd=leg)
     env.run(['git', 'push'], cwd=leg)
 
@@ -310,7 +316,7 @@ def test_filter_keeps_file_mode_and_content(foo_bar_cloned):
     cmd_git_nested(
         [
             'clone',
-            f'{env.upstream}/leg',
+            f'{env.upstream.as_posix()}/leg',
             'leg',
             '--filter=run.sh',
             '--filter=logo.bin',
@@ -326,10 +332,12 @@ def test_filter_keeps_file_mode_and_content(foo_bar_cloned):
     assert modes['leg/run.sh'] == '100755'
     assert modes['leg/tools/build.sh'] == '100755'
     assert modes['leg/logo.bin'] == '100644'
-    assert modes['leg/link'] == '120000'
+    assert (foo / 'leg' / 'logo.bin').read_bytes() == b'\x89PNG\r\n\x00\xff'
+    if windows:
+        return
 
+    assert modes['leg/link'] == '120000'
     assert (foo / 'leg' / 'run.sh').stat().st_mode & 0o111
     assert (foo / 'leg' / 'tools' / 'build.sh').stat().st_mode & 0o111
-    assert (foo / 'leg' / 'logo.bin').read_bytes() == b'\x89PNG\r\n\x00\xff'
     assert (foo / 'leg' / 'link').is_symlink()
     assert (foo / 'leg' / 'link').readlink().as_posix() == 'run.sh'

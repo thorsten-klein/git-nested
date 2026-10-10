@@ -403,10 +403,10 @@ def env(tmp_path):
     env_vars = {
         'HOME': str(test_env.test_home),
         'GIT_CONFIG_GLOBAL': str(test_env.test_home / '.gitconfig'),
-        'GIT_CONFIG_SYSTEM': '/dev/null',
+        'GIT_CONFIG_SYSTEM': os.devnull,
         # bin/ holds the 'git-nested' launcher `git nested` dispatches to --
         # replaced by the directory of the frozen binary when testing that.
-        'PATH': f"{GIT_NESTED_EXE.parent if GIT_NESTED_EXE else root_dir / 'bin'}:{os.getenv('PATH')}",
+        'PATH': f"{GIT_NESTED_EXE.parent if GIT_NESTED_EXE else root_dir / 'bin'}{os.pathsep}{os.getenv('PATH')}",
     }
 
     with update_env(env_vars):
@@ -434,7 +434,7 @@ def foo_bar_cloned(env):
 @pytest.fixture
 def foo_bar_cloned_and_nested(foo_bar_cloned):
     env = foo_bar_cloned
-    cmd_git_nested(['clone', str(env.upstream / 'bar')], env.workspace / 'foo')
+    cmd_git_nested(['clone', (env.upstream / 'bar').as_posix()], env.workspace / 'foo')
     return env
 
 
@@ -656,6 +656,18 @@ def _raise_if_failed(cmd_and_args: list[str], result, check: bool):
     )
 
 
+def split_command(command: str) -> list[str]:
+    """Split a command line the way a POSIX shell would, keeping Windows paths intact.
+
+    shlex treats a backslash as an escape and drops it, which would turn a
+    Windows path such as C:\\Users\\x into C:Usersx. On Windows the backslash is
+    a path separator, so it is doubled first to make shlex keep it.
+    """
+    if os.name == 'nt':
+        command = command.replace('\\', '\\\\')
+    return shlex.split(command)
+
+
 def cmd_git_nested_subprocess(args, cwd, check: bool = True):
     """Run a git nested command as subprocess and return the result
 
@@ -663,7 +675,7 @@ def cmd_git_nested_subprocess(args, cwd, check: bool = True):
     run it, and it only works if git finds a 'git-nested' on PATH -- which the
     env fixture points at either bin/ or the frozen binary.
     """
-    args = shlex.split(args) if isinstance(args, str) else [str(a) for a in args]
+    args = split_command(args) if isinstance(args, str) else [str(a) for a in args]
 
     # `git nested --help` never reaches git-nested: git answers every
     # '--help'/'-h' itself by opening man git-nested. The manual page ships
@@ -721,7 +733,7 @@ def cmd_git_nested(args: list[str] | str, cwd, check: bool = True):
     if GIT_NESTED_EXE:
         return cmd_git_nested_subprocess(args, cwd, check=check)
 
-    args = shlex.split(args) if isinstance(args, str) else args
+    args = split_command(args) if isinstance(args, str) else args
     return _run_inprocess(args, cwd, check)
 
 

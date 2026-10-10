@@ -36,7 +36,7 @@ def test_usual_contribution(foo_bar_cloned_and_nested):
 
     # Do the nested pull
     result = cmd_git_nested('pull bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pulled from {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pulled from {env.upstream.as_posix()}/bar (master)"
 
     # Ensure that the changes from bar are correctly pulled
     assert (env.workspace / 'foo' / 'bar' / 'FirstBar').exists()
@@ -55,7 +55,7 @@ def test_usual_contribution(foo_bar_cloned_and_nested):
 
     # Do the nested push
     result = cmd_git_nested('push bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pushed to {env.upstream}/bar (foo-master)"
+    assert result.output.strip() == f"bar: pushed to {env.upstream.as_posix()}/bar (foo-master)"
 
     # The pushed branch should be available in a bar workspace now
     result = env.run(['git', 'fetch'], cwd=env.workspace / 'bar')
@@ -143,7 +143,7 @@ def test_usual_contribution(foo_bar_cloned_and_nested):
 
     # Do the nested pull as suggested
     result = cmd_git_nested('pull bar --branch foo-master', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pulled from {env.upstream}/bar (foo-master)"
+    assert result.output.strip() == f"bar: pulled from {env.upstream.as_posix()}/bar (foo-master)"
 
     # Ensure that the changes from bar are correctly pulled
     assert (env.workspace / 'foo' / 'bar' / 'ThirdBar').exists()
@@ -161,4 +161,4 @@ def test_usual_contribution(foo_bar_cloned_and_nested):
 
     # Do the nested push (should work without --force as only new commits should be added)
     result = cmd_git_nested('push bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pushed to {env.upstream}/bar (foo-master)"
+    assert result.output.strip() == f"bar: pushed to {env.upstream.as_posix()}/bar (foo-master)"

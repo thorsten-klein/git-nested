@@ -14,7 +14,7 @@ def test_fetch(foo_bar_cloned_and_nested):
 
     # Fetch information
     result = cmd_git_nested('fetch bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: fetched from {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: fetched from {env.upstream.as_posix()}/bar (master)"
 
     # Check that there is no tags fetched
     result = env.run(['git', 'tag', '-l', 'CoolTag'], cwd=env.workspace / 'foo')
