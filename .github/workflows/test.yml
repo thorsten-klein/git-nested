@@ -56,9 +56,17 @@ jobs:
 
   test:
     runs-on: ${{ matrix.os }}
+    # The steps are written for bash; on windows-latest the default would be
+    # PowerShell. Git for Windows ships bash on every runner.
+    defaults:
+      run:
+        shell: bash
     strategy:
+      # One OS failing must not cancel the others: a Windows-only break should
+      # still show whether Linux and macOS pass.
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
 
     steps:
