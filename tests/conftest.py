@@ -6,8 +6,11 @@ import os
 import re
 import shlex
 import shutil
+import stat
 import subprocess
+import sys
 import textwrap
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -191,6 +194,27 @@ def clone_repo(upstream: str, path: Path):
     subprocess.run(['git', 'config', 'user.email', f'{name}@{name}'], cwd=path, check=True)
 
 
+def remove_tree(path: Path) -> None:
+    """Delete a directory tree that git worked in, on every platform.
+
+    Git writes its object files read-only, which Windows refuses to delete, so
+    the write bit is restored and the removal retried. A file that is already
+    gone was removed by a git process still running in the background (auto
+    maintenance drops its `maintenance.lock`), which is fine.
+    """
+
+    def retry(func: Callable[[str], object], failed_path: str, exc: BaseException) -> None:
+        if isinstance(exc, FileNotFoundError):
+            return
+        Path(failed_path).chmod(stat.S_IWRITE)
+        func(failed_path)
+
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=retry)
+    else:
+        shutil.rmtree(path, onerror=lambda func, failed_path, exc_info: retry(func, failed_path, exc_info[1]))
+
+
 def create_upstream_repo(repo_path: Path) -> Path:
     """Create a bare git repository and return a temporary working directory"""
     repo_path.mkdir(parents=True)
@@ -215,7 +239,7 @@ def create_upstream_foo(repo_path: Path):
     subprocess.run(['git', 'commit', '-m', 'Foo'], cwd=work_dir, check=True, capture_output=True)
     subprocess.run(['git', 'push', str(repo_path), 'master'], cwd=work_dir, check=True, capture_output=True)
 
-    shutil.rmtree(work_dir)
+    remove_tree(work_dir)
 
 
 def create_upstream_bar(repo_path: Path):
@@ -238,7 +262,7 @@ def create_upstream_bar(repo_path: Path):
     subprocess.run(['git', 'push', str(repo_path), 'master'], cwd=work_dir, check=True, capture_output=True)
     subprocess.run(['git', 'push', str(repo_path), 'A'], cwd=work_dir, check=True, capture_output=True)
 
-    shutil.rmtree(work_dir)
+    remove_tree(work_dir)
 
 
 def create_upstream_init(repo_path: Path):
@@ -345,7 +369,7 @@ def create_upstream_init(repo_path: Path):
     # Push to bare repo
     subprocess.run(['git', 'push', str(repo_path), 'master'], cwd=work_dir, check=True, capture_output=True)
 
-    shutil.rmtree(work_dir)
+    remove_tree(work_dir)
 
 
 # ============================================================================

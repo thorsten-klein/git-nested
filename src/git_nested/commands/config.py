@@ -82,7 +82,9 @@ def _resolve_gitnested(subdir: str | Path | None) -> tuple[Path, Path]:
     if not subdir:
         output.error("no subdir given")
     subdir = Path(subdir)
-    if subdir.is_absolute():
+    # anchor, not is_absolute(): on Windows a rooted path such as /x has no drive
+    # and so is not absolute, yet it still points outside the repository
+    if subdir.anchor:
         output.usage_error(f"{subdir}: subdir must be a relative path")
     return subdir, setup.resolve_gitnested_file(subdir)
 

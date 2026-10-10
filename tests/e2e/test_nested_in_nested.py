@@ -13,7 +13,6 @@ Example structure:
           .gitnested
 """
 
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -22,6 +21,7 @@ from conftest import (
     assert_gitnested_field,
     cmd_git_nested,
     create_upstream_repo,
+    remove_tree,
 )
 
 
@@ -36,7 +36,7 @@ def create_upstream_level3(repo_path: Path):
     subprocess.run(['git', 'push', str(repo_path), 'master'], cwd=work_dir, check=True, capture_output=True)
 
     # Clean up
-    shutil.rmtree(work_dir)
+    remove_tree(work_dir)
 
 
 def create_upstream_level2_with_nested(env):
@@ -57,7 +57,7 @@ def create_upstream_level2_with_nested(env):
     subprocess.run(['git', 'push', str(repo_path), 'master'], cwd=work_dir, check=True, capture_output=True)
 
     # Clean up
-    shutil.rmtree(work_dir)
+    remove_tree(work_dir)
 
 
 def create_upstream_level1_with_nested(env):
@@ -78,7 +78,7 @@ def create_upstream_level1_with_nested(env):
     subprocess.run(['git', 'push', str(repo_path), 'master'], cwd=work_dir, check=True, capture_output=True)
 
     # Clean up
-    shutil.rmtree(work_dir)
+    remove_tree(work_dir)
 
 
 @pytest.fixture
@@ -355,4 +355,4 @@ def test_four_levels_deep(nested_in_nested_repos):
     assert (parent / 'nested0' / 'nested1' / 'nested2' / 'nested3' / '.gitnested.level4').is_file()
 
     # Clean up
-    shutil.rmtree(work_dir)
+    remove_tree(work_dir)
