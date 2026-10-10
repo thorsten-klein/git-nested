@@ -13,7 +13,7 @@ from ..models import CommandContext, Flags
 def do_clean(git: GitRunner, flags: Flags, subdir: Path, git_tmp: Path) -> list[str]:
     """Clean nested branches and refs."""
     items = []
-    subref = refs.sanitize_subref(git, str(subdir))
+    subref = refs.sanitize_subref(git, subdir.as_posix())
     branch = f'nested/{subref}'
     ref = f'refs/heads/{branch}'
     subdir_worktree = git_tmp / branch

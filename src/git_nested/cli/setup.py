@@ -90,7 +90,7 @@ def setup_command(
     if subdir.anchor:
         output.usage_error(f"{subdir.as_posix()}: subdir must be a relative path")
 
-    subref = refs.sanitize_subref(git, str(subdir))
+    subref = refs.sanitize_subref(git, subdir.as_posix())
 
     gitnested = resolve_gitnested_file(subdir)
 

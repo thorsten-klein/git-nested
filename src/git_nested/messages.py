@@ -81,7 +81,7 @@ def pull_conflict_help(subdir: Path, worktree: Path, method: str, message_file: 
           3. 'git add' each file you resolved
           4. {resume}
           5. if more conflicts appear, go back to step 2
-          6. cd {Path.cwd()}
+          6. cd {Path.cwd().as_posix()}
           7. {commit}
         """)
     if method == 'rebase':

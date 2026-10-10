@@ -196,4 +196,4 @@ def _finalize_commit(
 
     worktree.remove_worktree(git, subdir_worktree)
 
-    refs.create_nested_ref(git, refs.sanitize_subref(git, str(subdir)), 'commit', nested_commit_ref)
+    refs.create_nested_ref(git, refs.sanitize_subref(git, subdir.as_posix()), 'commit', nested_commit_ref)

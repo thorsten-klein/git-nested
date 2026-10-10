@@ -59,7 +59,7 @@ def _status_for_subdir(
         subdir isn't a nested repository, else a single (subdir, config) entry.
     """
     subdir = subdir if isinstance(subdir, Path) else Path(subdir)
-    subref = refs.sanitize_subref(git, str(subdir))
+    subref = refs.sanitize_subref(git, subdir.as_posix())
 
     gitrepo = subdir / GITNESTED_FILENAME
     if not gitrepo.is_file():
