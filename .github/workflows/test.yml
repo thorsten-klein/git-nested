@@ -6,13 +6,12 @@ on:
   pull_request:
     branches: ['**']
 
-# One run per branch/PR at a time -- a new commit cancels whatever this
-# workflow is still running for the same ref. Not on main: every push there
-# is a merge, and each one should run to completion rather than being
-# canceled by the next.
+# One run per branch/PR at a time. A run in progress always finishes, so its
+# full results stay visible; a newer push waits for it instead of cancelling
+# it (only the newest waiting run is kept).
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: false
 
 jobs:
   # Builds the standalone executable with the very script the release uses
