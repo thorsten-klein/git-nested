@@ -43,7 +43,7 @@ def cmd_fetch(ctx: CommandContext) -> None:
     subdir, _, subref, config = setup.setup_command(git, 'fetch', flags, subdir, upstream)
 
     if config.remote == 'none':
-        output.say(f"{subdir}: skipped, it has no remote")
+        output.say(f"{subdir.as_posix()}: skipped, it has no remote")
     else:
         do_fetch(git, config, subref)
-        output.say(f"{subdir}: fetched from {config.remote} ({config.branch})")
+        output.say(f"{subdir.as_posix()}: fetched from {config.remote} ({config.branch})")

@@ -65,15 +65,15 @@ def _check_head_and_index_clean(git: GitRunner, command: str, pwd: Path) -> None
 
     result = git.run(['rev-parse', '--verify', 'HEAD'], may_fail=True)
     if result.returncode != 0:
-        raise GitNestedError(f"{pwd}: HEAD cannot be verified")
+        raise GitNestedError(f"{pwd.as_posix()}: HEAD cannot be verified")
 
     result = git.run(['diff-index', '--quiet', '--ignore-submodules', 'HEAD'], may_fail=True)
     if result.returncode != 0:
-        raise GitNestedError(f"{pwd}: can't {command}, the working tree has changes")
+        raise GitNestedError(f"{pwd.as_posix()}: can't {command}, the working tree has changes")
 
     result = git.run(['diff-index', '--quiet', '--cached', '--ignore-submodules', 'HEAD'], may_fail=True)
     if result.returncode != 0:
-        raise GitNestedError(f"{pwd}: can't {command}, the index has changes")
+        raise GitNestedError(f"{pwd.as_posix()}: can't {command}, the index has changes")
 
 
 def check_worktree_clean(git: GitRunner, command: str) -> None:
@@ -87,7 +87,7 @@ def check_worktree_clean(git: GitRunner, command: str) -> None:
     # Check for unstaged changes
     result = git.run(['diff-files', '--quiet', '--ignore-submodules'], may_fail=True)
     if result.returncode != 0:
-        raise GitNestedError(f"{pwd}: can't {command}, there are unstaged changes")
+        raise GitNestedError(f"{pwd.as_posix()}: can't {command}, there are unstaged changes")
 
     _check_head_and_index_clean(git, command, pwd)
 
@@ -95,10 +95,10 @@ def check_worktree_clean(git: GitRunner, command: str) -> None:
 def check_subdir_for_init(git: GitRunner, subdir: Path, gitnested: Path) -> None:
     """Check subdir is ready for init."""
     if not subdir.exists():
-        raise GitNestedError(f"{subdir}: does not exist")
+        raise GitNestedError(f"{subdir.as_posix()}: does not exist")
 
     if gitnested.exists():
-        raise GitNestedError(f"{subdir}: is already a nested repository")
+        raise GitNestedError(f"{subdir.as_posix()}: is already a nested repository")
 
     if not git.is_tracked(subdir):
-        raise GitNestedError(f"{subdir}: exists, but git tracks nothing in it")
+        raise GitNestedError(f"{subdir.as_posix()}: exists, but git tracks nothing in it")

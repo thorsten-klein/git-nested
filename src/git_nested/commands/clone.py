@@ -37,7 +37,7 @@ def do_clone(
     if flags.filter:
         config.filter = flags.filter
 
-    output.verbose(f"creating {subdir}/")
+    output.verbose(f"creating {subdir.as_posix()}/")
     subdir.mkdir(parents=True, exist_ok=True)
 
     nested_commit_ref = upstream_head_commit
@@ -109,7 +109,7 @@ def _do_clone_fresh(git: GitRunner, config: NestedConfig, subdir: Path, subref: 
         tuple: (updated_config, upstream_head_commit)
     """
     if subdir.exists() and any(subdir.iterdir()):
-        raise GitNestedError(f"{subdir}: exists and is not empty")
+        raise GitNestedError(f"{subdir.as_posix()}: exists and is not empty")
 
     if not config.branch:
         output.verbose("determining the upstream default branch")
@@ -140,7 +140,7 @@ def cmd_clone(ctx: CommandContext) -> None:
             raise AssertionError(
                 'do_clone returned nested_commit_ref=None with up_to_date=False'
             )  # pragma: no cover -- invariant guard, unreachable via the public API
-        output.verbose(f"committing the new {subdir}/ content")
+        output.verbose(f"committing the new {subdir.as_posix()}/ content")
         content.commit_nested_branch(
             git=git,
             flags=flags,
@@ -155,6 +155,6 @@ def cmd_clone(ctx: CommandContext) -> None:
         )
 
     if up_to_date:
-        output.say(f"{subdir}: already up to date with {config.remote} ({config.branch})")
+        output.say(f"{subdir.as_posix()}: already up to date with {config.remote} ({config.branch})")
     else:
-        output.say(f"{subdir}: cloned from {config.remote} ({config.branch})")
+        output.say(f"{subdir.as_posix()}: cloned from {config.remote} ({config.branch})")

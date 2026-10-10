@@ -64,7 +64,7 @@ def build_commit_message(
         git nested {command}
 
         nested:
-          subdir:   "{subdir}"
+          subdir:   "{subdir.as_posix()}"
           merged:   "{commit}"
         upstream:
           remote:   "{config.remote}"

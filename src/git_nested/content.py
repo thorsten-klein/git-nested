@@ -67,7 +67,7 @@ def commit_nested_branch(
 
     _replace_subdir_content(git, subdir)
 
-    output.verbose(f"placing the upstream content in {subdir}/")
+    output.verbose(f"placing the upstream content in {subdir.as_posix()}/")
     if not config.filter:
         _place_full_content(git, subdir, nested_commit_ref)
     else:
@@ -104,7 +104,7 @@ def _replace_subdir_content(git: GitRunner, subdir: Path) -> None:
 
 def _place_full_content(git: GitRunner, subdir: Path, nested_commit_ref: str) -> None:
     """Place the full upstream tree into subdir/ (the no-filter case)."""
-    git.run(['read-tree', f'--prefix={subdir}', '-u', nested_commit_ref])
+    git.run(['read-tree', f'--prefix={subdir.as_posix()}', '-u', nested_commit_ref])
 
 
 def _sync_gitnested_files(
@@ -118,7 +118,7 @@ def _sync_gitnested_files(
     command: str,
 ) -> None:
     """Update .gitnested (and its sibling regular file, if this is a levelN file)."""
-    output.verbose(f"writing {gitnested}")
+    output.verbose(f"writing {gitnested.as_posix()}")
     gitfile.update_gitrepo_file(
         git=git,
         flags=flags,

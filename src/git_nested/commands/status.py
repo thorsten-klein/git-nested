@@ -63,7 +63,7 @@ def _status_for_subdir(
 
     gitrepo = subdir / GITNESTED_FILENAME
     if not gitrepo.is_file():
-        return [f"'{subdir}' is not a nested repository\n"], []
+        return [f"'{subdir.as_posix()}' is not a nested repository\n"], []
 
     refs_fetch = f'refs/nested/{subref}/fetch'
     upstream_head = git.check_output(['rev-parse', '--short', refs_fetch], may_fail=True)
@@ -74,7 +74,7 @@ def _status_for_subdir(
         fetch.do_fetch(git, config, subref)
 
     if flags.quiet:
-        return [f"{subdir}\n"], [(subdir, config)]
+        return [f"{subdir.as_posix()}\n"], [(subdir, config)]
 
     lines = _status_detail_lines(git, flags, git_tmp, subdir, subref, config, upstream_head)
     return lines, [(subdir, config)]
@@ -90,7 +90,7 @@ def _status_detail_lines(
     upstream_head: str,
 ) -> list[str]:
     """Build the verbose per-subdir status lines shown when --quiet is not set."""
-    lines = [f"Git nested repository '{subdir}':\n"]
+    lines = [f"Git nested repository '{subdir.as_posix()}':\n"]
     lines.extend(_status_identity_lines(git, subref, config, upstream_head))
     lines.extend(_status_commit_lines(git, config))
     lines.extend(_status_worktree_lines(git, git_tmp, subdir))
@@ -136,7 +136,11 @@ def _status_commit_lines(git: GitRunner, config: NestedConfig) -> list[str]:
 def _status_worktree_lines(git: GitRunner, git_tmp: Path, subdir: Path) -> list[str]:
     """Build the worktree status line(s) for one nested subdir, if any exist."""
     worktree_list = git.check_output(['worktree', 'list'], may_fail=True) or ''
-    return [f"  Worktree: {line}\n" for line in worktree_list.splitlines() if f'{git_tmp}/nested/{subdir}' in line]
+    return [
+        f"  Worktree: {line}\n"
+        for line in worktree_list.splitlines()
+        if f'{git_tmp.as_posix()}/nested/{subdir.as_posix()}' in line
+    ]
 
 
 def _format_ref_line(git: GitRunner, subref: str, line: str) -> str | None:

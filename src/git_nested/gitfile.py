@@ -54,7 +54,7 @@ def create_level_gitnested_files(
 
 def _is_nested_gitnested_file(line: str, subdir: Path) -> bool:
     """Check whether line is a tracked .gitnested file other than subdir's own."""
-    return line.endswith(GITNESTED_FILENAME) and line != f'{subdir}/{GITNESTED_FILENAME}'
+    return line.endswith(GITNESTED_FILENAME) and line != f'{subdir.as_posix()}/{GITNESTED_FILENAME}'
 
 
 def _detect_next_level(git: GitRunner, subdir: Path) -> int:
@@ -71,7 +71,7 @@ def _detect_next_level(git: GitRunner, subdir: Path) -> int:
 
 def _extract_level_number(line: str, subdir: Path) -> int | None:
     """Extract the N from a `.gitnested.levelN` git-tracked path, or None if line isn't one."""
-    if not (GITNESTED_LEVEL_PREFIX in line and line.startswith(f'{subdir}/{GITNESTED_LEVEL_PREFIX}')):
+    if not (GITNESTED_LEVEL_PREFIX in line and line.startswith(f'{subdir.as_posix()}/{GITNESTED_LEVEL_PREFIX}')):
         return None
     parts = line.split(GITNESTED_LEVEL_PREFIX)
     if len(parts) != 2 or not parts[1].isdigit():
@@ -84,7 +84,7 @@ def _create_one_level_file(git: GitRunner, flags: Flags, gitnested_path: str, le
     gitnested_file = Path(gitnested_path)
     level_file = gitnested_file.parent / f'{GITNESTED_LEVEL_PREFIX}{level}'
 
-    output.verbose(f"creating {level_file} for the sub-nested repository")
+    output.verbose(f"creating {level_file.as_posix()} for the sub-nested repository")
 
     if not gitnested_file.exists():
         return
@@ -105,7 +105,7 @@ def _create_one_level_file(git: GitRunner, flags: Flags, gitnested_path: str, le
 def read_config(gitnested: Path, flags: Flags) -> NestedConfig:
     """Read .gitnested file."""
     if not gitnested.is_file():
-        raise GitNestedError(f"{gitnested} does not exist")
+        raise GitNestedError(f"{gitnested.as_posix()} does not exist")
 
     config = NestedConfig.from_file(gitnested)
 
@@ -157,10 +157,10 @@ def _recreate_gitnested_from_parent(git: GitRunner, gitnested: Path, head_commit
     Returns:
         True if the file was recreated from head_commit.
     """
-    result = git.run(['cat-file', '-e', f'{head_commit}:{gitnested}'], may_fail=True)
+    result = git.run(['cat-file', '-e', f'{head_commit}:{gitnested.as_posix()}'], may_fail=True)
     if result.returncode != 0:
         return False
-    content = git.check_output(['cat-file', '-p', f'{head_commit}:{gitnested}'])
+    content = git.check_output(['cat-file', '-p', f'{head_commit}:{gitnested.as_posix()}'])
     gitnested.write_text(content)
     return True
 

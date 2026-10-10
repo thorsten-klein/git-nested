@@ -27,7 +27,7 @@ def _check_parent_is_ancestor(git: GitRunner, config: NestedConfig, gitnested: P
 
 def _extract_gitrepo_commit(git: GitRunner, commit: str, subdir: Path) -> str | None:
     """Extract the recorded nested commit from commit's .gitnested file, or None."""
-    gitrepo_content = git.check_output(['cat-file', '-p', f'{commit}:{subdir}/.gitnested'], may_fail=True)
+    gitrepo_content = git.check_output(['cat-file', '-p', f'{commit}:{subdir.as_posix()}/.gitnested'], may_fail=True)
     if not gitrepo_content:
         return None
     try:
@@ -84,7 +84,7 @@ def _compute_second_parent(flags: Flags, config: NestedConfig, gitrepo_commit: s
 
 def _commit_has_subdir_content(git: GitRunner, commit: str, subdir: Path) -> bool:
     """Check whether commit has content under subdir/."""
-    result = git.run(['cat-file', '-e', f'{commit}:{subdir}'], may_fail=True)
+    result = git.run(['cat-file', '-e', f'{commit}:{subdir.as_posix()}'], may_fail=True)
     return result.returncode == 0
 
 
@@ -111,7 +111,7 @@ def _create_chain_commit(
         'GIT_COMMITTER_NAME': committer_name,
     })
 
-    tree_cmd = ['commit-tree', '-F', '-', *first_parent, *second_parent, f'{commit}:{subdir}']
+    tree_cmd = ['commit-tree', '-F', '-', *first_parent, *second_parent, f'{commit}:{subdir.as_posix()}']
     return git.check_output(tree_cmd, input=commit_msg, env=env)
 
 
@@ -194,7 +194,7 @@ def _create_branch_from_parent(
         # No commit in the parent..HEAD range ever touched subdir, so the
         # chain builder above never had content to build a nested commit from.
         raise GitNestedError(
-            f"{subdir}: no commit between {config.parent} and HEAD touches it, so there is no nested history to rebuild"
+            f"{subdir.as_posix()}: no commit between {config.parent} and HEAD touches it, so there is no nested history to rebuild"
         )
     git.run(['branch', branch, prev_commit])
     return first_gitrepo_commit

@@ -243,7 +243,7 @@ def cmd_push(ctx: CommandContext) -> None:
     )
     subdir, gitnested, subref, config = setup.setup_command(git, 'push', flags, subdir, upstream)
 
-    output.verbose(f"pushing {subdir} upstream")
+    output.verbose(f"pushing {subdir.as_posix()} upstream")
     success, branch_name, subdir_worktree, branch_created, new_commit = do_push(
         git=git,
         flags=flags,
@@ -272,7 +272,7 @@ def cmd_push(ctx: CommandContext) -> None:
     if flags.commit:
         _record_push_commit(git, flags, subdir, gitnested, config, new_commit, head_commit)
 
-    output.say(f"{subdir}: pushed to {config.remote} ({branch_name})")
+    output.say(f"{subdir.as_posix()}: pushed to {config.remote} ({branch_name})")
 
 
 def _handle_push_failure(success: bool, subdir_worktree: Path | None, subdir: Path) -> bool:
@@ -282,10 +282,10 @@ def _handle_push_failure(success: bool, subdir_worktree: Path | None, subdir: Pa
         True if the caller should stop (push did not succeed), else False.
     """
     if not success and subdir_worktree:
-        output.error(f"{subdir}: git rebase failed, so nothing was pushed")
+        output.error(f"{subdir.as_posix()}: git rebase failed, so nothing was pushed")
 
     if not success:
-        output.say(f"{subdir}: nothing to push")
+        output.say(f"{subdir.as_posix()}: nothing to push")
         return True
 
     return False
@@ -301,7 +301,7 @@ def _record_push_commit(
     head_commit: str,
 ) -> None:
     """Update `.gitnested` and create a commit recording the push (the --commit flag)."""
-    output.verbose(f"writing {subdir}/.gitnested")
+    output.verbose(f"writing {subdir.as_posix()}/.gitnested")
 
     gitfile.update_gitrepo_file(
         git=git,
