@@ -112,16 +112,25 @@ def _place_literal_filter_entry(
     if obj_type == 'tree':
         git.run(['read-tree', f'--prefix={subdir}/{p}', '-u', f'{nested_commit_ref}:{p}'])
     elif obj_type == 'blob':
-        file_path = subdir / p
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        content = git.run(['cat-file', 'blob', f'{nested_commit_ref}:{p}']).stdout
-        file_path.write_text(content)
-        git.run(['add', '-f', '--', str(file_path)])
+        _place_blob(git, subdir, nested_commit_ref, p)
     else:
         try:
             regex_patterns.append(re.compile(p))
         except re.error as e:
             raise GitNestedError(f"invalid filter pattern {p}: {e}") from e
+
+
+def _place_blob(git: GitRunner, subdir: Path, nested_commit_ref: str, blob_path: str) -> None:
+    """Place one blob of nested_commit_ref into subdir/ through the index.
+
+    Going through the index rather than writing the file keeps what a plain
+    write loses: the executable bit, symlinks and non-UTF-8 content.
+    """
+    entry = git.check_output(['ls-tree', '-z', nested_commit_ref, '--', blob_path]).rstrip('\0')
+    mode, _obj_type, blob_sha = entry.split('\t', 1)[0].split()
+    target = (subdir / blob_path).as_posix()
+    git.run(['update-index', '--add', '--cacheinfo', f'{mode},{blob_sha},{target}'])
+    git.run(['checkout-index', '--force', '--', target])
 
 
 def _blob_needs_placement(blob_path: str, subdir: Path, regex_patterns: list[re.Pattern]) -> bool:
@@ -141,11 +150,7 @@ def _place_regex_matches(
     for blob_path in all_blobs:
         if not _blob_needs_placement(blob_path, subdir, regex_patterns):
             continue
-        file_path = subdir / blob_path
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        content = git.run(['cat-file', 'blob', f'{nested_commit_ref}:{blob_path}']).stdout
-        file_path.write_text(content)
-        git.run(['add', '-f', '--', str(file_path)])
+        _place_blob(git, subdir, nested_commit_ref, blob_path)
 
 
 def _place_filtered_content(git: GitRunner, subdir: Path, config: NestedConfig, nested_commit_ref: str) -> None:

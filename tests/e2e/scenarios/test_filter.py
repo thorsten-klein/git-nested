@@ -285,3 +285,51 @@ def test_filter_regex_overlaps_literal(foo_bar_cloned):
         ├── subdirC
         │   └── file1
         └── .gitnested""")
+
+
+def test_filter_keeps_file_mode_and_content(foo_bar_cloned):
+    """Files placed through a literal or regex filter keep their mode, symlinks and bytes"""
+    env = foo_bar_cloned
+    leg = env.workspace / 'leg'
+
+    create_upstream_repo(env.upstream / 'leg')
+    clone_repo(str(env.upstream / 'leg'), leg)
+
+    (leg / 'tools').mkdir()
+    (leg / 'run.sh').write_text('#!/bin/sh\n')
+    (leg / 'tools' / 'build.sh').write_text('#!/bin/sh\n')
+    (leg / 'logo.bin').write_bytes(b'\x89PNG\r\n\x00\xff')
+    (leg / 'link').symlink_to('run.sh')
+    (leg / 'run.sh').chmod(0o755)
+    (leg / 'tools' / 'build.sh').chmod(0o755)
+    env.run(['git', 'add', '.'], cwd=leg)
+    env.run(['git', 'commit', '--quiet', '-m', 'add special files'], cwd=leg)
+    env.run(['git', 'push'], cwd=leg)
+
+    # literal blob filters for run.sh, logo.bin and link; a regex filter for tools/build.sh
+    cmd_git_nested(
+        [
+            'clone',
+            f'{env.upstream}/leg',
+            'leg',
+            '--filter=run.sh',
+            '--filter=logo.bin',
+            '--filter=link',
+            '--filter=tools/.*\\.sh',
+        ],
+        cwd=env.workspace / 'foo',
+    )
+
+    foo = env.workspace / 'foo'
+    staged = env.run(['git', 'ls-files', '--stage', '--', 'leg'], cwd=foo).stdout
+    modes = {line.split('\t')[1]: line.split()[0] for line in staged.splitlines()}
+    assert modes['leg/run.sh'] == '100755'
+    assert modes['leg/tools/build.sh'] == '100755'
+    assert modes['leg/logo.bin'] == '100644'
+    assert modes['leg/link'] == '120000'
+
+    assert (foo / 'leg' / 'run.sh').stat().st_mode & 0o111
+    assert (foo / 'leg' / 'tools' / 'build.sh').stat().st_mode & 0o111
+    assert (foo / 'leg' / 'logo.bin').read_bytes() == b'\x89PNG\r\n\x00\xff'
+    assert (foo / 'leg' / 'link').is_symlink()
+    assert (foo / 'leg' / 'link').readlink().as_posix() == 'run.sh'
