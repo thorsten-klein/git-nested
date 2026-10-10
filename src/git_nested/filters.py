@@ -110,7 +110,7 @@ def _place_literal_filter_entry(
     """Place one filter entry (a tree or a blob) into subdir/, else collect it as a regex pattern."""
     obj_type = git.check_output(['cat-file', '-t', f'{nested_commit_ref}:{p}'], may_fail=True)
     if obj_type == 'tree':
-        git.run(['read-tree', f'--prefix={subdir}/{p}', '-u', f'{nested_commit_ref}:{p}'])
+        git.run(['read-tree', f'--prefix={subdir.as_posix()}/{p}', '-u', f'{nested_commit_ref}:{p}'])
     elif obj_type == 'blob':
         _place_blob(git, subdir, nested_commit_ref, p)
     else:

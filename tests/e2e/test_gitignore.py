@@ -20,7 +20,7 @@ def test_gitignore(foo_bar_cloned_and_nested):
 
     # Pull nested repository "bar"
     result = cmd_git_nested('pull bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pulled from {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pulled from {env.upstream.as_posix()}/bar (master)"
 
     # Ensure nested repository files are present
     gitnested = env.workspace / 'foo' / 'bar' / '.gitnested'
@@ -33,7 +33,7 @@ def test_gitignore(foo_bar_cloned_and_nested):
 
     assert_gitnested_field(
         gitnested,
-        remote=str(env.upstream / 'bar'),
+        remote=(env.upstream / 'bar').as_posix(),
         branch='master',
         commit=bar_head_commit,
         parent=previous_commit,

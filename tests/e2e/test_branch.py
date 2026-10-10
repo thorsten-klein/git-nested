@@ -103,9 +103,9 @@ def test_branch_all(foo_bar_cloned):
     env = foo_bar_cloned
 
     # Clone two nesteds
-    cmd_git_nested(['clone', str(env.upstream / 'bar'), 'one'], cwd=env.workspace / 'foo')
+    cmd_git_nested(['clone', (env.upstream / 'bar').as_posix(), 'one'], cwd=env.workspace / 'foo')
     assert (env.workspace / 'foo' / 'one').exists()
-    cmd_git_nested(['clone', str(env.upstream / 'bar'), 'two'], cwd=env.workspace / 'foo')
+    cmd_git_nested(['clone', (env.upstream / 'bar').as_posix(), 'two'], cwd=env.workspace / 'foo')
     assert (env.workspace / 'foo' / 'two').exists()
     env.add_new_files('two/file', cwd=env.workspace / 'foo')
 

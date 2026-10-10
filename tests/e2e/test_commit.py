@@ -22,7 +22,7 @@ def test_commit_fetch_flag_fetches_before_committing(env):
     env.clone_init()
     init_dir = env.workspace / 'init'
 
-    cmd_git_nested(f'init doc -r {env.upstream}/bar -b master', cwd=init_dir)
+    cmd_git_nested(f'init doc -r {env.upstream.as_posix()}/bar -b master', cwd=init_dir)
     cmd_git_nested('branch doc', cwd=init_dir)
 
     # --force: the local branch was built from unrelated local history, so it doesn't
@@ -37,7 +37,7 @@ def test_commit_with_message_file(env):
     env.clone_init()
     init_dir = env.workspace / 'init'
 
-    cmd_git_nested(f'init doc -r {env.upstream}/bar -b master', cwd=init_dir)
+    cmd_git_nested(f'init doc -r {env.upstream.as_posix()}/bar -b master', cwd=init_dir)
     cmd_git_nested('branch doc', cwd=init_dir)
 
     msg_file = init_dir / 'commit_msg.txt'

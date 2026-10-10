@@ -42,7 +42,7 @@ def assert_error(cp, error_msg, returncode=2):
 def test_error_branch_already_exists(foo_bar_cloned):
     """Test error when creating a branch that already exists"""
     env = foo_bar_cloned
-    cmd_git_nested(f'clone {env.upstream}/foo', cwd=env.workspace / 'bar')
+    cmd_git_nested(f'clone {env.upstream.as_posix()}/foo', cwd=env.workspace / 'bar')
     env.add_new_files('foo/file', cwd=env.workspace / 'bar')
     cmd_git_nested('branch foo', cwd=env.workspace / 'bar')
     cp = cmd_git_nested('branch foo', check=False, cwd=env.workspace / 'bar')
@@ -143,8 +143,10 @@ def test_error_working_tree_has_changes(foo_bar_cloned):
     env = foo_bar_cloned
     (env.workspace / 'bar' / 'me').touch()
     env.run(['git', 'add', 'me'], cwd=env.workspace / 'bar')
-    cp = env.run(f'git nested clone {env.upstream}/foo', check=False, cwd=env.workspace / 'bar')
-    assert_error(cp, f"git-nested: {env.workspace}/bar: can't clone, the working tree has changes", returncode=1)
+    cp = env.run(f'git nested clone {env.upstream.as_posix()}/foo', check=False, cwd=env.workspace / 'bar')
+    assert_error(
+        cp, f"git-nested: {env.workspace.as_posix()}/bar: can't clone, the working tree has changes", returncode=1
+    )
 
 
 def test_error_not_at_top_level(foo_bar_cloned):
@@ -172,7 +174,7 @@ def test_error_clone_non_repo(foo_bar_cloned):
 def test_error_all_with_branch(foo_bar_cloned):
     """Test error when --all and --branch are used together"""
     env = foo_bar_cloned
-    cmd_git_nested(f'clone {env.upstream}/foo', cwd=env.workspace / 'bar')
+    cmd_git_nested(f'clone {env.upstream.as_posix()}/foo', cwd=env.workspace / 'bar')
     cp = cmd_git_nested('pull --all --branch other', check=False, cwd=env.workspace / 'bar')
     assert_error(cp, "git-nested: --branch and --all can't be used together", returncode=1)
 
@@ -180,7 +182,7 @@ def test_error_all_with_branch(foo_bar_cloned):
 def test_error_message_and_file_together(foo_bar_cloned):
     """Test error when -m and --file are used together"""
     env = foo_bar_cloned
-    cmd_git_nested(f'clone {env.upstream}/foo', cwd=env.workspace / 'bar')
+    cmd_git_nested(f'clone {env.upstream.as_posix()}/foo', cwd=env.workspace / 'bar')
     env.add_new_files('foo/newfile', cwd=env.workspace / 'bar')
 
     # Create a commit message file
@@ -194,7 +196,7 @@ def test_error_message_and_file_together(foo_bar_cloned):
 def test_error_missing_commit_msg_file(foo_bar_cloned):
     """Test error when commit message file doesn't exist"""
     env = foo_bar_cloned
-    cmd_git_nested(f'clone {env.upstream}/foo', cwd=env.workspace / 'bar')
+    cmd_git_nested(f'clone {env.upstream.as_posix()}/foo', cwd=env.workspace / 'bar')
     env.add_new_files('foo/newfile', cwd=env.workspace / 'bar')
 
     cp = cmd_git_nested('commit foo --file nonexistent.txt', check=False, cwd=env.workspace / 'bar')

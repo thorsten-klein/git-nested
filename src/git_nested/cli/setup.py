@@ -29,7 +29,7 @@ def resolve_gitnested_file(subdir: Path) -> Path:
     if level_files:
         # Use the highest level file found (for deeply nested repos)
         gitnested = level_files[-1]
-        output.verbose(f"using {gitnested} (detected from the level files)")
+        output.verbose(f"using {gitnested.as_posix()} (detected from the level files)")
 
     return gitnested
 
@@ -37,7 +37,7 @@ def resolve_gitnested_file(subdir: Path) -> Path:
 def _find_worktree_path(worktree_list: str, subdir: Path) -> str | None:
     """Find the worktree path whose branch matches nested/subdir, if one exists."""
     for line in worktree_list.splitlines():
-        if f'[nested/{subdir}]' in line:
+        if f'[nested/{subdir.as_posix()}]' in line:
             return line.split()[0]
     return None
 
@@ -49,13 +49,15 @@ def _error_existing_worktree(subdir: Path, gitnested: Path, worktree_path: str |
 
 def _check_existing_worktree(git: GitRunner, command: str, subdir: Path, gitnested: Path) -> None:
     """Error out if an existing worktree for subdir conflicts with this command."""
-    output.verbose(f"checking for a worktree on nested/{subdir}")
+    output.verbose(f"checking for a worktree on nested/{subdir.as_posix()}")
     worktree_list = git.check_output(['worktree', 'list'], may_fail=True) or ''
     worktree_path = _find_worktree_path(worktree_list, subdir)
     has_worktree = worktree_path is not None
 
     if command in ['commit'] and not has_worktree:
-        output.error(f"{subdir}: no worktree to commit from; run 'git nested branch {subdir}' first")
+        output.error(
+            f"{subdir.as_posix()}: no worktree to commit from; run 'git nested branch {subdir.as_posix()}' first"
+        )
     elif command not in ['branch', 'clean', 'commit', 'push'] and has_worktree:
         _error_existing_worktree(subdir, gitnested, worktree_path)
 
@@ -83,10 +85,12 @@ def setup_command(
 
     subdir = Path(subdir)
 
-    if subdir.is_absolute():
-        output.usage_error(f"{subdir}: subdir must be a relative path")
+    # anchor, not is_absolute(): on Windows a rooted path such as /x has no drive
+    # and so is not absolute, yet it still points outside the repository
+    if subdir.anchor:
+        output.usage_error(f"{subdir.as_posix()}: subdir must be a relative path")
 
-    subref = refs.sanitize_subref(git, str(subdir))
+    subref = refs.sanitize_subref(git, subdir.as_posix())
 
     gitnested = resolve_gitnested_file(subdir)
 

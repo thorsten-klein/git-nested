@@ -134,7 +134,7 @@ def _pull_forced(
             subdir_worktree=None,
             command='clone',
         )
-    output.say(f"{subdir}: pulled from {config.remote} ({config.branch})")
+    output.say(f"{subdir.as_posix()}: pulled from {config.remote} ({config.branch})")
 
 
 def cmd_pull(ctx: CommandContext) -> None:
@@ -162,7 +162,7 @@ def cmd_pull(ctx: CommandContext) -> None:
     )
 
     if not success and pulled_commit_ref is None:
-        output.say(f"{subdir}: already up to date with {config.remote} ({config.branch})")
+        output.say(f"{subdir.as_posix()}: already up to date with {config.remote} ({config.branch})")
         return
 
     if not success:
@@ -195,7 +195,7 @@ def _handle_pull_conflict(
     # git felt like; rstrip normalises that, and the one added here plus the
     # one help_text opens with leave a blank line between what failed and what
     # to do about it.
-    output.error(f"{subdir}: the pull is unfinished, {error_msg.rstrip()}\n{help_text}")
+    output.error(f"{subdir.as_posix()}: the pull is unfinished, {error_msg.rstrip()}\n{help_text}")
 
 
 def _finalize_successful_pull(
@@ -231,4 +231,4 @@ def _finalize_successful_pull(
         subdir_worktree=subdir_worktree,
         command='pull',
     )
-    output.say(f"{subdir}: pulled from {config.remote} ({config.branch})")
+    output.say(f"{subdir.as_posix()}: pulled from {config.remote} ({config.branch})")

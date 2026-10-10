@@ -7,7 +7,7 @@ import re
 import shutil
 import subprocess
 from collections.abc import Sequence
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any  # kwargs forwarded to subprocess.run, whose own stub types them Any
 
 from . import output
@@ -40,7 +40,9 @@ class GitRunner:
 
     def run(self, args: Sequence[str | Path], may_fail: bool = False, **kwargs: Any) -> subprocess.CompletedProcess:  # noqa: ANN401
         """Run git command."""
-        cmd = ['git'] + [str(arg) for arg in args]
+        # as_posix(): git takes forward slashes on every OS, and a Windows
+        # Path would otherwise reach it with backslashes
+        cmd = ['git'] + [arg.as_posix() if isinstance(arg, PurePath) else str(arg) for arg in args]
         output.trace(' '.join(cmd))
         kwargs['env'] = _git_env(kwargs.get('env'))
         result = subprocess.run(cmd, capture_output=True, text=True, check=False, **kwargs)

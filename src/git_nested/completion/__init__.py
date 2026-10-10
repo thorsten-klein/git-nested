@@ -54,7 +54,8 @@ _NEW_SUBDIR_COMMANDS = ('clone', 'init')
 
 def _nested_subdirs(git: GitRunner, _cur: str) -> list[Candidate]:
     """Every nested repository in the current repository."""
-    return [(str(subdir), '') for subdir in discovery.find_all_nested_repositories(git, Flags(all_deep=True))]
+    # as_posix(): the shells complete with forward slashes, also on Windows
+    return [(subdir.as_posix(), '') for subdir in discovery.find_all_nested_repositories(git, Flags(all_deep=True))]
 
 
 def _nested_branches(git: GitRunner, _cur: str) -> list[Candidate]:

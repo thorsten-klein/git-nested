@@ -50,7 +50,7 @@ def test_nested_push(foo_bar_cloned_and_nested):
     # Do the nested pull and push
     cmd_git_nested('pull bar', cwd=env.workspace / 'foo')
     result = cmd_git_nested('push bar --branch master --commit', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pushed to {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pushed to {env.upstream.as_posix()}/bar (master)"
 
     # Pull changes in bar
     env.run(['git', 'pull'], cwd=env.workspace / 'bar')
@@ -120,7 +120,7 @@ def test_nested_push(foo_bar_cloned_and_nested):
 
     assert_gitnested_field(
         gitnested,
-        remote=str(env.upstream / 'bar'),
+        remote=(env.upstream / 'bar').as_posix(),
         branch='master',
         commit=bar_head_commit,
         parent=foo_pull_commit,
@@ -132,7 +132,7 @@ def test_nested_push(foo_bar_cloned_and_nested):
     env.modify_files('bar/FooBar', cwd=env.workspace / 'foo')
 
     result = cmd_git_nested('push bar --branch master --commit', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pushed to {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pushed to {env.upstream.as_posix()}/bar (master)"
 
     # Pull the changes from UPSTREAM/bar in OWNER/bar
     env.run(['git', 'pull'], cwd=env.workspace / 'bar')
@@ -147,12 +147,12 @@ def test_nested_push(foo_bar_cloned_and_nested):
     env.add_new_files('bar/FooBar3', cwd=env.workspace / 'foo')
     env.modify_files('bar/FooBar', cwd=env.workspace / 'foo')
     result = cmd_git_nested('push bar --branch master --commit', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pushed to {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pushed to {env.upstream.as_posix()}/bar (master)"
 
     env.add_new_files('bar/FooBar4', cwd=env.workspace / 'foo')
     env.modify_files('bar/FooBar3', cwd=env.workspace / 'foo')
     result = cmd_git_nested('push bar --branch master --commit', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pushed to {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pushed to {env.upstream.as_posix()}/bar (master)"
 
     # Make changes in nested
     env.run(['git', 'pull'], cwd=env.workspace / 'bar')
@@ -267,11 +267,11 @@ def test_push_pull_feature_branch(foo_bar_cloned_and_nested):
 
     # Pull nested changes - expected: successful pull without conflicts
     result = cmd_git_nested('pull bar', cwd=foo_dir)
-    assert result.output.strip() == f"bar: pulled from {bar_upstream} ({env.defaultbranch})"
+    assert result.output.strip() == f"bar: pulled from {bar_upstream.as_posix()} ({env.defaultbranch})"
 
     # Push nested changes - expected: successful push without conflicts
     result = cmd_git_nested(f'push bar -b {env.defaultbranch} -u', cwd=foo_dir)
-    assert result.output.strip() == f"bar: pushed to {bar_upstream} ({env.defaultbranch})"
+    assert result.output.strip() == f"bar: pushed to {bar_upstream.as_posix()} ({env.defaultbranch})"
 
 
 def test_push_after_init(env):
@@ -312,7 +312,7 @@ def test_push_after_push_no_changes(foo_bar_cloned_and_nested):
     # Add a file and push again
     env.add_new_files('bar/Bar1', cwd=env.workspace / 'foo')
     result = cmd_git_nested('push bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pushed to {env.upstream}/bar (foo-master)"
+    assert result.output.strip() == f"bar: pushed to {env.upstream.as_posix()}/bar (foo-master)"
 
 
 def test_push_force(foo_bar_cloned_and_nested):
@@ -341,7 +341,7 @@ def test_push_force(foo_bar_cloned_and_nested):
 
     # Test that a fresh repo is not contaminated
     new_bar_dir = env.workspace / 'newbar'
-    env.run(['git', 'clone', str(env.upstream / 'bar'), str(new_bar_dir)])
+    env.run(['git', 'clone', (env.upstream / 'bar').as_posix(), str(new_bar_dir)])
 
     # Fresh clone should only have Foo1, not Bar2
     assert (new_bar_dir / 'Foo1').exists()
@@ -357,7 +357,7 @@ def test_push_new_branch(foo_bar_cloned_and_nested):
 
     # Do the nested push to another branch
     result = cmd_git_nested('push bar --branch newbar --commit', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pushed to {env.upstream}/bar (newbar)"
+    assert result.output.strip() == f"bar: pushed to {env.upstream.as_posix()}/bar (newbar)"
 
     # Do the nested push to another branch again
     result = cmd_git_nested('push bar --branch newbar', cwd=env.workspace / 'foo')
@@ -391,7 +391,7 @@ def test_push_squash(foo_bar_cloned_and_nested):
 
     # Do the nested push with --squash
     result = cmd_git_nested('push bar --squash --branch master', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pushed to {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pushed to {env.upstream.as_posix()}/bar (master)"
 
     # Pull in bar
     env.run(['git', 'pull'], cwd=env.workspace / 'bar')
@@ -421,7 +421,7 @@ def test_push_rebase(foo_bar_cloned_and_nested):
 
     # Do the nested push with -M rebase to change the method
     result = cmd_git_nested('push -M rebase bar --branch master --commit', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pushed to {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pushed to {env.upstream.as_posix()}/bar (master)"
 
     # Verify the method was changed to rebase in the config
     assert_gitnested_field(gitnested, remote=None, branch=None, commit=None, parent=None, method='rebase')
@@ -438,7 +438,7 @@ def test_push_rebase(foo_bar_cloned_and_nested):
 
     assert_gitnested_field(
         gitnested,
-        remote=str(env.upstream / 'bar'),
+        remote=(env.upstream / 'bar').as_posix(),
         branch='master',
         commit=bar_head_commit,
         parent=foo_push_commit,
@@ -448,7 +448,7 @@ def test_push_rebase(foo_bar_cloned_and_nested):
     # Make another commit and push again to verify method persists
     env.add_new_files('bar/FooBar2', cwd=env.workspace / 'foo')
     result = cmd_git_nested('push bar --branch master --commit', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pushed to {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pushed to {env.upstream.as_posix()}/bar (master)"
 
     # Verify method is still rebase after second push
     assert_gitnested_field(gitnested, remote=None, branch=None, commit=None, parent=None, method='rebase', version=None)
@@ -468,7 +468,7 @@ def test_push_rebase_conflict(foo_bar_cloned_and_nested):
     # Make a commit and push with rebase method to set it up
     env.add_new_files('bar/FooBar', cwd=env.workspace / 'foo')
     result = cmd_git_nested('push -M rebase bar --branch master --commit', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pushed to {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pushed to {env.upstream.as_posix()}/bar (master)"
 
     # Verify method changed to rebase
     assert_gitnested_field(gitnested, remote=None, branch=None, commit=None, parent=None, method='rebase')
@@ -489,7 +489,7 @@ def test_push_rebase_conflict(foo_bar_cloned_and_nested):
     assert result.output.strip() == "git-nested: upstream master has commits you do not have; pull first"
 
     result = cmd_git_nested('push bar --branch=master --force', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pushed to {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pushed to {env.upstream.as_posix()}/bar (master)"
 
 
 def test_push_explicit_branch_does_not_exist(foo_bar_cloned_and_nested):
@@ -544,7 +544,7 @@ def test_push_commit_with_message_file(foo_bar_cloned_and_nested):
     msg_file.write_text('Custom push commit message\n')
 
     result = cmd_git_nested(f'push bar --branch=master --commit --file={msg_file}', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pushed to {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pushed to {env.upstream.as_posix()}/bar (master)"
 
     last_msg = env.run(['git', 'log', '-1', '--format=%B'], cwd=env.workspace / 'foo').stdout
     assert last_msg.strip() == 'Custom push commit message'

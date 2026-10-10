@@ -36,12 +36,12 @@ def sync_point_lost(gitnested: Path, subdir: Path, previous: str) -> str:
     return textwrap.dedent(f"""\
         the recorded sync point is no longer an ancestor of HEAD
 
-        The sync point is the commit at which {subdir} and its upstream were last
+        The sync point is the commit at which {subdir.as_posix()} and its upstream were last
         equal. A rebase usually rewrites it. To recover, set
 
             {setting}
 
-        in {gitnested}, then check the result with 'git nested branch {subdir}'.""")
+        in {gitnested.as_posix()}, then check the result with 'git nested branch {subdir.as_posix()}'.""")
 
 
 def worktree_exists(subdir: Path, worktree_path: str | None, prunable: bool) -> str:
@@ -53,7 +53,7 @@ def worktree_exists(subdir: Path, worktree_path: str | None, prunable: bool) -> 
     """
     remedy = "  git nested clean\n" if prunable else f"  rm -rf {worktree_path}\n  git worktree prune\n"
     return (
-        f"{subdir}: a worktree is already checked out on nested/{subdir}\n\n"
+        f"{subdir.as_posix()}: a worktree is already checked out on nested/{subdir.as_posix()}\n\n"
         f"Pass --force to work around the check, or remove the worktree:\n\n{remedy}"
     )
 
@@ -66,30 +66,34 @@ def pull_conflict_help(subdir: Path, worktree: Path, method: str, message_file: 
     handing the result back -- which is what the numbered steps spell out.
     """
     resume = "git rebase --continue" if method == 'rebase' else "git commit"
-    commit = f"git nested commit --file={message_file} {subdir}" if message_file else f"git nested commit {subdir}"
+    commit = (
+        f"git nested commit --file={message_file} {subdir.as_posix()}"
+        if message_file
+        else f"git nested commit {subdir.as_posix()}"
+    )
     text = textwrap.dedent(f"""\
 
-        The conflicts are in a worktree of their own at {worktree}.
+        The conflicts are in a worktree of their own at {worktree.as_posix()}.
         Resolve them there and hand the result back:
 
-          1. cd {worktree}
+          1. cd {worktree.as_posix()}
           2. resolve the conflicts ('git status' lists them)
           3. 'git add' each file you resolved
           4. {resume}
           5. if more conflicts appear, go back to step 2
-          6. cd {Path.cwd()}
+          6. cd {Path.cwd().as_posix()}
           7. {commit}
         """)
     if method == 'rebase':
         text += textwrap.dedent(f"""
             Your local changes can then be pushed without redoing the rebase:
 
-              git nested push {subdir} nested/{subref}
+              git nested push {subdir.as_posix()} nested/{subref}
             """)
     return text + textwrap.dedent(f"""
         See 'git help {method}' for the conflict resolution itself.
 
         To throw the pull away and go back to where you started instead:
 
-          git nested clean {subdir}
+          git nested clean {subdir.as_posix()}
         """)

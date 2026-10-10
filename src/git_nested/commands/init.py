@@ -27,7 +27,7 @@ def do_init(
     checks.check_subdir_for_init(git, subdir, gitnested)
     nested_commit_ref = head_commit
 
-    output.verbose(f"writing {subdir}/.gitnested")
+    output.verbose(f"writing {subdir.as_posix()}/.gitnested")
     gitfile.update_gitrepo_file(
         git=git,
         flags=flags,
@@ -39,7 +39,7 @@ def do_init(
         command='init',
     )
 
-    output.verbose(f"staging {subdir}/.gitnested")
+    output.verbose(f"staging {subdir.as_posix()}/.gitnested")
     git.run(['add', '-f', '--', gitnested])
 
     output.verbose("committing")
@@ -78,4 +78,4 @@ def cmd_init(ctx: CommandContext) -> None:
     )
 
     remote = "no remote" if config.remote == 'none' else f"{config.remote} ({config.branch})"
-    output.say(f"{subdir}: initialised as a nested repository with {remote}")
+    output.say(f"{subdir.as_posix()}: initialised as a nested repository with {remote}")

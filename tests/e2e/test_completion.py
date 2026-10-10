@@ -8,6 +8,8 @@ a `<TAB>` are the ones the parser would accept.
 """
 
 import shutil
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -15,15 +17,36 @@ SHELLS = ['bash', 'zsh', 'fish']
 
 # `-n` is a syntax-check-only flag; fish spells it differently.
 SYNTAX_CHECK = {
-    'bash': ['bash', '-n'],
-    'zsh': ['zsh', '-n'],
-    'fish': ['fish', '--no-execute'],
+    'bash': ['-n'],
+    'zsh': ['-n'],
+    'fish': ['--no-execute'],
 }
+
+
+def git_bash():
+    """Git Bash, which ships with Git for Windows two levels above git.exe, or None."""
+    git = shutil.which('git')
+    if not git:
+        return None
+    bash = Path(git).resolve().parents[1] / 'bin' / 'bash.exe'
+    return str(bash) if bash.is_file() else None
+
+
+def shell_exe(shell):
+    """The executable to run `shell` with, or None if it is not installed.
+
+    On Windows the `bash` found on PATH is usually the WSL launcher, which
+    has no Linux to start on a CI runner. The bash git-nested completes in
+    there is Git Bash, so that is the one taken.
+    """
+    if shell == 'bash' and sys.platform == 'win32':
+        return git_bash()
+    return shutil.which(shell)
 
 
 def requires(shell):
     """Skip the test unless `shell` is installed."""
-    if not shutil.which(shell):
+    if not shell_exe(shell):
         pytest.skip(f"{shell} is not installed")
 
 
@@ -43,7 +66,7 @@ def test_the_printed_script_is_valid_in_its_shell(env, shell):
     script = env.tmp / f"completion.{shell}"
     script.write_text(completion_script(env, shell))
 
-    result = env.run([*SYNTAX_CHECK[shell], script], check=False)
+    result = env.run([shell_exe(shell), *SYNTAX_CHECK[shell], script], check=False)
     assert result.returncode == 0, result.stderr
 
 
@@ -55,7 +78,7 @@ def test_the_printed_script_binds_the_git_nested_command(env, shell):
 
 def test_the_shell_is_detected_when_it_is_not_given(env):
     requires('bash')
-    result = env.run(['bash', '-c', 'git-nested completion'])
+    result = env.run([shell_exe('bash'), '-c', 'git-nested completion'])
     assert 'bash completion' in result.stdout
 
 
@@ -72,47 +95,47 @@ def test_an_unsupported_shell_is_rejected(env):
 
 def test_bash_registers_completion_for_git_nested(env):
     requires('bash')
-    result = env.run(['bash', '-c', 'eval "$(git-nested completion bash)"; complete -p git-nested'])
+    result = env.run([shell_exe('bash'), '-c', 'eval "$(git-nested completion bash)"; complete -p git-nested'])
     assert '_git_nested_complete' in result.stdout
 
 
 def test_bash_registers_the_function_git_dispatches_to(env):
     requires('bash')
-    result = env.run(['bash', '-c', 'eval "$(git-nested completion bash)"; type -t _git_nested'])
+    result = env.run([shell_exe('bash'), '-c', 'eval "$(git-nested completion bash)"; type -t _git_nested'])
     assert result.stdout.strip() == 'function'
 
 
 def test_sourcing_the_rc_registers_bash_completion(env):
     requires('bash')
-    result = env.run(['bash', '-c', f'source {env.test_dir}/.rc; complete -p git-nested'])
+    result = env.run([shell_exe('bash'), '-c', f'source {env.test_dir.as_posix()}/.rc; complete -p git-nested'])
     assert '_git_nested_complete' in result.stdout
 
 
 def test_zsh_registers_completion_for_git_nested(env):
     requires('zsh')
-    script = f'autoload -Uz compinit; compinit -u; source {env.test_dir}/.rc; echo ${{_comps[git-nested]}}'
-    result = env.run(['zsh', '-c', script])
+    script = f'autoload -Uz compinit; compinit -u; source {env.test_dir.as_posix()}/.rc; echo ${{_comps[git-nested]}}'
+    result = env.run([shell_exe('zsh'), '-c', script])
     assert result.stdout.strip() == '_git_nested_complete'
 
 
 def test_zsh_registers_the_function_git_dispatches_to(env):
     requires('zsh')
-    script = f'source {env.test_dir}/.rc; (( $+functions[_git-nested] )) && echo DEFINED'
-    result = env.run(['zsh', '-c', script])
+    script = f'source {env.test_dir.as_posix()}/.rc; (( $+functions[_git-nested] )) && echo DEFINED'
+    result = env.run([shell_exe('zsh'), '-c', script])
     assert 'DEFINED' in result.stdout
 
 
 def test_zsh_wiring_survives_a_shell_without_the_completion_system(env):
     """compdef only exists after compinit; without it, no error and no completion."""
     requires('zsh')
-    result = env.run(['zsh', '-c', 'eval "$(git-nested completion zsh)"; echo OK'], check=False)
+    result = env.run([shell_exe('zsh'), '-c', 'eval "$(git-nested completion zsh)"; echo OK'], check=False)
     assert result.returncode == 0
     assert 'OK' in result.stdout
 
 
 def test_sourcing_the_fish_rc_offers_the_commands(env):
     requires('fish')
-    result = env.run(['fish', '-c', f"source {env.test_dir}/.fish.rc; complete -C 'git-nested '"])
+    result = env.run([shell_exe('fish'), '-c', f"source {env.test_dir.as_posix()}/.fish.rc; complete -C 'git-nested '"])
     offered = {line.split('\t')[0] for line in result.stdout.splitlines()}
     assert {'clone', 'push', 'pull', 'status'} <= offered
 
@@ -133,7 +156,7 @@ def complete_in_bash(env, line, cwd=None):
         ' _git_nested_complete;'
         ' printf "%s\\n" "${COMPREPLY[@]}"'
     )
-    return [word for word in env.run(['bash', '-c', script], cwd=cwd).stdout.splitlines() if word]
+    return [word for word in env.run([shell_exe('bash'), '-c', script], cwd=cwd).stdout.splitlines() if word]
 
 
 def test_bash_completes_a_command_prefix(env):

@@ -19,7 +19,7 @@ def get_diff(git: GitRunner, config: NestedConfig, subdir: Path, subref: str) ->
     """
     upstream_head_commit = fetch.do_fetch(git, config, subref)
 
-    local_tree = git.check_output(['rev-parse', f'HEAD:{subdir}'])
+    local_tree = git.check_output(['rev-parse', f'HEAD:{subdir.as_posix()}'])
 
     if config.filter:
         upstream_target = filters.build_filtered_commit(git, Path.cwd(), config, upstream_head_commit)
@@ -42,12 +42,12 @@ def cmd_diff(ctx: CommandContext) -> None:
     subdir, _gitnested, subref, config = setup.setup_command(git, 'diff', flags, subdir, upstream)
 
     if config.remote == 'none':
-        output.say(f"{subdir}: skipped, it has no remote")
+        output.say(f"{subdir.as_posix()}: skipped, it has no remote")
         return
 
     diff_output = get_diff(git, config, subdir, subref)
 
     if not diff_output:
-        output.say(f"{subdir}: no differences from {config.remote} ({config.branch})")
+        output.say(f"{subdir.as_posix()}: no differences from {config.remote} ({config.branch})")
     else:
         output.payload(diff_output)

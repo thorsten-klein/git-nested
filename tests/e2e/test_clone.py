@@ -11,7 +11,7 @@ def test_clone_into_empty_repo(env):
     empty_dir.mkdir(parents=True)
     env.run(['git', 'init'], cwd=empty_dir)
     assert (env.workspace / 'empty' / '.git').is_dir()
-    result = cmd_git_nested(f'clone {env.upstream}/bar', cwd=empty_dir, check=False)
+    result = cmd_git_nested(f'clone {env.upstream.as_posix()}/bar', cwd=empty_dir, check=False)
     assert result.output.strip() == "git-nested: can't clone into a repository that has no commits yet"
 
     # assert that repo has no changes
@@ -31,14 +31,14 @@ def test_basic_clone(foo_bar_cloned):
     assert (env.workspace / 'bar' / 'Bar').is_file()
 
     # Do the nested clone and test the output
-    result = cmd_git_nested(f'clone {env.upstream}/bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: cloned from {env.upstream}/bar (master)"
+    result = cmd_git_nested(f'clone {env.upstream.as_posix()}/bar', cwd=env.workspace / 'foo')
+    assert result.output.strip() == f"bar: cloned from {env.upstream.as_posix()}/bar (master)"
 
     # Check no remotes created
     result = env.run(['git', 'remote', '-v'], cwd=env.workspace / 'foo')
     assert result.stdout.strip() == textwrap.dedent(f"""\
-        origin\t{env.upstream}/foo (fetch)
-        origin\t{env.upstream}/foo (push)""")
+        origin\t{env.upstream / 'foo'} (fetch)
+        origin\t{env.upstream / 'foo'} (push)""")
 
     # Check that nested files look ok
     gitnested = env.workspace / 'foo' / 'bar' / '.gitnested'
@@ -52,7 +52,7 @@ def test_basic_clone(foo_bar_cloned):
 
     assert_gitnested_field(
         gitnested,
-        remote=str(env.upstream / 'bar'),
+        remote=(env.upstream / 'bar').as_posix(),
         branch='master',
         commit=bar_head_commit,
         parent=foo_clone_commit,
@@ -76,13 +76,15 @@ def test_clone_tags(foo_bar_cloned):
 
     # Clone with lightweight tag
     result = cmd_git_nested(
-        f'clone {env.upstream}/bar light -b lightweight_tag ', cwd=env.workspace / 'foo', check=False
+        f'clone {env.upstream.as_posix()}/bar light -b lightweight_tag ', cwd=env.workspace / 'foo', check=False
     )
-    assert result.output.strip() == f"light: cloned from {env.upstream}/bar (lightweight_tag)"
+    assert result.output.strip() == f"light: cloned from {env.upstream.as_posix()}/bar (lightweight_tag)"
 
     # Clone with annotated tag
-    result = cmd_git_nested(f'clone {env.upstream}/bar annotated -b annotated_tag', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"annotated: cloned from {env.upstream}/bar (annotated_tag)"
+    result = cmd_git_nested(
+        f'clone {env.upstream.as_posix()}/bar annotated -b annotated_tag', cwd=env.workspace / 'foo'
+    )
+    assert result.output.strip() == f"annotated: cloned from {env.upstream.as_posix()}/bar (annotated_tag)"
 
 
 def test_clone_with_quiet_verbose(foo_bar_cloned):
@@ -90,18 +92,18 @@ def test_clone_with_quiet_verbose(foo_bar_cloned):
     env = foo_bar_cloned
 
     # Test clone with --quiet
-    result = cmd_git_nested(f'--quiet clone {env.upstream}/bar bar1', cwd=env.workspace / 'foo')
+    result = cmd_git_nested(f'--quiet clone {env.upstream.as_posix()}/bar bar1', cwd=env.workspace / 'foo')
     assert result.returncode == 0
     assert result.output.strip() == ""
     assert (env.workspace / 'foo' / 'bar1').is_dir()
 
     # Test clone with --verbose
-    result = cmd_git_nested(f'--verbose clone {env.upstream}/bar bar2', cwd=env.workspace / 'foo')
+    result = cmd_git_nested(f'--verbose clone {env.upstream.as_posix()}/bar bar2', cwd=env.workspace / 'foo')
     assert result.returncode == 0
     assert result.output.strip() == textwrap.dedent(f"""\
         * checking for a worktree on nested/bar2
         * determining the upstream default branch
-        * fetching {env.upstream}/bar (master)
+        * fetching {env.upstream.as_posix()}/bar (master)
         * reading the upstream HEAD commit
         * creating bar2/
         * committing the new bar2/ content
@@ -110,5 +112,5 @@ def test_clone_with_quiet_verbose(foo_bar_cloned):
         * placing the upstream content in bar2/
         * writing bar2/.gitnested
         * committing the .gitnested update
-        bar2: cloned from {env.upstream}/bar (master)""")
+        bar2: cloned from {env.upstream.as_posix()}/bar (master)""")
     assert (env.workspace / 'foo' / 'bar2').is_dir()

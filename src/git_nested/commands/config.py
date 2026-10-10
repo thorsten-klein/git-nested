@@ -26,7 +26,7 @@ def _format_value(value: object) -> str:
 def read_fields(gitnested: Path) -> dict[str, str]:
     """The fields the .gitnested file actually sets, in the documented order."""
     if not gitnested.is_file():
-        raise GitNestedError(f"{gitnested} does not exist")
+        raise GitNestedError(f"{gitnested.as_posix()} does not exist")
     nested = yamlio._read_yaml_config(gitnested).get('nested') or {}
     return {
         field: _format_value(nested[field])
@@ -82,8 +82,10 @@ def _resolve_gitnested(subdir: str | Path | None) -> tuple[Path, Path]:
     if not subdir:
         output.error("no subdir given")
     subdir = Path(subdir)
-    if subdir.is_absolute():
-        output.usage_error(f"{subdir}: subdir must be a relative path")
+    # anchor, not is_absolute(): on Windows a rooted path such as /x has no drive
+    # and so is not absolute, yet it still points outside the repository
+    if subdir.anchor:
+        output.usage_error(f"{subdir.as_posix()}: subdir must be a relative path")
     return subdir, setup.resolve_gitnested_file(subdir)
 
 
@@ -101,4 +103,4 @@ def cmd_config(ctx: CommandContext) -> None:
         return
 
     write_field(ctx.git, gitnested, ctx.config_key, ctx.config_value)
-    output.say(f"{subdir}: {ctx.config_key} set to {ctx.config_value}")
+    output.say(f"{subdir.as_posix()}: {ctx.config_key} set to {ctx.config_value}")

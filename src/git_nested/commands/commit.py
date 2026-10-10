@@ -43,4 +43,4 @@ def cmd_commit(ctx: CommandContext) -> None:
         subdir_worktree=git_tmp / f'nested/{subref}',
         command='commit',
     )
-    output.say(f"{subdir}: committed {nested_commit_ref}")
+    output.say(f"{subdir.as_posix()}: committed {nested_commit_ref}")

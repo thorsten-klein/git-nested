@@ -14,7 +14,7 @@ def test_diff_no_differences(foo_bar_cloned_and_nested):
     env = foo_bar_cloned_and_nested
 
     result = cmd_git_nested('diff bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: no differences from {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: no differences from {env.upstream.as_posix()}/bar (master)"
 
 
 def test_diff_shows_upstream_changes(foo_bar_cloned_and_nested):
@@ -54,13 +54,13 @@ def test_diff_respects_filter(foo_bar_cloned):
     env = foo_bar_cloned
 
     create_upstream_repo(env.upstream / 'leg')
-    clone_repo(str(env.upstream / 'leg'), env.workspace / 'leg')
+    clone_repo((env.upstream / 'leg').as_posix(), env.workspace / 'leg')
 
     env.add_new_files('subdirA/file1', cwd=env.workspace / 'leg')
     env.add_new_files('subdirB/file1', cwd=env.workspace / 'leg')
     env.run(['git', 'push'], cwd=env.workspace / 'leg')
 
-    cmd_git_nested(f'clone {env.upstream}/leg leg --filter=subdirA', cwd=env.workspace / 'foo')
+    cmd_git_nested(f'clone {env.upstream.as_posix()}/leg leg --filter=subdirA', cwd=env.workspace / 'foo')
 
     # Modify a file in both the filtered-in (subdirA) and filtered-out (subdirB) directories
     env.modify_files('subdirA/file1', text='a1 modified', cwd=env.workspace / 'leg')
@@ -92,7 +92,9 @@ def test_diff_requires_clean_worktree(foo_bar_cloned_and_nested):
 
     result = cmd_git_nested('diff bar', cwd=env.workspace / 'foo', check=False)
     assert result.returncode == 1
-    assert result.output.strip() == f"git-nested: {env.workspace}/foo: can't diff, the working tree has changes"
+    assert (
+        result.output.strip() == f"git-nested: {env.workspace.as_posix()}/foo: can't diff, the working tree has changes"
+    )
 
 
 def test_diff_all(foo_bar_cloned):
@@ -117,13 +119,13 @@ def test_diff_with_filter_removed_upstream_file(foo_bar_cloned):
     env = foo_bar_cloned
 
     create_upstream_repo(env.upstream / 'leg')
-    clone_repo(str(env.upstream / 'leg'), env.workspace / 'leg')
+    clone_repo((env.upstream / 'leg').as_posix(), env.workspace / 'leg')
 
     env.add_new_files('subdirA/file1', cwd=env.workspace / 'leg')
     env.add_new_files('subdirA/file2', cwd=env.workspace / 'leg')
     env.run(['git', 'push'], cwd=env.workspace / 'leg')
 
-    cmd_git_nested(f'clone {env.upstream}/leg leg --filter=subdirA', cwd=env.workspace / 'foo')
+    cmd_git_nested(f'clone {env.upstream.as_posix()}/leg leg --filter=subdirA', cwd=env.workspace / 'foo')
 
     env.remove_files('subdirA/file2', cwd=env.workspace / 'leg')
     env.run(['git', 'push'], cwd=env.workspace / 'leg')
@@ -140,11 +142,11 @@ def test_diff_ignores_gitnested_level_files(foo_bar_cloned):
 
     # Nest 'foo' inside 'bar' upstream, before 'bar' is ever cloned locally. This means the
     # single clone of 'bar' below will already need to create a bar/foo/.gitnested.level2 file.
-    cmd_git_nested(f'clone {env.upstream}/foo nestedfoo', cwd=env.workspace / 'bar')
+    cmd_git_nested(f'clone {env.upstream.as_posix()}/foo nestedfoo', cwd=env.workspace / 'bar')
     env.run(['git', 'push'], cwd=env.workspace / 'bar')
 
-    cmd_git_nested(f'clone {env.upstream}/bar', cwd=env.workspace / 'foo')
+    cmd_git_nested(f'clone {env.upstream.as_posix()}/bar', cwd=env.workspace / 'foo')
     assert (env.workspace / 'foo' / 'bar' / 'nestedfoo' / '.gitnested.level2').is_file()
 
     result = cmd_git_nested('diff bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: no differences from {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: no differences from {env.upstream.as_posix()}/bar (master)"

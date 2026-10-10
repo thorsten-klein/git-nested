@@ -6,8 +6,11 @@ import os
 import re
 import shlex
 import shutil
+import stat
 import subprocess
+import sys
 import textwrap
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -191,6 +194,27 @@ def clone_repo(upstream: str, path: Path):
     subprocess.run(['git', 'config', 'user.email', f'{name}@{name}'], cwd=path, check=True)
 
 
+def remove_tree(path: Path) -> None:
+    """Delete a directory tree that git worked in, on every platform.
+
+    Git writes its object files read-only, which Windows refuses to delete, so
+    the write bit is restored and the removal retried. A file that is already
+    gone was removed by a git process still running in the background (auto
+    maintenance drops its `maintenance.lock`), which is fine.
+    """
+
+    def retry(func: Callable[[str], object], failed_path: str, exc: BaseException) -> None:
+        if isinstance(exc, FileNotFoundError):
+            return
+        Path(failed_path).chmod(stat.S_IWRITE)
+        func(failed_path)
+
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=retry)
+    else:
+        shutil.rmtree(path, onerror=lambda func, failed_path, exc_info: retry(func, failed_path, exc_info[1]))
+
+
 def create_upstream_repo(repo_path: Path) -> Path:
     """Create a bare git repository and return a temporary working directory"""
     repo_path.mkdir(parents=True)
@@ -215,7 +239,7 @@ def create_upstream_foo(repo_path: Path):
     subprocess.run(['git', 'commit', '-m', 'Foo'], cwd=work_dir, check=True, capture_output=True)
     subprocess.run(['git', 'push', str(repo_path), 'master'], cwd=work_dir, check=True, capture_output=True)
 
-    shutil.rmtree(work_dir)
+    remove_tree(work_dir)
 
 
 def create_upstream_bar(repo_path: Path):
@@ -238,7 +262,7 @@ def create_upstream_bar(repo_path: Path):
     subprocess.run(['git', 'push', str(repo_path), 'master'], cwd=work_dir, check=True, capture_output=True)
     subprocess.run(['git', 'push', str(repo_path), 'A'], cwd=work_dir, check=True, capture_output=True)
 
-    shutil.rmtree(work_dir)
+    remove_tree(work_dir)
 
 
 def create_upstream_init(repo_path: Path):
@@ -345,7 +369,7 @@ def create_upstream_init(repo_path: Path):
     # Push to bare repo
     subprocess.run(['git', 'push', str(repo_path), 'master'], cwd=work_dir, check=True, capture_output=True)
 
-    shutil.rmtree(work_dir)
+    remove_tree(work_dir)
 
 
 # ============================================================================
@@ -375,14 +399,25 @@ def env(tmp_path):
     # Create home directory for git config
     test_env.test_home.mkdir()
 
+    # On Windows, git starts the bin/ launcher through its '#!/usr/bin/env
+    # python3' line, which would find whatever python3 Git Bash sees first --
+    # not this venv's interpreter, so the import of git_nested's dependencies
+    # fails. A python3 shim ahead on PATH points it at the running interpreter.
+    path_dirs = [GIT_NESTED_EXE.parent if GIT_NESTED_EXE else root_dir / 'bin']
+    if sys.platform == 'win32':
+        shim_dir = test_env.test_home / 'python-shim'
+        shim_dir.mkdir()
+        (shim_dir / 'python3').write_text(f'#!/bin/sh\nexec "{Path(sys.executable).as_posix()}" "$@"\n')
+        path_dirs.insert(0, shim_dir)
+
     # Set up isolated environment variables
     env_vars = {
         'HOME': str(test_env.test_home),
         'GIT_CONFIG_GLOBAL': str(test_env.test_home / '.gitconfig'),
-        'GIT_CONFIG_SYSTEM': '/dev/null',
+        'GIT_CONFIG_SYSTEM': os.devnull,
         # bin/ holds the 'git-nested' launcher `git nested` dispatches to --
         # replaced by the directory of the frozen binary when testing that.
-        'PATH': f"{GIT_NESTED_EXE.parent if GIT_NESTED_EXE else root_dir / 'bin'}:{os.getenv('PATH')}",
+        'PATH': os.pathsep.join([*map(str, path_dirs), os.getenv('PATH', '')]),
     }
 
     with update_env(env_vars):
@@ -410,7 +445,7 @@ def foo_bar_cloned(env):
 @pytest.fixture
 def foo_bar_cloned_and_nested(foo_bar_cloned):
     env = foo_bar_cloned
-    cmd_git_nested(['clone', str(env.upstream / 'bar')], env.workspace / 'foo')
+    cmd_git_nested(['clone', (env.upstream / 'bar').as_posix()], env.workspace / 'foo')
     return env
 
 
@@ -632,6 +667,18 @@ def _raise_if_failed(cmd_and_args: list[str], result, check: bool):
     )
 
 
+def split_command(command: str) -> list[str]:
+    """Split a command line the way a POSIX shell would, keeping Windows paths intact.
+
+    shlex treats a backslash as an escape and drops it, which would turn a
+    Windows path such as C:\\Users\\x into C:Usersx. On Windows the backslash is
+    a path separator, so it is doubled first to make shlex keep it.
+    """
+    if os.name == 'nt':
+        command = command.replace('\\', '\\\\')
+    return shlex.split(command)
+
+
 def cmd_git_nested_subprocess(args, cwd, check: bool = True):
     """Run a git nested command as subprocess and return the result
 
@@ -639,7 +686,7 @@ def cmd_git_nested_subprocess(args, cwd, check: bool = True):
     run it, and it only works if git finds a 'git-nested' on PATH -- which the
     env fixture points at either bin/ or the frozen binary.
     """
-    args = shlex.split(args) if isinstance(args, str) else [str(a) for a in args]
+    args = split_command(args) if isinstance(args, str) else [str(a) for a in args]
 
     # `git nested --help` never reaches git-nested: git answers every
     # '--help'/'-h' itself by opening man git-nested. The manual page ships
@@ -697,7 +744,7 @@ def cmd_git_nested(args: list[str] | str, cwd, check: bool = True):
     if GIT_NESTED_EXE:
         return cmd_git_nested_subprocess(args, cwd, check=check)
 
-    args = shlex.split(args) if isinstance(args, str) else args
+    args = split_command(args) if isinstance(args, str) else args
     return _run_inprocess(args, cwd, check)
 
 

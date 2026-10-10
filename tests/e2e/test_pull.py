@@ -29,7 +29,7 @@ def test_pull(prepare_pull_test):
 
     # Do the pull and check output
     result = cmd_git_nested('pull bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pulled from {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pulled from {env.upstream.as_posix()}/bar (master)"
 
     # Test that files are correctly pulled
     assert (env.workspace / 'foo' / 'bar' / 'Bar2').is_file()
@@ -43,7 +43,7 @@ def test_pull(prepare_pull_test):
     gitnested = env.workspace / 'foo' / 'bar' / '.gitnested'
     assert_gitnested_field(
         gitnested,
-        remote=str(env.upstream / 'bar'),
+        remote=(env.upstream / 'bar').as_posix(),
         branch='master',
         commit=bar_head_commit,
         parent=previous_commit,
@@ -58,7 +58,7 @@ def test_pull(prepare_pull_test):
           subdir:   "bar"
           merged:   "{bar_head_commit_short}"
         upstream:
-          remote:   "{env.upstream}/bar"
+          remote:   "{env.upstream.as_posix()}/bar"
           branch:   "master"
           commit:   "{bar_head_commit_short}"
         git-nested:
@@ -66,7 +66,7 @@ def test_pull(prepare_pull_test):
 
     # Check that we detect that we don't need to pull
     result = cmd_git_nested('pull bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: already up to date with {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: already up to date with {env.upstream.as_posix()}/bar (master)"
 
     # Test pull after rebasing the original bar repository so that our clone commit is no longer present in the history
     env.run(['git', 'reset', '--hard', 'HEAD^^'], cwd=env.workspace / 'bar')
@@ -131,7 +131,7 @@ def create_pull_conflict(env):
               3. 'git add' each file you resolved
               4. git commit
               5. if more conflicts appear, go back to step 2
-              6. cd {env.workspace}/foo
+              6. cd {env.workspace.as_posix()}/foo
               7. git nested commit bar
 
             See 'git help merge' for the conflict resolution itself.
@@ -189,7 +189,7 @@ def test_pull_conflict(prepare_pull_test):
           subdir:   "bar"
           merged:   "{expected_nested_merged_commit}"
         upstream:
-          remote:   "{env.upstream}/bar"
+          remote:   "{env.upstream.as_posix()}/bar"
           branch:   "master"
           commit:   "{expected_upstream_commit}"
         git-nested:
@@ -208,7 +208,7 @@ def test_pull_conflict(prepare_pull_test):
 
     # Push
     result = cmd_git_nested('push bar --branch master', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pushed to {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pushed to {env.upstream.as_posix()}/bar (master)"
 
     # Check commit message after push
     foo_head_commit_after = git_rev_parse(['HEAD^'], cwd=env.workspace / 'foo')
@@ -232,7 +232,7 @@ def test_pull_message(prepare_pull_test):
 
     # Do the pull with -m option
     result = cmd_git_nested("pull -m 'Hello World' bar", cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pulled from {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pulled from {env.upstream.as_posix()}/bar (master)"
 
     # Check commit message
     foo_new_commit_message = git_get_commit_msg(env.workspace / 'foo').strip()
@@ -264,7 +264,7 @@ def test_pull_new_branch(foo_bar_cloned_and_nested):
 
     assert_gitnested_field(
         gitnested,
-        remote=str(env.upstream / 'bar'),
+        remote=(env.upstream / 'bar').as_posix(),
         branch='master',
         commit=bar_head_commit,
         parent=foo_pull_commit,
@@ -279,7 +279,7 @@ def test_pull_new_branch(foo_bar_cloned_and_nested):
 
     assert_gitnested_field(
         gitnested,
-        remote=str(env.upstream / 'bar'),
+        remote=(env.upstream / 'bar').as_posix(),
         branch='branch1',
         commit=bar_head_commit,
         parent=foo_pull_commit,
@@ -287,7 +287,7 @@ def test_pull_new_branch(foo_bar_cloned_and_nested):
 
     # Check that we detect that we don't need to pull
     result = cmd_git_nested('pull bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: already up to date with {env.upstream}/bar (branch1)"
+    assert result.output.strip() == f"bar: already up to date with {env.upstream.as_posix()}/bar (branch1)"
 
 
 def test_pull_ours(prepare_pull_test):
@@ -398,7 +398,7 @@ def test_pull_twice(prepare_pull_test):
     env.run(['git', 'push'], cwd=env.workspace / 'foo')
 
     result = cmd_git_nested(['pull', 'bar'], cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pulled from {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pulled from {env.upstream.as_posix()}/bar (master)"
 
     # Add another file to bar and push
     env.add_new_files('Bar3', cwd=env.workspace / 'bar')
@@ -406,7 +406,7 @@ def test_pull_twice(prepare_pull_test):
 
     # Pull again
     result = cmd_git_nested(['pull', 'bar'], cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pulled from {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pulled from {env.upstream.as_posix()}/bar (master)"
 
     # Check all files exist
     assert (env.workspace / 'foo' / 'bar' / 'Bar2').is_file()
@@ -428,7 +428,7 @@ def test_pull_worktree(foo_bar_cloned_and_nested):
 
     # Pull from worktree
     result = cmd_git_nested(['pull', '--all'], cwd=worktree)
-    assert result.output.strip() == f"bar: pulled from {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pulled from {env.upstream.as_posix()}/bar (master)"
 
     # Merge into foo
     env.run(['git', 'merge', 'test'], cwd=env.workspace / 'foo')
@@ -473,7 +473,7 @@ def test_pull_after_merge(foo_bar_cloned_and_nested):
 
     # Pull nested changes - expected: successful pull without conflicts
     result = cmd_git_nested('pull bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pulled from {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pulled from {env.upstream.as_posix()}/bar (master)"
 
 
 def test_pull_rebase(prepare_pull_test):
@@ -486,7 +486,7 @@ def test_pull_rebase(prepare_pull_test):
 
     # Do the pull with -M rebase to change the method and check output
     result = cmd_git_nested('pull -M rebase bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pulled from {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pulled from {env.upstream.as_posix()}/bar (master)"
 
     # Test nested file content
     assert (env.workspace / 'foo' / 'bar' / 'Bar2').is_file()
@@ -498,7 +498,7 @@ def test_pull_rebase(prepare_pull_test):
 
     assert_gitnested_field(
         gitnested,
-        remote=str(env.upstream / 'bar'),
+        remote=(env.upstream / 'bar').as_posix(),
         branch='master',
         commit=bar_head_commit,
         parent=foo_pull_commit,
@@ -515,7 +515,7 @@ def test_pull_rebase(prepare_pull_test):
           subdir:   "bar"
           merged:   "{bar_head_commit_short}"
         upstream:
-          remote:   "{env.upstream}/bar"
+          remote:   "{env.upstream.as_posix()}/bar"
           branch:   "master"
           commit:   "{bar_head_commit_short}"
         git-nested:
@@ -523,7 +523,7 @@ def test_pull_rebase(prepare_pull_test):
 
     # Check that we detect that we don't need to pull again
     result = cmd_git_nested('pull -M rebase bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: already up to date with {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: already up to date with {env.upstream.as_posix()}/bar (master)"
 
 
 def test_pull_rebase_conflict(prepare_pull_test):
@@ -536,7 +536,7 @@ def test_pull_rebase_conflict(prepare_pull_test):
 
     # Pull with rebase method to set the method
     result = cmd_git_nested('pull -M rebase bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pulled from {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pulled from {env.upstream.as_posix()}/bar (master)"
 
     # Verify method changed to rebase
     assert_gitnested_field(gitnested, method='rebase')
@@ -562,15 +562,15 @@ def test_pull_with_force(prepare_pull_test):
 
     # Do a pull without --force flag
     result = cmd_git_nested('pull bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pulled from {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pulled from {env.upstream.as_posix()}/bar (master)"
 
     # Do a pull without --force flag should do nothing
     result = cmd_git_nested('pull bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: already up to date with {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: already up to date with {env.upstream.as_posix()}/bar (master)"
 
     # Enforce a pull with --force flag when already up to date: still a no-op reclone
     result = cmd_git_nested('pull --force bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pulled from {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pulled from {env.upstream.as_posix()}/bar (master)"
 
     # Push more changes upstream, then force-pull: this time the reclone actually
     # picks up new content, exercising _pull_forced's non-up-to-date commit path.
@@ -578,5 +578,5 @@ def test_pull_with_force(prepare_pull_test):
     env.run(['git', 'push'], cwd=env.workspace / 'bar')
 
     result = cmd_git_nested('pull --force bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pulled from {env.upstream}/bar (master)"
+    assert result.output.strip() == f"bar: pulled from {env.upstream.as_posix()}/bar (master)"
     assert (env.workspace / 'foo' / 'bar' / 'Bar3').is_file()

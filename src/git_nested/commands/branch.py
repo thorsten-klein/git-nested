@@ -34,4 +34,4 @@ def cmd_branch(ctx: CommandContext) -> None:
         subref=subref,
         command='branch',
     )
-    output.say(f"{subdir}: branch {branch} created, worktree at {subdir_worktree}")
+    output.say(f"{subdir.as_posix()}: branch {branch} created, worktree at {subdir_worktree.as_posix()}")
