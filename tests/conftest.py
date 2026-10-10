@@ -399,6 +399,17 @@ def env(tmp_path):
     # Create home directory for git config
     test_env.test_home.mkdir()
 
+    # On Windows, git starts the bin/ launcher through its '#!/usr/bin/env
+    # python3' line, which would find whatever python3 Git Bash sees first --
+    # not this venv's interpreter, so the import of git_nested's dependencies
+    # fails. A python3 shim ahead on PATH points it at the running interpreter.
+    path_dirs = [GIT_NESTED_EXE.parent if GIT_NESTED_EXE else root_dir / 'bin']
+    if sys.platform == 'win32':
+        shim_dir = test_env.test_home / 'python-shim'
+        shim_dir.mkdir()
+        (shim_dir / 'python3').write_text(f'#!/bin/sh\nexec "{Path(sys.executable).as_posix()}" "$@"\n')
+        path_dirs.insert(0, shim_dir)
+
     # Set up isolated environment variables
     env_vars = {
         'HOME': str(test_env.test_home),
@@ -406,7 +417,7 @@ def env(tmp_path):
         'GIT_CONFIG_SYSTEM': os.devnull,
         # bin/ holds the 'git-nested' launcher `git nested` dispatches to --
         # replaced by the directory of the frozen binary when testing that.
-        'PATH': f"{GIT_NESTED_EXE.parent if GIT_NESTED_EXE else root_dir / 'bin'}{os.pathsep}{os.getenv('PATH')}",
+        'PATH': os.pathsep.join([*map(str, path_dirs), os.getenv('PATH', '')]),
     }
 
     with update_env(env_vars):

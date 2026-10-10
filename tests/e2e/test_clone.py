@@ -37,8 +37,8 @@ def test_basic_clone(foo_bar_cloned):
     # Check no remotes created
     result = env.run(['git', 'remote', '-v'], cwd=env.workspace / 'foo')
     assert result.stdout.strip() == textwrap.dedent(f"""\
-        origin\t{env.upstream.as_posix()}/foo (fetch)
-        origin\t{env.upstream.as_posix()}/foo (push)""")
+        origin\t{env.upstream / 'foo'} (fetch)
+        origin\t{env.upstream / 'foo'} (push)""")
 
     # Check that nested files look ok
     gitnested = env.workspace / 'foo' / 'bar' / '.gitnested'

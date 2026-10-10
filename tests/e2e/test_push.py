@@ -267,7 +267,7 @@ def test_push_pull_feature_branch(foo_bar_cloned_and_nested):
 
     # Pull nested changes - expected: successful pull without conflicts
     result = cmd_git_nested('pull bar', cwd=foo_dir)
-    assert result.output.strip() == f"bar: pulled from {bar_upstream} ({env.defaultbranch})"
+    assert result.output.strip() == f"bar: pulled from {bar_upstream.as_posix()} ({env.defaultbranch})"
 
     # Push nested changes - expected: successful push without conflicts
     result = cmd_git_nested(f'push bar -b {env.defaultbranch} -u', cwd=foo_dir)

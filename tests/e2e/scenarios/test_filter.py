@@ -249,11 +249,9 @@ def test_filter_invalid_regex(foo_bar_cloned):
     env.run(['git', 'push'], cwd=env.workspace / 'leg')
 
     # '[unclosed' is neither a tree, a blob, nor a valid regex
+    args = ['clone', f'{env.upstream.as_posix()}/leg', 'leg', '--filter=[unclosed']
     with pytest.raises(GitNestedError, match=r"invalid filter pattern \[unclosed"):
-        cmd_git_nested(
-            ['clone', f'{env.upstream.as_posix()}/leg', 'leg', '--filter=[unclosed'],
-            cwd=env.workspace / 'foo',
-        )
+        cmd_git_nested(args, cwd=env.workspace / 'foo')
 
 
 def test_filter_regex_overlaps_literal(foo_bar_cloned):
