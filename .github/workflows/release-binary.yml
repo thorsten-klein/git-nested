@@ -47,7 +47,7 @@ jobs:
           # Intel macOS is deliberately absent: those runners are gone, and
           # the arm64 binary is what a current Mac needs.
           - target: linux
-            runs-on: ubuntu-latest
+            runs-on: ubuntu-26.04
             container: almalinux:8
           - target: macos
             runs-on: macos-latest
@@ -76,7 +76,7 @@ jobs:
   # and has to drive a real nested repo end to end there.
   verify:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -163,7 +163,7 @@ jobs:
     needs: [build, test, verify]
     # nothing to attach when workflow_dispatch ran without a tag
     if: github.event_name == 'release' || inputs.tag != ''
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: write
     steps:

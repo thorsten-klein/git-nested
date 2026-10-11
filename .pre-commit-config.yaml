@@ -55,9 +55,6 @@ repos:
 
 
 # Configuration
-default_language_version:
-  python: python3.12
-
 # Minimum pre-commit version -- matches the floor pyproject.toml's `lint`
 # dependency group pins.
 minimum_pre_commit_version: '4.0.0'
