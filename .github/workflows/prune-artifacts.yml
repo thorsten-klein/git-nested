@@ -35,7 +35,7 @@ concurrency:
 
 jobs:
   prune:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Delete all but the newest builds
         env:
