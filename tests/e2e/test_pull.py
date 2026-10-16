@@ -121,7 +121,7 @@ def create_pull_conflict(env):
     assert result.returncode == 1
     assert result.output.strip() == textwrap.dedent(f'''\
             git-nested: bar: the pull is unfinished, git merge failed:
-            command failed: git merge refs/nested/bar/fetch
+            command failed: git merge --ff --no-edit refs/nested/bar/fetch
 
             The conflicts are in a worktree of their own at .git/tmp/nested/bar.
             Resolve them there and hand the result back:
@@ -580,3 +580,30 @@ def test_pull_with_force(prepare_pull_test):
     result = cmd_git_nested('pull --force bar', cwd=env.workspace / 'foo')
     assert result.output.strip() == f"bar: pulled from {env.upstream.as_posix()}/bar (master)"
     assert (env.workspace / 'foo' / 'bar' / 'Bar3').is_file()
+
+
+def test_pull_ignores_merge_ff_false(prepare_pull_test):
+    """With merge.ff=false, a pull adds no merge commit that a push would send upstream."""
+    env = prepare_pull_test
+    foo = env.workspace / 'foo'
+    env.run(['git', 'config', 'merge.ff', 'false'], cwd=foo)
+
+    cmd_git_nested('pull bar', cwd=foo)
+    env.add_new_files('bar/from-foo', cwd=foo)
+    cmd_git_nested('push -b master bar', cwd=foo)
+
+    merges = env.run(['git', 'log', '--merges', '--oneline', 'master'], cwd=env.upstream / 'bar').output
+    assert merges == ''
+
+
+def test_pull_ignores_merge_ff_only(prepare_pull_test):
+    """With merge.ff=only, a pull that joins local and upstream changes still works."""
+    env = prepare_pull_test
+    foo = env.workspace / 'foo'
+    env.run(['git', 'config', 'merge.ff', 'only'], cwd=foo)
+    env.add_new_files('bar/from-foo', cwd=foo)
+
+    cmd_git_nested('pull bar', cwd=foo)
+
+    assert (foo / 'bar' / 'Bar2').is_file()
+    assert (foo / 'bar' / 'from-foo').is_file()
