@@ -136,6 +136,17 @@ def _flags_from_args(args: argparse.Namespace) -> Flags:
     return flags
 
 
+# Flags that name one thing, so they make no sense for every nested repository at once.
+_SINGLE_TARGET_FLAGS = (('dir', "--dir names one worktree, so it can't be used with --all"),)
+
+
+def _check_single_target_flags(flags: Flags) -> None:
+    """Reject the flags of _SINGLE_TARGET_FLAGS together with --all."""
+    for attr, message in _SINGLE_TARGET_FLAGS:
+        if flags.all and getattr(flags, attr):
+            output.usage_error(message)
+
+
 def parse_args(git: GitRunner, args_list: list[str]) -> tuple[str, CommandContext]:
     """Parse command line arguments into a command name and the context to run it with.
 
@@ -153,6 +164,8 @@ def parse_args(git: GitRunner, args_list: list[str]) -> tuple[str, CommandContex
 
     upstream, subdir, nested_commit_ref = _resolve_positional_args(args)
     flags = _flags_from_args(args)
+
+    _check_single_target_flags(flags)
 
     if flags.update and not (flags.branch or flags.remote):
         output.usage_error("--update needs --branch or --remote to have something to update")

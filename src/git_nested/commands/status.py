@@ -12,7 +12,7 @@ from ..models import CommandContext, Flags, NestedConfig
 from . import fetch
 
 
-def get_status(git: GitRunner, flags: Flags, git_tmp: Path) -> tuple[str, list[tuple[Path, NestedConfig]]]:
+def get_status(git: GitRunner, flags: Flags) -> tuple[str, list[tuple[Path, NestedConfig]]]:
     """Get nested repository status.
 
     Returns:
@@ -27,7 +27,7 @@ def get_status(git: GitRunner, flags: Flags, git_tmp: Path) -> tuple[str, list[t
 
     status_list = []
     for subdir in nesteds:
-        lines, status_entries = _status_for_subdir(git, flags, git_tmp, subdir)
+        lines, status_entries = _status_for_subdir(git, flags, subdir)
         report.extend(lines)
         status_list.extend(status_entries)
 
@@ -49,9 +49,7 @@ def _status_header(flags: Flags, count: int) -> tuple[str, bool]:
     return f"{count} nested repositor{ies}:\n", False
 
 
-def _status_for_subdir(
-    git: GitRunner, flags: Flags, git_tmp: Path, subdir: Path
-) -> tuple[list[str], list[tuple[Path, NestedConfig]]]:
+def _status_for_subdir(git: GitRunner, flags: Flags, subdir: Path) -> tuple[list[str], list[tuple[Path, NestedConfig]]]:
     """Build the status output lines for one nested subdir.
 
     Returns:
@@ -76,14 +74,13 @@ def _status_for_subdir(
     if flags.quiet:
         return [f"{subdir.as_posix()}\n"], [(subdir, config)]
 
-    lines = _status_detail_lines(git, flags, git_tmp, subdir, subref, config, upstream_head)
+    lines = _status_detail_lines(git, flags, subdir, subref, config, upstream_head)
     return lines, [(subdir, config)]
 
 
 def _status_detail_lines(
     git: GitRunner,
     flags: Flags,
-    git_tmp: Path,
     subdir: Path,
     subref: str,
     config: NestedConfig,
@@ -93,7 +90,7 @@ def _status_detail_lines(
     lines = [f"Git nested repository '{subdir.as_posix()}':\n"]
     lines.extend(_status_identity_lines(git, subref, config, upstream_head))
     lines.extend(_status_commit_lines(git, config))
-    lines.extend(_status_worktree_lines(git, git_tmp, subdir))
+    lines.extend(_status_worktree_lines(git, subref))
 
     if flags.verbose:
         lines.append(format_refs(git, subref))
@@ -133,14 +130,11 @@ def _status_commit_lines(git: GitRunner, config: NestedConfig) -> list[str]:
     return lines
 
 
-def _status_worktree_lines(git: GitRunner, git_tmp: Path, subdir: Path) -> list[str]:
+def _status_worktree_lines(git: GitRunner, subref: str) -> list[str]:
     """Build the worktree status line(s) for one nested subdir, if any exist."""
+    # By branch, not by path: `git nested worktree -d` puts it anywhere.
     worktree_list = git.check_output(['worktree', 'list'], may_fail=True) or ''
-    return [
-        f"  Worktree: {line}\n"
-        for line in worktree_list.splitlines()
-        if f'{git_tmp.as_posix()}/nested/{subdir.as_posix()}' in line
-    ]
+    return [f"  Worktree: {line}\n" for line in worktree_list.splitlines() if line.endswith(f'[nested/{subref}]')]
 
 
 def _format_ref_line(git: GitRunner, subref: str, line: str) -> str | None:
@@ -183,6 +177,5 @@ def format_refs(git: GitRunner, subref: str) -> str:
 def cmd_status(ctx: CommandContext) -> None:
     """Get status of a nested repo (or all of them)."""
     git = ctx.git
-    flags, git_tmp = ctx.flags, ctx.tmp
-    report, _ = get_status(git, flags, git_tmp)
+    report, _ = get_status(git, ctx.flags)
     output.payload(report)

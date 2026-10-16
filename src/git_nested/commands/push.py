@@ -142,7 +142,6 @@ def _push_prepare_branch(
     new_upstream, upstream_head_commit = _push_fetch_upstream(git, flags, config, branch_name)
 
     branch = f'nested/{subref}'
-    subdir_worktree = git_tmp / branch
     worktree.delete_branch(git, branch, git_tmp)
 
     updated_config = config

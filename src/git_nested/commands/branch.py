@@ -7,7 +7,7 @@ from pathlib import Path
 from .. import content, messages, output, worktree
 from ..cli import setup
 from ..git import GitRunner
-from ..models import CommandContext, NestedConfig
+from ..models import CommandContext, Flags, NestedConfig
 from . import fetch
 
 
@@ -21,10 +21,8 @@ def cmd_branch(ctx: CommandContext) -> None:
         fetch.do_fetch(git, config, subref)
 
     branch = f'nested/{subref}'
-    if flags.force:
-        worktree.delete_branch(git, branch, git_tmp)
-    elif git.branch_exists(branch):
-        output.error(_branch_exists_error(git, config, branch, subdir))
+    target = Path(flags.dir) if flags.dir else git_tmp / branch
+    _clear_the_way(git, flags, config, branch, subdir, target, git_tmp)
 
     subdir_worktree = content.create_nested_branch(
         git=git,
@@ -36,8 +34,46 @@ def cmd_branch(ctx: CommandContext) -> None:
         git_tmp=git_tmp,
         subref=subref,
         command='branch',
+        worktree_dir=target,
     )
     output.say(f"{subdir.as_posix()}: branch {branch} created, worktree at {subdir_worktree.as_posix()}")
+
+
+def _clear_the_way(
+    git: GitRunner, flags: Flags, config: NestedConfig, branch: str, subdir: Path, target: Path, git_tmp: Path
+) -> None:
+    """Remove `branch` and its worktree where asked to, and abort where not."""
+    # Naming a directory that already holds this nested repository's worktree
+    # asks for it to be rebuilt there, so that needs no --force.
+    if (flags.dir and _target_holds_branch(git, target, branch, subdir)) or flags.force:
+        worktree.delete_branch(git, branch, git_tmp)
+    elif git.branch_exists(branch):
+        output.error(_branch_exists_error(git, config, branch, subdir))
+
+
+def _target_holds_branch(git: GitRunner, target: Path, branch: str, subdir: Path) -> bool:
+    """Whether `target` is already the worktree of `branch`; abort if it is in use otherwise.
+
+    A worktree of anything else -- another nested repository, or the parent
+    repository itself -- is never taken over, and neither is a directory
+    with files in it that git does not know as a worktree.
+    """
+    if not target.exists():
+        return False
+    is_worktree, checked_out = worktree.branch_at(git, target)
+    if not is_worktree:
+        _check_plain_directory(target, subdir)
+        return False
+    if checked_out != branch:
+        what = f"branch {checked_out}" if checked_out else "a detached HEAD"
+        output.error(f"{target.as_posix()}: already a worktree, of {what} -- not of {subdir.as_posix()}")
+    return True
+
+
+def _check_plain_directory(target: Path, subdir: Path) -> None:
+    """Abort unless `target`, which is no worktree, is an empty directory git can put one in."""
+    if not target.is_dir() or any(target.iterdir()):
+        output.error(f"{target.as_posix()}: already exists and is not a worktree of {subdir.as_posix()}")
 
 
 def _created(git: GitRunner, branch: str) -> str | None:

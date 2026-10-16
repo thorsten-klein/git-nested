@@ -21,15 +21,16 @@ def create_nested_branch(
     git_tmp: Path,
     subref: str,
     command: str,
+    worktree_dir: Path | None = None,
 ) -> Path:
-    """Create a nested branch.
+    """Create a nested branch, checked out at `worktree_dir` or else in the default place under git_tmp.
 
     Returns:
         subdir_worktree
     """
     output.verbose(f"checking whether branch {branch} exists")
     if git.branch_exists(branch):
-        return git_tmp / branch
+        return worktree.find_worktree(git, branch) or git_tmp / branch
 
     output.verbose(f"nested parent is {config.parent}")
 
@@ -43,7 +44,7 @@ def create_nested_branch(
 
     history._filter_branch_history(git, branch, first_gitrepo_commit)
 
-    subdir_worktree = worktree.create_worktree(git, branch, git_tmp)
+    subdir_worktree = worktree.create_worktree(git, branch, git_tmp, worktree_dir)
 
     refs.create_nested_ref(git, subref, 'branch', branch)
 

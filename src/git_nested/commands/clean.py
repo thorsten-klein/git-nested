@@ -16,7 +16,7 @@ def do_clean(git: GitRunner, flags: Flags, subdir: Path, git_tmp: Path) -> list[
     subref = refs.sanitize_subref(git, subdir.as_posix())
     branch = f'nested/{subref}'
     ref = f'refs/heads/{branch}'
-    subdir_worktree = git_tmp / branch
+    subdir_worktree = worktree.find_worktree(git, branch) or git_tmp / branch
 
     worktree.remove_worktree(git, subdir_worktree)
 
