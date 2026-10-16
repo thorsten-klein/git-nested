@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import re
 import shutil
 import subprocess
@@ -24,15 +23,6 @@ class GitRunner:
         # Path would otherwise reach it with backslashes
         cmd = ['git'] + [arg.as_posix() if isinstance(arg, PurePath) else str(arg) for arg in args]
         output.trace(' '.join(cmd))
-        # `git filter-branch` prints its "glut of gotchas" warning and then
-        # sleeps for ten seconds unless FILTER_BRANCH_SQUELCH_WARNING is set,
-        # and git-nested calls it on the pull/push/branch/commit paths -- a
-        # flat ten seconds each time, waiting out a warning about a command
-        # the user did not choose to run. setdefault, so an explicit value
-        # from the environment still wins.
-        env = dict(os.environ if kwargs.get('env') is None else kwargs['env'])
-        env.setdefault('FILTER_BRANCH_SQUELCH_WARNING', '1')
-        kwargs['env'] = env
         # git writes paths and messages as UTF-8, whatever the locale (cp1252 on
         # Windows). surrogateescape keeps paths that are not UTF-8 intact.
         # stderr=None lets git's stderr through to the terminal
