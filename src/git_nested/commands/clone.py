@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .. import content, discovery, gitfile, output
 from ..cli import setup
+from ..constants import GITNESTED_FILENAME
 from ..errors import GitNestedError
 from ..git import GitRunner
 from ..models import CommandContext, Flags, NestedConfig
@@ -39,7 +40,8 @@ def do_clone(
         config.remote = given_remote or config.remote
         output.verbose("checking whether it is already up to date")
         # The same commit on another branch or remote is still a switch to record.
-        if (fetched, config.branch, config.remote) == (recorded.commit, recorded.branch, recorded.remote):
+        same_source = (fetched, config.branch, config.remote) == (recorded.commit, recorded.branch, recorded.remote)
+        if same_source and _content_matches(git, config, subdir, fetched):
             return config, True
         output.verbose("removing the existing subdir")
         git.run(['rm', '-r', '--', subdir])
@@ -48,6 +50,17 @@ def do_clone(
 
     _clone_into(git, flags, config, subdir, gitnested, subref, head_commit, fetched)
     return config, False
+
+
+def _content_matches(git: GitRunner, config: NestedConfig, subdir: Path, upstream_commit: str) -> bool:
+    """Whether subdir at HEAD holds the upstream tree, ignoring its top-level .gitnested files."""
+    if config.filter:
+        return False
+    local = git.check_output(['rev-parse', f'HEAD:{subdir.as_posix()}'], may_fail=True)
+    if not local:
+        return False
+    changed = git.check_output(['diff-tree', '-r', '--name-only', f'{upstream_commit}^{{tree}}', local])
+    return all(Path(name).name.startswith(GITNESTED_FILENAME) and '/' not in name for name in changed.splitlines())
 
 
 def _clone_into(

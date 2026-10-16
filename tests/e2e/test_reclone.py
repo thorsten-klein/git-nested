@@ -100,3 +100,42 @@ def test_clone_force_with_a_new_url_switches_the_remote(foo_bar_cloned_and_neste
     assert (env.workspace / 'foo' / 'bar' / 'only_in_moved').exists()
     recorded = yaml.safe_load((env.workspace / 'foo' / 'bar' / '.gitnested').read_text())
     assert recorded['nested']['remote'] == moved.as_posix()
+
+
+def _commit_local_change(env):
+    foo = env.workspace / 'foo'
+    (foo / 'bar' / 'Bar').write_text('LOCAL')
+    env.run(['git', 'commit', '-qam', 'local'], cwd=foo)
+    return foo / 'bar' / 'Bar'
+
+
+def test_clone_force_resets_local_changes(foo_bar_cloned_and_nested):
+    """Upstream did not change, but the local content did."""
+    env = foo_bar_cloned_and_nested
+    changed = _commit_local_change(env)
+
+    cp = cmd_git_nested(f'clone -f {env.upstream.as_posix()}/bar', cwd=env.workspace / 'foo')
+
+    assert cp.output.strip() == f"bar: cloned from {env.upstream.as_posix()}/bar (master)"
+    assert changed.read_text() != 'LOCAL'
+
+
+def test_pull_force_resets_local_changes_and_restores_deleted_files(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    changed = _commit_local_change(env)
+    env.run(['git', 'rm', '-rq', 'bar/bard'], cwd=foo)
+    env.run(['git', 'commit', '-qm', 'delete'], cwd=foo)
+
+    cmd_git_nested('pull -f bar', cwd=foo)
+
+    assert changed.read_text() != 'LOCAL'
+    assert (foo / 'bar' / 'bard' / 'Bard').is_file()
+
+
+def test_pull_force_says_so_when_nothing_changed(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+
+    cp = cmd_git_nested('pull -f bar', cwd=env.workspace / 'foo')
+
+    assert cp.output.strip() == f"bar: already up to date with {env.upstream.as_posix()}/bar (master)"
