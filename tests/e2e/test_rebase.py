@@ -1,7 +1,5 @@
 """Tests for git nested with rebase"""
 
-import textwrap
-
 from conftest import cmd_git_nested
 
 
@@ -34,15 +32,11 @@ def test_rebase(foo_bar_cloned):
     env.run(['git', 'switch', 'branch1'], cwd=env.workspace / 'foo')
     env.run(['git', 'rebase', 'branch2'], cwd=env.workspace / 'foo')
 
-    # Force clean to search for the parent SHA
-    # Validate it found the previous merge point
+    # The recorded sync point was rewritten; the one in this history is found
     cmd_git_nested('clean --force --all', cwd=env.workspace / 'foo')
     cp = env.run('git nested branch bar', check=False, cwd=env.workspace / 'foo')
-    assert cp.output.strip() == textwrap.dedent("""\
-        git-nested: the sync point recorded in bar/.gitnested is no longer an ancestor of HEAD
-
-        The sync point is the commit at which bar and its upstream were last
-        equal. A rebase or a squash merge leaves it behind on another history.
-        To recover, point it at its counterpart in this one:
-
-            git nested repair bar""")
+    assert cp.returncode == 0
+    lines = cp.output.strip().splitlines()
+    assert lines[0].startswith("git-nested: bar: the recorded sync point is not in this history; using ")
+    assert lines[0].endswith(" instead. 'git nested repair bar' records it")
+    assert lines[1] == "bar: branch nested/bar created, worktree at .git/tmp/nested/bar"

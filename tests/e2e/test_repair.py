@@ -44,9 +44,10 @@ def test_repair_after_squash_merged_pull(foo_bar_cloned_and_nested):
     env.add_new_files('foo-feature', cwd=foo)
     _squash_merge(env, 'feature')
 
-    lost = cmd_git_nested('branch bar', cwd=foo, check=False)
-    assert lost.returncode != 0
-    assert "git nested repair bar" in lost.output
+    # Without repair the sync point is found, with a note
+    found = cmd_git_nested('branch bar', cwd=foo)
+    assert "'git nested repair bar' records it" in found.output
+    cmd_git_nested('clean bar', cwd=foo)
 
     squash = git_rev_parse(['HEAD'], cwd=foo)
     parent = git_rev_parse(['HEAD^'], cwd=foo)
@@ -179,3 +180,17 @@ def test_repair_when_upstream_never_came_in(foo_bar_cloned):
 
     assert result.returncode != 0
     assert result.output.strip() == _NO_SYNC_POINT.format(subdir='doc')
+
+
+def test_branch_without_a_sync_point_says_how_to_recover(foo_bar_cloned_and_nested):
+    """When this history has no sync point at all, the error stays."""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    env.run(['git', 'switch', '--orphan', 'solo'], cwd=foo)
+    env.run(['git', 'checkout', 'master', '--', '.'], cwd=foo)
+    env.run(['git', 'commit', '-m', 'everything at once'], cwd=foo)
+
+    result = cmd_git_nested('branch bar', cwd=foo, check=False)
+
+    assert result.returncode == 1
+    assert "is no longer an ancestor of HEAD" in result.output
