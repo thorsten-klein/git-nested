@@ -145,6 +145,7 @@ sequenceDiagram
     rect rgb(230, 245, 255)
         Note over git-nested,Git: do_fetch
         git-nested->>Git: fetch --no-tags --quiet <remote> <branch>
+        Note over git-nested: If it fails: ls-remote --exit-code tells a missing branch
         git-nested->>Git: rev-parse FETCH_HEAD^0
         git-nested->>Git: update-ref refs/nested/<subref>/fetch FETCH_HEAD^0
     end
@@ -281,8 +282,12 @@ sequenceDiagram
     git-nested->>Git: diff-index --quiet --cached --ignore-submodules HEAD
     git-nested->>Git: rev-parse HEAD
 
-    git-nested->>Git: rev-parse --show-toplevel
-    Note over git-nested: Derive push branch name
+    opt No -b
+        git-nested->>Git: ls-remote --exit-code <remote> refs/heads/<branch>
+        Note over git-nested: Upstream lacks the tracked branch: push to it
+        git-nested->>Git: rev-parse --show-toplevel
+        Note over git-nested: Else push to <repo>-<branch>
+    end
 
     rect rgb(255, 245, 230)
         Note over git-nested,Git: Fetch target branch

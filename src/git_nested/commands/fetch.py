@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .. import output, refs
+from .. import discovery, output, refs
 from ..cli import setup
 from ..constants import FETCH_HEAD_REV
 from ..errors import GitNestedError
@@ -24,7 +24,11 @@ def do_fetch(git: GitRunner, config: NestedConfig, subref: str) -> str:
     if config.branch:
         cmd.append(config.branch)
 
-    git.network(cmd, f"fetching {config.remote} {branch_info}")
+    result = git.network(cmd, f"fetching {config.remote} {branch_info}", may_fail=True)
+    if result.returncode != 0:
+        if config.branch and discovery.has_branch(git, config.remote, config.branch) is False:
+            raise GitNestedError(f"{config.remote} has no branch {config.branch} yet; 'git nested push' makes it")
+        raise GitNestedError(f"command failed: git {' '.join(cmd)}\n{result.stderr or ''}")
 
     output.verbose("reading the upstream HEAD commit")
     upstream_head_commit = git.check_output(['rev-parse', FETCH_HEAD_REV])
