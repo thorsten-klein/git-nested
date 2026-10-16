@@ -26,7 +26,9 @@ def find_all_nested_repositories(git: GitRunner, flags: Flags) -> list[Path]:
 
 def get_upstream_branch(git: GitRunner, config: NestedConfig) -> str:
     """Determine upstream default branch."""
-    result = git.run(['ls-remote', '--symref', config.remote], may_fail=True)
+    result = git.network(
+        ['ls-remote', '--symref', config.remote], f"asking {config.remote} for its default branch", may_fail=True
+    )
     if result.returncode != 0:
         raise GitNestedError(f"can't reach {config.remote}: git ls-remote failed")
     remote_branches = result.stdout.strip()

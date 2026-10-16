@@ -1,8 +1,10 @@
 import contextlib
 import io
 import logging
+import sys
 
 import pytest
+from fakes import FakeGit
 
 from git_nested import Flags, GitNestedCommand, GitNestedError, GitRunner, output
 
@@ -196,3 +198,21 @@ def test_user_info_of_urls_is_hidden(printing, no_colour, capsys):
 
     assert capsys.readouterr().err == "fetched from https://***@example.com/repo.git (main)\n"
     assert output.redact("https://token@example.com/a git@host:a.git") == "https://***@example.com/a git@host:a.git"
+
+
+def test_a_network_step_is_said_in_a_terminal(printing, no_colour, monkeypatch, capsys):
+    """Someone at a terminal sees each remote git-nested contacts, without -v."""
+    monkeypatch.setattr(output, 'interactive', lambda: True)
+    git = FakeGit().respond('fetch')
+    git.network(['fetch', '--no-tags', '--quiet', 'origin', 'main'], "fetching origin (main)")
+    assert capsys.readouterr().err == "fetching origin (main)\n"
+    # and git shows its own progress there
+    assert git.calls == [('fetch', '--progress', '--no-tags', 'origin', 'main')]
+
+
+def test_interactive_needs_a_terminal_and_no_quiet(printing, monkeypatch):
+    monkeypatch.setattr(sys.stderr, 'isatty', lambda: True, raising=False)
+    output.set_level(Flags())
+    assert output.interactive() is True
+    output.set_level(Flags(quiet=True))
+    assert output.interactive() is False

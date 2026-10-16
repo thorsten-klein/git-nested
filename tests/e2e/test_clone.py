@@ -103,6 +103,7 @@ def test_clone_with_quiet_verbose(foo_bar_cloned):
     assert result.output.strip() == textwrap.dedent(f"""\
         * checking for a worktree on nested/bar2
         * determining the upstream default branch
+        * asking {env.upstream.as_posix()}/bar for its default branch
         * fetching {env.upstream.as_posix()}/bar (master)
         * reading the upstream HEAD commit
         * creating bar2/

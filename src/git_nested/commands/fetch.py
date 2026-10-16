@@ -20,13 +20,11 @@ def do_fetch(git: GitRunner, config: NestedConfig, subref: str) -> str:
         raise GitNestedError("can't fetch, the remote is 'none'")
 
     branch_info = f"({config.branch})" if config.branch else ""
-    output.verbose(f"fetching {config.remote} {branch_info}")
-
     cmd = ['fetch', '--no-tags', '--quiet', config.remote]
     if config.branch:
         cmd.append(config.branch)
 
-    git.run(cmd)
+    git.network(cmd, f"fetching {config.remote} {branch_info}")
 
     output.verbose("reading the upstream HEAD commit")
     upstream_head_commit = git.check_output(['rev-parse', FETCH_HEAD_REV])

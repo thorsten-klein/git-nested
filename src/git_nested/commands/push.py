@@ -17,18 +17,24 @@ def _fetch_push_target(git: GitRunner, flags: Flags, config: NestedConfig, branc
     """The upstream commit to push on top of; None when branch_name does not exist upstream yet."""
     # Ask with an exit code, not git's message: that one is translated.
     ref = branch_name if branch_name.startswith('refs/') else f'refs/heads/{branch_name}'
-    found = git.run(['ls-remote', '--exit-code', config.remote, ref], may_fail=True)
+    found = git.network(
+        ['ls-remote', '--exit-code', config.remote, ref], f"asking {config.remote} for {branch_name}", may_fail=True
+    )
     if found.returncode == 2:  # no such ref
         return None
     if found.returncode != 0:
         raise GitNestedError(f"the fetch before the push failed: {found.stderr}")
-    git.run(['fetch', '--no-tags', '--quiet', config.remote, branch_name])
+    git.network(
+        ['fetch', '--no-tags', '--quiet', config.remote, branch_name], f"fetching {config.remote} ({branch_name})"
+    )
     upstream = git.check_output(['rev-parse', FETCH_HEAD_REV])
     if upstream == config.commit:
         return upstream
     if not flags.force:
         raise GitNestedError(f"upstream {branch_name} has commits you do not have; pull first")
-    git.run(['fetch', '--no-tags', '--quiet', config.remote, config.branch])
+    git.network(
+        ['fetch', '--no-tags', '--quiet', config.remote, config.branch], f"fetching {config.remote} ({config.branch})"
+    )
     return git.check_output(['rev-parse', FETCH_HEAD_REV])
 
 
@@ -108,7 +114,10 @@ def _push(
     if upstream_head and not flags.force and not git.commit_in_rev_list(upstream_head, branch):
         raise GitNestedError(f"can't commit: {branch} does not contain the upstream HEAD {upstream_head}")
 
-    git.run(['push', *(['--force'] if flags.force else []), config.remote, f'{branch}:{branch_name}'])
+    git.network(
+        ['push', *(['--force'] if flags.force else []), config.remote, f'{branch}:{branch_name}'],
+        f"pushing to {config.remote} ({branch_name})",
+    )
     refs.create_nested_ref(git, subref, 'push', branch)
     return new_commit
 
