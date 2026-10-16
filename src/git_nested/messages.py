@@ -58,6 +58,23 @@ def worktree_exists(subdir: Path, worktree_path: str | None, prunable: bool) -> 
     )
 
 
+def branch_exists(subdir: Path, branch: str, facts: list[tuple[str, str | None]]) -> str:
+    """What the nested branch standing in the way of a new one holds, and the ways past it.
+
+    `facts` are (label, value) lines describing the branch; one whose value
+    could not be determined is None and left out.
+    """
+    lines = [f"{subdir.as_posix()}: branch {branch} already exists", ""]
+    lines += [f"  {label + ':':<11}{value}" for label, value in facts if value]
+    lines += [
+        "",
+        f"Reuse it (e.g. 'git nested push {subdir.as_posix()}'), pass --force to rebuild it, or remove it:",
+        "",
+        f"  git nested clean {subdir.as_posix()}",
+    ]
+    return "\n".join(lines)
+
+
 def pull_conflict_help(subdir: Path, worktree: Path, method: str, message_file: str | None, subref: str) -> str:
     """How to finish a pull by hand after its merge or rebase hit conflicts.
 

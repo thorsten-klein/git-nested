@@ -10,6 +10,43 @@ from ._compat import chdir
 from .git import GitRunner
 
 
+def _relative(path: Path) -> Path:
+    """`path` relative to the current directory (the repository top) when it lies inside it.
+
+    git lists worktrees by absolute path; the ones under .git/tmp read
+    better, and the same as the rest of git-nested's output, without it.
+    """
+    try:
+        return path.relative_to(Path.cwd())
+    except ValueError:
+        return path
+
+
+def _parse_worktree_block(block: str) -> tuple[Path, str | None] | None:
+    """One worktree from `git worktree list --porcelain`: its path and checked-out branch."""
+    fields = {key: value for key, _, value in (line.partition(' ') for line in block.splitlines())}
+    if 'worktree' not in fields:
+        return None
+    branch = fields.get('branch', '').removeprefix('refs/heads/') or None
+    return _relative(Path(fields['worktree'])), branch
+
+
+def list_worktrees(git: GitRunner) -> list[tuple[Path, str | None]]:
+    """Every worktree of the repository, with the branch checked out in it (None when detached)."""
+    porcelain = git.check_output(['worktree', 'list', '--porcelain'], may_fail=True) or ''
+    # One block per worktree, blank-line separated, of 'key value' lines.
+    parsed = (_parse_worktree_block(block) for block in porcelain.split('\n\n'))
+    return [entry for entry in parsed if entry]
+
+
+def find_worktree(git: GitRunner, branch: str) -> Path | None:
+    """Where `branch` is checked out, or None if it is not."""
+    for path, checked_out in list_worktrees(git):
+        if checked_out == branch:
+            return path
+    return None
+
+
 def create_worktree(git: GitRunner, branch: str, git_tmp: Path) -> Path:
     """Create a worktree for the given branch."""
     subdir_worktree = git_tmp / branch

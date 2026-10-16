@@ -275,7 +275,11 @@ def test_branch_with_force(foo_bar_cloned_and_nested):
 
     # create nested branch
     result = cmd_git_nested('branch bar', cwd=env.workspace / 'foo', check=False)
-    assert "branch nested/bar already exists; pass --force to replace it" in result.output
+    assert result.returncode == 1
+    assert "bar: branch nested/bar already exists" in result.output
+    # bar/file3 came after the branch, so the branch no longer matches bar/
+    assert "  content:   differs from bar/ in HEAD" in result.output
+    assert "  created:   " in result.output
 
     # Create branch with --force
     result = cmd_git_nested('branch bar --force', cwd=env.workspace / 'foo')

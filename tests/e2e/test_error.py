@@ -46,7 +46,11 @@ def test_error_branch_already_exists(foo_bar_cloned):
     env.add_new_files('foo/file', cwd=env.workspace / 'bar')
     cmd_git_nested('branch foo', cwd=env.workspace / 'bar')
     cp = cmd_git_nested('branch foo', check=False, cwd=env.workspace / 'bar')
-    assert_error(cp, "git-nested: branch nested/foo already exists; pass --force to replace it", returncode=1)
+    assert_error(cp, "git-nested: foo: branch nested/foo already exists", returncode=1)
+    assert "  content:   up to date with foo/ in HEAD" in cp.output
+    assert "  upstream:  1 local commit on top of " in cp.output
+    assert "  worktree:  .git/tmp/nested/foo" in cp.output
+    assert "  git nested clean foo" in cp.output
 
 
 def test_error_clone_missing_upstream(foo_bar_cloned):
