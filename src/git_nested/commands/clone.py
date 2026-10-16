@@ -32,9 +32,11 @@ def do_clone(
     fetched = None
     if flags.force and gitnested.is_file():
         fetched = fetch.do_fetch(git, config, subref)
+        recorded = NestedConfig.from_file(gitnested)
         config = gitfile.read_config(gitnested, flags)
         output.verbose("checking whether it is already up to date")
-        if fetched == config.commit:
+        # The same commit on another branch or remote is still a switch to record.
+        if (fetched, config.branch, config.remote) == (recorded.commit, recorded.branch, recorded.remote):
             return config, True
         output.verbose("removing the existing subdir")
         git.run(['rm', '-r', '--', subdir])
