@@ -35,6 +35,7 @@ class Flags:
     name: str | None = None
     method: str | None = None
     remote: str | None = None
+    short: bool = False
     squash: bool = False
     update: bool = False
     quiet: bool = False

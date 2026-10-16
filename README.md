@@ -274,7 +274,16 @@ git nested push --all  # Push all nested repos
 
 #### `git nested status`
 
-Show the status of nested repositories.
+Show the status of nested repositories: where each comes from, how many local
+commits it has since the last sync, how many upstream commits are not pulled
+yet (after a fetch), and whether its content differs from upstream.
+`--short` prints one line per repository, for scripts:
+
+```
+<subdir> <local commits> <upstream commits not pulled> <changed|same>
+```
+
+`-` stands where git-nested can't tell.
 
 ```bash
 git nested status --help
