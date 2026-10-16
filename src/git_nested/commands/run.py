@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import subprocess
 
-from .. import output, worktree
+from .. import output, refs, worktree
 from ..cli import setup
 from ..models import CommandContext
 
@@ -22,7 +22,7 @@ def cmd_run(ctx: CommandContext) -> None:
     if not ctx.git_args:
         output.usage_error(f"no git command given; e.g. 'git nested run {subdir.as_posix()} log'")
 
-    branch = f'nested/{subref}'
+    branch = refs.nested_branch(git, subref)
     path = worktree.find_worktree(git, branch)
     if path is None:
         output.error(

@@ -137,7 +137,10 @@ def _flags_from_args(args: argparse.Namespace) -> Flags:
 
 
 # Flags that name one thing, so they make no sense for every nested repository at once.
-_SINGLE_TARGET_FLAGS = (('dir', "--dir names one worktree, so it can't be used with --all"),)
+_SINGLE_TARGET_FLAGS = (
+    ('dir', "--dir names one worktree, so it can't be used with --all"),
+    ('name', "--name names one branch, so it can't be used with --all"),
+)
 
 
 def _check_single_target_flags(flags: Flags) -> None:

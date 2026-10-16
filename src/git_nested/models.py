@@ -28,6 +28,7 @@ class Flags:
     fetch: bool = False
     message: str | None = None
     message_file: str | None = None
+    name: str | None = None
     method: str | None = None
     remote: str | None = None
     squash: bool = False

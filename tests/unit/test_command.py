@@ -99,7 +99,7 @@ def test_check_existing_worktree_errors_when_commit_has_no_worktree(cmd, monkeyp
     subdir = Path('sub')
     gitnested = Path('sub/.gitnested')
     with pytest.raises(GitNestedError, match="no worktree to commit from"):
-        setup._check_existing_worktree(cmd.git, 'commit', subdir, gitnested)
+        setup._check_existing_worktree(cmd.git, 'commit', subdir, gitnested, 'nested/sub')
 
 
 def test_check_existing_worktree_errors_with_gitnested_present(cmd, monkeypatch, tmp_path):
@@ -108,7 +108,7 @@ def test_check_existing_worktree_errors_with_gitnested_present(cmd, monkeypatch,
     monkeypatch.setattr(cmd.git, 'check_output', lambda *a, **k: '/tmp/wt sha [nested/sub]')
     subdir = Path('sub')
     with pytest.raises(GitNestedError, match="git nested clean"):
-        setup._check_existing_worktree(cmd.git, 'pull', subdir, gitnested)
+        setup._check_existing_worktree(cmd.git, 'pull', subdir, gitnested, 'nested/sub')
 
 
 def test_check_existing_worktree_errors_without_gitnested(cmd, monkeypatch, tmp_path):
@@ -116,4 +116,4 @@ def test_check_existing_worktree_errors_without_gitnested(cmd, monkeypatch, tmp_
     monkeypatch.setattr(cmd.git, 'check_output', lambda *a, **k: '/tmp/wt sha [nested/sub]')
     subdir = Path('sub')
     with pytest.raises(GitNestedError, match="git worktree prune"):
-        setup._check_existing_worktree(cmd.git, 'pull', subdir, gitnested)
+        setup._check_existing_worktree(cmd.git, 'pull', subdir, gitnested, 'nested/sub')

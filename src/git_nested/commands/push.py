@@ -141,7 +141,7 @@ def _push_prepare_branch(
     """
     new_upstream, upstream_head_commit = _push_fetch_upstream(git, flags, config, branch_name)
 
-    branch = f'nested/{subref}'
+    branch = refs.nested_branch(git, subref)
     worktree.delete_branch(git, branch, git_tmp)
 
     updated_config = config
@@ -265,8 +265,9 @@ def cmd_push(ctx: CommandContext) -> None:
         )  # pragma: no cover -- invariant guard, unreachable via the public API
 
     if branch_created:
-        output.verbose(f"removing branch nested/{subref}")
-        worktree.delete_branch(git, f'nested/{subref}', git_tmp)
+        branch = refs.nested_branch(git, subref)
+        output.verbose(f"removing branch {branch}")
+        worktree.delete_branch(git, branch, git_tmp)
 
     if flags.commit:
         _record_push_commit(git, flags, subdir, gitnested, config, new_commit, head_commit)

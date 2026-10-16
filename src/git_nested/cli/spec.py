@@ -13,7 +13,7 @@ from ..constants import COMPLETION_SHELLS
 # Which flags each command accepts. The keys are also the command list:
 # the subparsers, and the completion candidates, are built from them.
 VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
-    'branch': ['all', 'dir', 'fetch', 'force'],
+    'branch': ['all', 'dir', 'fetch', 'force', 'name'],
     'clean': ['ALL', 'all', 'force'],
     'clone': ['branch', 'filter', 'force', 'message', 'method'],
     'commit': ['fetch', 'force', 'message', 'msg_file'],
@@ -78,6 +78,11 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
         {'action': 'store_true', 'dest': 'fetch_flag', 'help': "fetch the upstream content first"},
     ),
     ('method', ('-M', '--method'), {'dest': 'method', 'help': "join method: 'merge' (default) or 'rebase'"}),
+    (
+        'name',
+        ('-n', '--name'),
+        {'dest': 'name', 'help': "name of the nested branch; defaults to nested/<subdir>"},
+    ),
     ('message', ('-m', '--message'), {'dest': 'message', 'help': "commit message"}),
     ('msg_file', ('--file',), {'dest': 'msg_file', 'help': "file to read the commit message from"}),
     ('remote', ('-r', '--remote'), {'dest': 'remote', 'help': "upstream remote to push/pull/fetch"}),
@@ -97,6 +102,7 @@ SUPPORTED_OPT_ATTRS: list[tuple[str, str]] = [
     ('message', 'message'),
     ('msg_file', 'message_file'),
     ('dir', 'dir'),
+    ('name', 'name'),
 ]
 
 # Most commands take the same first positional, so it gets the same text.
@@ -147,7 +153,9 @@ COMMAND_DESCRIPTION: dict[str, str] = {
         "Build a 'nested/<subdir>' branch from the commits in <subdir> since the last sync, "
         "and check it out in a worktree, at <dir> if given. Use it to look at the nested history on its own, "
         "or to fix up a pull that stopped on conflicts. If <dir> already holds the worktree of <subdir>, "
-        "the branch is rebuilt there; the worktree of anything else is never touched."
+        "the branch is rebuilt there; the worktree of anything else is never touched. "
+        "--name picks another branch name than nested/<subdir>; it is remembered, "
+        "so the other commands use that branch too, until 'git nested clean'."
     ),
     'clean': (
         "Delete the branches, refs, remotes and worktrees that other git-nested commands left behind. "
@@ -209,6 +217,7 @@ COMMAND_EXAMPLES: dict[str, list[str]] = {
     'branch': [
         "git nested branch ext/lib",
         "git nested branch -d ../lib ext/lib",
+        "git nested branch --name lib-fixes ext/lib",
         "git nested branch --all",
     ],
     'clean': [

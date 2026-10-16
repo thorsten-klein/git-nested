@@ -205,6 +205,7 @@ def test_status_for_subdir_fetches_when_flag_set(tmp_path, monkeypatch):
 def test_status_identity_lines_branch_and_remote_present():
     git = (
         FakeGit()
+        .respond('config', '--get', 'nested.sub.branchname', returncode=1)
         .respond('rev-list', 'refs/heads/nested/sub', returncode=0)
         .respond('config', 'remote.nested/sub.url', stdout='https://example.com/x.git')
     )

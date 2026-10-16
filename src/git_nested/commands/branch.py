@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .. import content, messages, output, worktree
+from .. import content, messages, output, refs, worktree
 from ..cli import setup
 from ..git import GitRunner
 from ..models import CommandContext, Flags, NestedConfig
@@ -20,9 +20,12 @@ def cmd_branch(ctx: CommandContext) -> None:
     if flags.fetch:
         fetch.do_fetch(git, config, subref)
 
-    branch = f'nested/{subref}'
+    # `current` is this nested repository's branch as things stand; `branch`
+    # the one to build, which differs only when --name renames it.
+    current = refs.nested_branch(git, subref)
+    branch = _branch_to_build(git, flags, current, subdir)
     target = Path(flags.dir) if flags.dir else git_tmp / branch
-    _clear_the_way(git, flags, config, branch, subdir, target, git_tmp)
+    _clear_the_way(git, flags, config, current, subdir, target, git_tmp)
 
     subdir_worktree = content.create_nested_branch(
         git=git,
@@ -36,19 +39,39 @@ def cmd_branch(ctx: CommandContext) -> None:
         command='branch',
         worktree_dir=target,
     )
+    refs.record_nested_branch(git, subref, branch)
     output.say(f"{subdir.as_posix()}: branch {branch} created, worktree at {subdir_worktree.as_posix()}")
 
 
+def _branch_to_build(git: GitRunner, flags: Flags, current: str, subdir: Path) -> str:
+    """The branch to build: --name if given and acceptable, else the `current` one."""
+    if flags.name and flags.name != current:
+        _check_new_name(git, flags.name, subdir)
+    return flags.name or current
+
+
 def _clear_the_way(
-    git: GitRunner, flags: Flags, config: NestedConfig, branch: str, subdir: Path, target: Path, git_tmp: Path
+    git: GitRunner, flags: Flags, config: NestedConfig, current: str, subdir: Path, target: Path, git_tmp: Path
 ) -> None:
-    """Remove `branch` and its worktree where asked to, and abort where not."""
+    """Remove the `current` branch and its worktree where asked to, and abort where not."""
     # Naming a directory that already holds this nested repository's worktree
     # asks for it to be rebuilt there, so that needs no --force.
-    if (flags.dir and _target_holds_branch(git, target, branch, subdir)) or flags.force:
-        worktree.delete_branch(git, branch, git_tmp)
-    elif git.branch_exists(branch):
-        output.error(_branch_exists_error(git, config, branch, subdir))
+    if (flags.dir and _target_holds_branch(git, target, current, subdir)) or flags.force:
+        worktree.delete_branch(git, current, git_tmp)
+    elif git.branch_exists(current):
+        output.error(_branch_exists_error(git, config, current, subdir))
+
+
+def _check_new_name(git: GitRunner, branch: str, subdir: Path) -> None:
+    """Refuse a --name that git would not take, or that belongs to a branch git-nested does not own.
+
+    Not even --force replaces such a branch: it would be one of the user's
+    own, and `--name main --force` must not be a way to lose it.
+    """
+    if git.run(['check-ref-format', '--branch', branch], may_fail=True).returncode != 0:
+        output.usage_error(f"{branch}: not a valid branch name")
+    if git.branch_exists(branch):
+        output.error(f"branch {branch} already exists and is not the nested branch of {subdir.as_posix()}")
 
 
 def _target_holds_branch(git: GitRunner, target: Path, branch: str, subdir: Path) -> bool:
