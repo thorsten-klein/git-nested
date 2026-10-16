@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 class Flags:
     """Command-line flags."""
 
+    adopt: bool = False
     all: bool = False
     all_deep: bool = False
     branch: str | None = None
@@ -37,6 +38,7 @@ class Flags:
     remote: str | None = None
     short: bool = False
     squash: bool = False
+    upstream_commit: str | None = None
     update: bool = False
     quiet: bool = False
     verbose: int = 0

@@ -33,6 +33,12 @@ and
 .B "push without --commit"
 \-\- do not need a clean parent working tree.
 If the nested subdirectory itself has uncommitted tracked changes, git-nested warns and ignores them.
+.PP
+If a tracked directory already holds upstream content, either
+.B git nested clone --adopt
+or
+.BI "git nested init -r " url " --commit " sha
+can connect it to that upstream without replacing its files.
 .SH COMMANDS
 .TP
 .B branch
@@ -110,6 +116,7 @@ Take a library into
 .RS
 .nf
 git nested clone https://github.com/user/lib ext/lib
+git nested clone --adopt https://github.com/user/lib ext/lib
 .fi
 .RE
 .PP

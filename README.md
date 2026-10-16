@@ -216,6 +216,7 @@ git nested clone --help
 **Example:**
 ```bash
 git nested clone https://github.com/user/lib ext/lib -b main
+git nested clone --adopt https://github.com/user/lib ext/lib
 ```
 
 This also works in a fresh repository with no commits yet. The clone commit
@@ -228,6 +229,11 @@ git-nested says so.
 `pull` keeps them nested and moves each to the commit upstream pins after
 the pull. `pull --recurse-submodules` also nests new ones. `push` sends
 them to upstream as submodules again.
+
+`--adopt` keeps the tracked content that is already in `<subdir>`. It looks
+for the newest upstream commit with the same tree, records that as
+`commit`, records the current `HEAD` as `parent`, and commits only the new
+`.gitnested` file. If no upstream commit matches, use `init -r ... --commit`.
 
 #### `git nested init`
 
@@ -242,6 +248,7 @@ git nested init --help
 **Example:**
 ```bash
 git nested init ext/mylib -r https://github.com/user/mylib
+git nested init ext/mylib -r https://github.com/user/mylib --commit abc123
 ```
 
 `--from-submodule` turns a submodule into a nested repository, at the same
@@ -252,6 +259,12 @@ git nested init --from-submodule ext/mylib
 ```
 
 ### `git nested pull`
+
+`--commit <sha>` says which upstream commit the current content is based on.
+That gives the next `pull` or `push` a sync point, even when the directory
+already has local changes on top of that upstream commit.
+
+#### `git nested pull`
 
 Update a nested repo with the latest upstream changes.
 

@@ -2,7 +2,7 @@
 
 import textwrap
 
-from conftest import assert_gitnested_field, cmd_git_nested
+from conftest import VERSION, assert_gitnested_field, cmd_git_nested, git_rev_parse
 
 
 def test_init_no_remote(env):
@@ -77,3 +77,53 @@ def test_init_untracked_subdir(env):
     result = cmd_git_nested('init untracked', cwd=env.workspace / 'init', check=False)
     assert result.returncode == 1
     assert result.output.strip() == "git-nested: untracked: exists, but git tracks nothing in it"
+
+
+def test_init_with_commit_records_sync_point_and_pull_uses_it(foo_bar_cloned):
+    """An adopted directory can name its upstream commit explicitly."""
+    env = foo_bar_cloned
+    foo = env.workspace / 'foo'
+    vendored = foo / 'vendor' / 'bar'
+    vendored.mkdir(parents=True)
+    (vendored / 'Bar').touch()
+    (vendored / 'Local').write_text('local only\n')
+    env.run(['git', 'add', 'vendor/bar/Bar', 'vendor/bar/Local'], cwd=foo)
+    env.run(['git', 'commit', '-m', 'vendor bar'], cwd=foo)
+
+    vendor_commit = git_rev_parse(['HEAD'], cwd=foo)
+    first_upstream = git_rev_parse(['A'], cwd=env.workspace / 'bar')
+    latest_upstream = git_rev_parse(['HEAD'], cwd=env.workspace / 'bar')
+
+    result = cmd_git_nested(
+        ['init', 'vendor/bar', '-r', (env.upstream / 'bar').as_posix(), '--commit', first_upstream],
+        cwd=foo,
+    )
+
+    assert result.output.strip() == (
+        f"vendor/bar: initialised as a nested repository with {env.upstream.as_posix()}/bar (master) "
+        f"at {first_upstream[:7]}"
+    )
+    assert_gitnested_field(
+        vendored / '.gitnested',
+        remote=(env.upstream / 'bar').as_posix(),
+        branch='master',
+        commit=first_upstream,
+        parent=vendor_commit,
+        method='merge',
+        version=VERSION,
+    )
+
+    result = cmd_git_nested('pull vendor/bar', cwd=foo)
+
+    assert result.output.strip() == f"vendor/bar: pulled from {env.upstream.as_posix()}/bar (master)"
+    assert (vendored / 'Local').read_text() == 'local only\n'
+    assert (vendored / 'bard' / 'Bard').is_file()
+    assert_gitnested_field(
+        vendored / '.gitnested',
+        remote=(env.upstream / 'bar').as_posix(),
+        branch='master',
+        commit=latest_upstream,
+        parent=vendor_commit,
+        method='merge',
+        version=VERSION,
+    )

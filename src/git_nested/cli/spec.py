@@ -15,13 +15,13 @@ from ..constants import COMPLETION_SHELLS
 VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
     'branch': ['all', 'dir', 'fetch', 'force', 'gpg_sign', 'name'],
     'clean': ['ALL', 'all', 'force'],
-    'clone': ['branch', 'filter', 'force', 'gpg_sign', 'message', 'method', 'recurse_submodules', 'signoff'],
+    'clone': ['adopt', 'branch', 'filter', 'force', 'gpg_sign', 'message', 'method', 'recurse_submodules', 'signoff'],
     'commit': ['fetch', 'force', 'gpg_sign', 'message', 'msg_file', 'signoff'],
     'completion': [],
     'config': [],
     'diff': ['all', 'branch', 'remote'],
     'fetch': ['all', 'branch', 'force', 'remote'],
-    'init': ['branch', 'from_submodule', 'gpg_sign', 'remote', 'method', 'signoff'],
+    'init': ['branch', 'from_submodule', 'gpg_sign', 'remote', 'method', 'signoff', 'upstream_commit'],
     'pull': [
         'all',
         'branch',
@@ -83,6 +83,11 @@ GLOBAL_ARG_SPECS: list[tuple[tuple[str, ...], dict]] = [
 
 # (option name in VALID_COMMAND_OPTIONS, argparse flag names, argparse kwargs)
 SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
+    (
+        'adopt',
+        ('--adopt',),
+        {'action': 'store_true', 'help': "connect the tracked content already in <subdir> to upstream"},
+    ),
     ('all', ('-a', '--all'), {'action': 'store_true', 'dest': 'all_flag', 'help': "act on all nested repositories"}),
     (
         'ALL',
@@ -90,6 +95,11 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
         {'action': 'store_true', 'dest': 'ALL_flag', 'help': "act on all nested repositories and their sub-nesteds"},
     ),
     ('branch', ('-b', '--branch'), {'dest': 'branch', 'help': "upstream branch to push/pull/fetch"}),
+    (
+        'upstream_commit',
+        ('-c', '--commit'),
+        {'dest': 'upstream_commit', 'help': "upstream commit the current content is based on"},
+    ),
     (
         'dir',
         ('-d', '--dir'),
@@ -162,6 +172,7 @@ SUPPORTED_OPT_ATTRS: list[tuple[str, str]] = [
     ('msg_file', 'message_file'),
     ('dir', 'dir'),
     ('name', 'name'),
+    ('upstream_commit', 'upstream_commit'),
 ]
 
 # Most commands take the same first positional, so it gets the same text.
@@ -224,6 +235,8 @@ COMMAND_DESCRIPTION: dict[str, str] = {
     ),
     'clone': (
         "Copy an upstream repository into <subdir> and commit it, with a .gitnested file recording where it came from. "
+        "With --adopt, keep the tracked content already in <subdir> and only add that metadata, "
+        "using the matching upstream commit as the sync point. "
         "The result is ordinary files in ordinary commits: everyone who clones the parent repository gets them, "
         "with no extra command to run. In a repository with no commits yet, that clone commit becomes the root commit."
     ),
@@ -250,6 +263,8 @@ COMMAND_DESCRIPTION: dict[str, str] = {
     ),
     'init': (
         "Turn a subdirectory you already have into a nested repository by writing <subdir>/.gitnested. "
+        "With --commit, record which upstream commit its current content came from, "
+        "so the next pull or push has a sync point to build from. "
         "The files are left as they are. Without --remote the subdirectory has no upstream yet, "
         "which you can add later with 'git nested config'."
     ),
@@ -295,6 +310,7 @@ COMMAND_EXAMPLES: dict[str, list[str]] = {
     ],
     'clone': [
         "git nested clone https://github.com/user/lib ext/lib",
+        "git nested clone --adopt https://github.com/user/lib ext/lib",
         "git nested clone -b develop https://github.com/user/lib ext/lib",
     ],
     'commit': [
@@ -321,6 +337,7 @@ COMMAND_EXAMPLES: dict[str, list[str]] = {
     ],
     'init': [
         "git nested init doc",
+        "git nested init -r https://github.com/user/lib --commit abc123 ext/lib",
         "git nested init -r https://github.com/user/lib -b main ext/lib",
     ],
     'pull': [
