@@ -54,7 +54,7 @@ class NestedConfig:
         path = Path(filepath)
         if not path.is_file():
             raise GitNestedError(f"{path.as_posix()} does not exist")
-        nested = (yaml.safe_load(path.read_text()) or {}).get('nested', {})
+        nested = (yaml.safe_load(path.read_text(encoding='utf-8')) or {}).get('nested', {})
         config = cls(
             remote=nested.get('remote', ''),
             branch=nested.get('branch', ''),
