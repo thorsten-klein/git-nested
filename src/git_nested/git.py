@@ -34,12 +34,8 @@ class GitRunner:
         env.setdefault('FILTER_BRANCH_SQUELCH_WARNING', '1')
         kwargs['env'] = env
         result = subprocess.run(cmd, capture_output=True, text=True, check=False, **kwargs)
-        if result.returncode != 0:
-            if not may_fail:
-                raise GitNestedError(f"command failed: {' '.join(cmd)}\n{result.stderr!s}")
-
-            return subprocess.CompletedProcess(args=cmd, returncode=-1, stdout=result.stdout, stderr=result.stderr)
-
+        if result.returncode != 0 and not may_fail:
+            raise GitNestedError(f"command failed: {' '.join(cmd)}\n{result.stderr!s}")
         return result
 
     def check_output(self, args: Sequence[str | Path], may_fail: bool = False, **kwargs: Any) -> str:  # noqa: ANN401

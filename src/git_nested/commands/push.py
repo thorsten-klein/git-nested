@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import dataclasses
-import re
 from pathlib import Path
 
 from .. import content, discovery, gitfile, output, refs, worktree
@@ -16,11 +15,14 @@ from ..models import CommandContext, Flags, NestedConfig
 
 def _fetch_push_target(git: GitRunner, flags: Flags, config: NestedConfig, branch_name: str) -> str | None:
     """The upstream commit to push on top of; None when branch_name does not exist upstream yet."""
-    result = git.run(['fetch', '--no-tags', '--quiet', config.remote, branch_name], may_fail=True)
-    if result.returncode != 0:
-        if not re.search(r"(^|\n)fatal: couldn't find remote ref ", result.stderr.lower()):
-            raise GitNestedError(f"the fetch before the push failed: {result.stderr}")
+    # Ask with an exit code, not git's message: that one is translated.
+    ref = branch_name if branch_name.startswith('refs/') else f'refs/heads/{branch_name}'
+    found = git.run(['ls-remote', '--exit-code', config.remote, ref], may_fail=True)
+    if found.returncode == 2:  # no such ref
         return None
+    if found.returncode != 0:
+        raise GitNestedError(f"the fetch before the push failed: {found.stderr}")
+    git.run(['fetch', '--no-tags', '--quiet', config.remote, branch_name])
     upstream = git.check_output(['rev-parse', FETCH_HEAD_REV])
     if upstream == config.commit:
         return upstream
