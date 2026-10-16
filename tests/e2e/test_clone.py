@@ -121,6 +121,7 @@ def test_a_failed_commit_leaves_nothing_behind(foo_bar_cloned):
     hook = foo / '.git' / 'hooks' / 'pre-commit'
     hook.write_text('#!/bin/sh\nexit 1\n')
     hook.chmod(0o755)
+    env.run(['git', 'config', 'nested.verify', 'true'], cwd=foo)
 
     result = cmd_git_nested(['clone', (env.upstream / 'bar').as_posix()], foo, check=False)
 
@@ -144,3 +145,22 @@ def test_clone_of_an_empty_upstream_says_so(foo_bar_cloned):
         f"git-nested: {empty.as_posix()} is empty: it has no branch yet. "
         "To fill it from a directory, use 'git nested init' and then 'git nested push'"
     )
+
+
+def test_the_parent_hooks_do_not_run(foo_bar_cloned):
+    """The parent's hooks are for its own changes, not for git-nested's commits and worktrees."""
+    env = foo_bar_cloned
+    foo = env.workspace / 'foo'
+    hooks = foo / '.git' / 'hooks'
+    for name, body in (
+        ('pre-commit', 'exit 1'),
+        ('commit-msg', 'exit 1'),
+        ('post-checkout', 'touch "$GIT_DIR/../ran"'),
+    ):
+        (hooks / name).write_text(f'#!/bin/sh\n{body}\n')
+        (hooks / name).chmod(0o755)
+
+    cmd_git_nested(['clone', (env.upstream / 'bar').as_posix()], foo)
+    cmd_git_nested('branch bar', cwd=foo)
+
+    assert not list(foo.rglob('ran'))
