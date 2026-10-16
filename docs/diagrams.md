@@ -218,9 +218,9 @@ sequenceDiagram
                 end
                 git-nested->>Git: branch nested/<subref> <tip>
             else No parent (first time)
-                git-nested->>Git: branch nested/<subref> HEAD
-                git-nested->>Git: filter-branch -f --subdirectory-filter <subref> nested/<subref>
-                git-nested->>Git: filter-branch -f --prune-empty --tree-filter 'rm -rf -- .gitnested <dropped>' -- nested/<subref>
+                git-nested->>Git: rev-list --reverse --topo-order --parents HEAD -- <subdir>
+                Note over git-nested: Replay each commit as above, with no upstream to join
+                git-nested->>Git: branch nested/<subref> <tip>
             end
 
             git-nested->>Git: worktree add --no-checkout <worktree_path> nested/<subref>
@@ -433,9 +433,9 @@ sequenceDiagram
             end
             git-nested->>Git: branch nested/<subref> <tip>
         else No parent
-            git-nested->>Git: branch nested/<subref> HEAD
-            git-nested->>Git: filter-branch -f --subdirectory-filter <subref> nested/<subref>
-            git-nested->>Git: filter-branch -f --prune-empty --tree-filter 'rm -rf -- .gitnested <dropped>' -- nested/<subref>
+            git-nested->>Git: rev-list --reverse --topo-order --parents HEAD -- <subdir>
+            Note over git-nested: Replay each commit as above, with no upstream to join
+            git-nested->>Git: branch nested/<subref> <tip>
         end
 
         git-nested->>Git: worktree add --no-checkout <dir or .git/tmp/branch> <branch>

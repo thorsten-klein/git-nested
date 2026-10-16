@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import re
-import shlex
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
@@ -123,6 +122,16 @@ class _Replay:
         nested_parents = [*dict.fromkeys(self.nested[parent] for parent in known), *([upstream] if joins else [])]
         self.nested[commit] = self._commit(commit, self._independent(nested_parents))
 
+    def add_plain(self, commit: str, parents: list[str]) -> None:
+        """Replay one commit as it is, with no upstream commit to join."""
+        nested_parents = self._independent([*dict.fromkeys(self.nested[p] for p in parents if p in self.nested)])
+        if self.git.run(['cat-file', '-e', f'{commit}:{self.subdir.as_posix()}'], may_fail=True).returncode != 0:
+            # The subdir is gone here: the history passes through.
+            if nested_parents:
+                self.nested[commit] = nested_parents[0]
+            return
+        self.nested[commit] = self._commit(commit, nested_parents)
+
     def _commit(self, commit: str, parents: list[str]) -> str:
         """The nested commit of `commit` on `parents`; the one parent itself if nothing changes."""
         tree = self._subdir_tree(commit)
@@ -169,44 +178,23 @@ def _usable_parent(git: GitRunner, parent: str, gitnested: Path, subdir: Path) -
     return found
 
 
-def _create_branch_from_parent(
-    git: GitRunner,
-    flags: Flags,
-    config: NestedConfig,
-    subdir: Path,
-    gitnested: Path,
-    subref: str,
-    command: str,
-    branch: str,
-    removed: list[str],
-) -> None:
-    """Build branch by replaying the commits from the recorded parent to HEAD.
+def _replay_into_branch(replay: _Replay, rev_list: list[str], branch: str, plain: bool) -> bool:
+    """Replay the commits `rev_list` lists, oldest first, into `branch`.
 
-    Merges stay merges where both sides changed the subdir. So a change
-    that came in through a merge keeps its own commit and message.
+    Returns:
+        False if none of them touched the subdir, so there is no branch.
     """
-    parent = _usable_parent(git, config.parent, gitnested, subdir)
-    lines = git.check_output([
-        'rev-list',
-        '--reverse',
-        '--topo-order',
-        '--ancestry-path',
-        '--parents',
-        f'{parent}..HEAD',
-    ]).splitlines()
-    with tempfile.TemporaryDirectory() as tmp:
-        merge = (flags.method or config.method) != 'rebase'
-        index_env = {**os.environ, 'GIT_INDEX_FILE': str(Path(tmp) / 'index')}
-        replay = _Replay(git, subdir, subref, command, merge, index_env, removed, sign=flags.gpg_sign)
-        for line in lines:
-            commit, *parents = line.split()
-            replay.add(commit, parents)
+    git = replay.git
+    lines = git.check_output(['rev-list', '--reverse', '--topo-order', '--parents', *rev_list]).splitlines()
+    add = replay.add_plain if plain else replay.add
+    for line in lines:
+        commit, *parents = line.split()
+        add(commit, parents)
     tip = replay.nested.get(lines[-1].split()[0]) if lines else None
     if tip is None:
-        raise GitNestedError(
-            f"{subdir.as_posix()}: no commit between {parent} and HEAD touches it, so there is no nested history to rebuild"
-        )
+        return False
     git.run(['branch', branch, tip])
+    return True
 
 
 def create_branch(
@@ -221,21 +209,28 @@ def create_branch(
 ) -> None:
     """Create `branch` holding the nested history of subdir, without its .gitnested file.
 
-    From the recorded parent on when there is one; else the whole of HEAD's
-    history, filtered down to the subdir. For a push it also leaves out what
+    From the recorded parent on when there is one. Merges stay merges where
+    both sides changed the subdir, so a change that came in through a merge
+    keeps its own commit and message. Without a parent, every commit of HEAD
+    that touched the subdir is replayed. For a push it also leaves out what
     upstream must not get.
     """
+    parent = _usable_parent(git, config.parent, gitnested, subdir) if config.parent else ''
     removed = [GITNESTED_FILENAME, *(_local_only_paths(git, config, subdir) if command == 'push' else [])]
-    if config.parent:
-        _create_branch_from_parent(git, flags, config, subdir, gitnested, subref, command, branch, removed)
-        return
-    git.run(['branch', branch, 'HEAD'])
-    git.run(['filter-branch', '-f', '--subdirectory-filter', subref, branch], may_fail=True)
-    tree_filter = 'rm -rf -- ' + ' '.join(shlex.quote(path) for path in removed)
-    git.run(
-        ['filter-branch', '-f', '--prune-empty', '--tree-filter', tree_filter, '--', branch, '--first-parent'],
-        may_fail=True,
-    )
+    merge = (flags.method or config.method) != 'rebase'
+    with tempfile.TemporaryDirectory() as tmp:
+        index_env = {**os.environ, 'GIT_INDEX_FILE': str(Path(tmp) / 'index')}
+        replay = _Replay(git, subdir, subref, command, merge, index_env, removed, sign=flags.gpg_sign)
+        if parent:
+            built = _replay_into_branch(replay, ['--ancestry-path', f'{parent}..HEAD'], branch, plain=False)
+        else:
+            # Path limited: only the commits that touch subdir, with their parents rewritten
+            built = _replay_into_branch(replay, ['HEAD', '--', subdir.as_posix()], branch, plain=True)
+    if not built:
+        since = f" between {parent} and HEAD" if parent else ""
+        raise GitNestedError(
+            f"{subdir.as_posix()}: no commit{since} touches it, so there is no nested history to rebuild"
+        )
 
 
 def _local_only_paths(git: GitRunner, config: NestedConfig, subdir: Path) -> list[str]:

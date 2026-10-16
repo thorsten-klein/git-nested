@@ -273,15 +273,24 @@ def test_create_nested_branch_reuses_existing_branch(tmp_path):
 # ============================================================================
 
 
-def test_create_branch_from_parent_raises_when_no_commit_touches_subdir():
+def test_create_branch_raises_when_no_commit_touches_subdir():
     git = FakeGit().respond('merge-base', '--is-ancestor', returncode=0).respond('rev-list', '--reverse', stdout='')
-    config = NestedConfig(remote='x', branch='main', parent='deadbeef')
-    flags = Flags()
-    subdir = Path('sub')
-    with pytest.raises(GitNestedError, match="no nested history to rebuild"):
-        history._create_branch_from_parent(
-            git, flags, config, subdir, Path('sub/.gitnested'), 'sub', 'pull', 'nested/sub', ['.gitnested']
-        )
+    args = (
+        git,
+        Flags(),
+        NestedConfig(remote='x', branch='main', parent='deadbeef'),
+        Path('sub'),
+        Path('sub/.gitnested'),
+    )
+    with pytest.raises(GitNestedError, match="no commit between deadbeef and HEAD touches it"):
+        history.create_branch(*args, 'sub', 'pull', 'nested/sub')
+
+
+def test_create_branch_without_parent_raises_when_no_commit_touches_subdir():
+    git = FakeGit().respond('rev-list', '--reverse', stdout='')
+    args = (git, Flags(), NestedConfig(remote='x', branch='main'), Path('sub'), Path('sub/.gitnested'))
+    with pytest.raises(GitNestedError, match="sub: no commit touches it"):
+        history.create_branch(*args, 'sub', 'pull', 'nested/sub')
 
 
 # ============================================================================
@@ -299,6 +308,15 @@ def test_replay_passes_a_commit_without_gitnested_through():
     replay.nested['p'] = 'nested-p'
     replay.add('c', ['p'])
     assert replay.nested['c'] == 'nested-p'
+
+
+def test_replay_plain_passes_a_commit_without_the_subdir_through():
+    """A commit that deleted the subdir adds nothing; it maps to what its parent maps to."""
+    replay = _replay(FakeGit().respond('cat-file', '-e', returncode=128))
+    replay.nested['p'] = 'nested-p'
+    replay.add_plain('c', ['p'])
+    replay.add_plain('d', ['outside'])
+    assert replay.nested == {'p': 'nested-p', 'c': 'nested-p'}
 
 
 def test_replay_skips_a_commit_without_gitnested_or_known_parents():
