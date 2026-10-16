@@ -39,6 +39,19 @@ If a tracked directory already holds upstream content, either
 or
 .BI "git nested init -r " url " --commit " sha
 can connect it to that upstream without replacing its files.
+
+.BR "git nested clone" ,
+.B git nested pull
+and
+.B git nested push
+accept
+.B \-\-rebase
+and
+.B \-\-merge
+as short forms of
+.B "\-M rebase"
+and
+.BR "\-M merge" .
 .SH COMMANDS
 .TP
 .B branch
@@ -117,6 +130,9 @@ Take a library into
 .nf
 git nested clone https://github.com/user/lib ext/lib
 git nested clone --adopt https://github.com/user/lib ext/lib
+
+.br
+git nested clone --rebase https://github.com/user/lib ext/lib
 .fi
 .RE
 .PP
@@ -127,6 +143,8 @@ Bring in what upstream has done since:
 git nested pull ext/lib
 .br
 git nested pull --no-squash ext/lib
+
+git nested pull --rebase ext/lib
 .fi
 .RE
 .PP
@@ -135,6 +153,8 @@ Send your changes back:
 .RS
 .nf
 git nested push ext/lib
+.br
+git nested push --rebase ext/lib
 .fi
 .RE
 .PP

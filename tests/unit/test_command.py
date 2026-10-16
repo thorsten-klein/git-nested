@@ -111,3 +111,19 @@ def test_check_existing_worktree_errors_without_gitnested(cmd, monkeypatch, tmp_
     subdir = Path('sub')
     with pytest.raises(GitNestedError, match="git worktree prune"):
         setup._check_existing_worktree(cmd.git, 'pull', subdir, gitnested, 'nested/sub')
+
+
+@pytest.mark.parametrize(
+    ('args', 'method'),
+    [
+        (['clone', '--rebase', 'https://example.com/lib'], 'rebase'),
+        (['clone', '--merge', 'https://example.com/lib'], 'merge'),
+        (['pull', '--rebase', 'lib'], 'rebase'),
+        (['pull', '--merge', 'lib'], 'merge'),
+        (['push', '--rebase', 'lib'], 'rebase'),
+        (['push', '--merge', 'lib'], 'merge'),
+    ],
+)
+def test_parse_args_method_shorthand_sets_the_method_flag(cmd, args, method):
+    _command, ctx = cmd.parse_args(args)
+    assert ctx.flags.method == method

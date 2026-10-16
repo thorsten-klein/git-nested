@@ -568,6 +568,16 @@ def test_pull_rebase(prepare_pull_test):
     assert result.output.strip() == f"bar: already up to date with {env.upstream.as_posix()}/bar (master)"
 
 
+def test_pull_rebase_shorthand(prepare_pull_test):
+    """`pull --rebase` matches `pull -M rebase`."""
+    env = prepare_pull_test
+    gitnested = env.workspace / 'foo' / 'bar' / '.gitnested'
+
+    result = cmd_git_nested('pull --rebase bar', cwd=env.workspace / 'foo')
+    assert result.output.strip() == f"bar: pulled from {env.upstream.as_posix()}/bar (master)"
+    assert_gitnested_field(gitnested, method='rebase')
+
+
 def test_pull_rebase_conflict(prepare_pull_test):
     """Test nested pull with -M rebase method that results in a conflict"""
     env = prepare_pull_test

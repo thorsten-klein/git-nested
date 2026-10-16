@@ -117,7 +117,7 @@ def _format_flag_names(names: tuple[str, ...], value_name: str | None = None) ->
 
 
 def _option_value_name(option: str, kwargs: dict) -> str | None:
-    if kwargs.get('action') in {'store_true', 'count'}:
+    if kwargs.get('action') in {'store_const', 'store_true', 'count'}:
         return None
     if kwargs.get('action') == 'append' or 'dest' in kwargs:
         return _OPTION_VALUE_NAMES[option]

@@ -41,7 +41,7 @@ HELP_FLAGS: list[Candidate] = [
 # argparse actions that consume no following word. Anything else in the
 # spec takes a value, and a <TAB> right after it completes that value
 # rather than another flag.
-_VALUELESS_ACTIONS = ('store_true', 'count')
+_VALUELESS_ACTIONS = ('store_const', 'store_true', 'count')
 
 # The words a shell may pass through ahead of the real arguments: the
 # command line starts with `git nested` or with `git-nested`, depending on
