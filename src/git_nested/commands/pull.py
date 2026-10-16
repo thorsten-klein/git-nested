@@ -53,14 +53,8 @@ def do_pull(
     if config.filter:
         merge_target = filters.build_filtered_commit(git, subdir_worktree, config.filter, upstream_head_commit)
 
-    # Without a parent the histories are unrelated (nested-in-nested repos).
-    unrelated = [] if config.parent else ['--allow-unrelated-histories']
     method = flags.method or config.method
-    if method == 'rebase':
-        cmd = ['rebase', merge_target, branch]
-    else:
-        # --ff and --no-edit: the user's merge.ff must not apply here.
-        cmd = ['merge', '--ff', '--no-edit', merge_target, *unrelated]
+    cmd = _join_command(method, config, merge_target, branch)
     try:
         git.run(cmd, cwd=subdir_worktree)
     except GitNestedError as e:
@@ -75,6 +69,16 @@ def do_pull(
 
     refs.create_nested_ref(git, subref, 'branch', branch)
     return branch, subdir_worktree
+
+
+def _join_command(method: str, config: NestedConfig, merge_target: str, branch: str) -> list[str]:
+    """The git command that joins upstream into the nested branch."""
+    if method == 'rebase':
+        # --onto: only the local commits move, also onto an upstream whose history was rewritten
+        return ['rebase', '--onto', merge_target, config.commit or merge_target, branch]
+    # --ff and --no-edit: the user's merge.ff must not apply here.
+    # Without a parent the histories are unrelated (nested-in-nested repos).
+    return ['merge', '--ff', '--no-edit', merge_target, *([] if config.parent else ['--allow-unrelated-histories'])]
 
 
 def cmd_pull(ctx: CommandContext) -> None:

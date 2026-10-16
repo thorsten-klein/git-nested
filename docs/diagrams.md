@@ -234,7 +234,7 @@ sequenceDiagram
             git-nested->>Git: merge --ff --no-edit refs/nested/<subref>/fetch
             Note over git-nested: (in worktree)
         else method = rebase
-            git-nested->>Git: rebase refs/nested/<subref>/fetch nested/<subref>
+            git-nested->>Git: rebase --onto refs/nested/<subref>/fetch <recorded commit> nested/<subref>
             Note over git-nested: (in worktree)
         end
 

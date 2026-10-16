@@ -50,21 +50,27 @@ def find_sync_point(git: GitRunner, gitnested: Path) -> str | None:
     return None
 
 
-def _check_rebase_safety(git: GitRunner, command: str, subdir: Path, subref: str, gitrepo_commit: str) -> None:
-    """Raise if a pull would silently accept a rewritten/unreachable upstream history."""
+def _check_rebase_safety(
+    git: GitRunner, command: str, subdir: Path, subref: str, gitrepo_commit: str, rebase: bool
+) -> None:
+    """Raise if a pull would silently accept a rewritten/unreachable upstream history.
+
+    With the rebase method a rewritten upstream is fine: the pull rebases
+    the local commits onto it.
+    """
     refs_fetch = f'refs/nested/{subref}/fetch'
     if not (git.rev_exists(refs_fetch) and command == 'pull'):
         return
     if git.commit_in_rev_list(gitrepo_commit, refs_fetch):
         return
-    problem = (
-        f"upstream commit {gitrepo_commit} is missing locally"
-        if not git.rev_exists(gitrepo_commit)
-        else f"upstream history was rewritten: {gitrepo_commit} is no longer part of it"
-    )
+    force = f"run 'git nested pull --force {subdir.as_posix()}' to take upstream as it is. This drops local changes that are not pushed."
+    if not git.rev_exists(gitrepo_commit):
+        raise GitNestedError(f"upstream commit {gitrepo_commit} is missing locally; {force}")
+    if rebase:
+        return
     raise GitNestedError(
-        f"{problem}; run 'git nested pull --force {subdir.as_posix()}' to take upstream as it is. "
-        "This drops local changes that are not pushed."
+        f"upstream history was rewritten: {gitrepo_commit} is no longer part of it; {force} "
+        f"Or run 'git nested pull -M rebase {subdir.as_posix()}' to rebase your local changes onto it."
     )
 
 
@@ -116,7 +122,7 @@ class _Replay:
             if known:
                 self.nested[commit], self.joined[commit] = self.nested[known[0]], last
             return
-        _check_rebase_safety(self.git, self.command, self.subdir, self.subref, upstream)
+        _check_rebase_safety(self.git, self.command, self.subdir, self.subref, upstream, rebase=not self.merge)
         # An upstream commit joins the first time, and with merge each time a new one is recorded.
         joins = upstream != last if self.merge else not known
         self.joined[commit] = upstream if joins else last
