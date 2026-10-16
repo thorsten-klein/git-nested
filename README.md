@@ -477,14 +477,14 @@ git nested clean <subdir>   # Clean up temporary branches
 
 ### Squash merges and rebases
 
-`parent` names the commit of your repository at which the nested repository
-and its upstream were last equal; `branch`, `pull` and `push` rebuild the
-nested history from there. A pull or clone made on a branch that is then
-squash-merged or rebased records a `parent` only that branch had, and those
-commands then stop with "the recorded sync point is no longer an ancestor of
-HEAD". `git nested repair` finds the counterpart on the current history -- the
-commit before the one that last changed `commit` in `.gitnested` -- and
-commits it as the new `parent`:
+`parent` is the commit of your repository where the nested repository and its
+upstream were last equal. `branch`, `pull` and `push` rebuild the nested
+history from there.
+
+A squash merge or a rebase can leave `parent` on a history you no longer
+have. Then git-nested finds the sync point in your history itself: the
+commit before the one that last changed `commit` in `.gitnested`. It warns
+that it does so. To record it in `.gitnested`:
 
 ```bash
 git nested repair <subdir>   # or --all

@@ -11,7 +11,7 @@ from pathlib import Path, PurePosixPath
 
 import yaml
 
-from . import messages
+from . import messages, output
 from .constants import GIT_LOG_DATE_DEFAULT_FLAG, GITNESTED_FILENAME
 from .errors import GitNestedError
 from .git import GitRunner
@@ -150,6 +150,23 @@ class _Replay:
         return self.git.check_output(['write-tree'], env=self.index_env)
 
 
+def _usable_parent(git: GitRunner, parent: str, gitnested: Path, subdir: Path) -> str:
+    """The recorded parent; if it is no longer in HEAD's history, the sync point found there.
+
+    A rebase or a squash merge leaves the recorded one behind.
+    """
+    if parent_is_ancestor(git, parent):
+        return parent
+    found = find_sync_point(git, gitnested)
+    if found is None:
+        raise GitNestedError(messages.sync_point_lost(gitnested, subdir))
+    output.warn(
+        f"{subdir.as_posix()}: the recorded sync point is not in this history; using {found[:9]} instead. "
+        f"'git nested repair {subdir.as_posix()}' records it"
+    )
+    return found
+
+
 def _create_branch_from_parent(
     git: GitRunner,
     flags: Flags,
@@ -166,16 +183,14 @@ def _create_branch_from_parent(
     Merges stay merges where both sides changed the subdir. So a change
     that came in through a merge keeps its own commit and message.
     """
-    if not parent_is_ancestor(git, config.parent):
-        raise GitNestedError(messages.sync_point_lost(gitnested, subdir))
-
+    parent = _usable_parent(git, config.parent, gitnested, subdir)
     lines = git.check_output([
         'rev-list',
         '--reverse',
         '--topo-order',
         '--ancestry-path',
         '--parents',
-        f'{config.parent}..HEAD',
+        f'{parent}..HEAD',
     ]).splitlines()
     with tempfile.TemporaryDirectory() as tmp:
         merge = (flags.method or config.method) != 'rebase'
@@ -187,7 +202,7 @@ def _create_branch_from_parent(
     tip = replay.nested.get(lines[-1].split()[0]) if lines else None
     if tip is None:
         raise GitNestedError(
-            f"{subdir.as_posix()}: no commit between {config.parent} and HEAD touches it, so there is no nested history to rebuild"
+            f"{subdir.as_posix()}: no commit between {parent} and HEAD touches it, so there is no nested history to rebuild"
         )
     git.run(['branch', branch, tip])
 
