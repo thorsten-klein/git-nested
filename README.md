@@ -3,6 +3,7 @@
 > An alternative to git-submodule and git-subtree for managing nested repositories.
 
 [![Test](https://github.com/thorsten-klein/git-nested/actions/workflows/test.yml/badge.svg)](https://github.com/thorsten-klein/git-nested/actions/workflows/test.yml)
+[![Docs](https://github.com/thorsten-klein/git-nested/actions/workflows/docs.yml/badge.svg)](https://thorsten-klein.github.io/git-nested/)
 [![codecov](https://codecov.io/gh/thorsten-klein/git-nested/branch/main/graph/badge.svg)](https://codecov.io/gh/thorsten-klein/git-nested)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=thorsten-klein_git-nested&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=thorsten-klein_git-nested)
 [![PyPI](https://img.shields.io/pypi/v/git-nested.svg)](https://pypi.org/project/git-nested/)
@@ -52,13 +53,13 @@ git-nested now supports nested repositories within nested repositories (recursiv
 
 ### Installation
 
-#### Method 1: Via pip (Recommended)
+### Method 1: Via pip (Recommended)
 
 ```bash
 pip install git+https://github.com/thorsten-klein/git-nested
 ```
 
-#### Method 2: Standalone Executable (no Python needed)
+### Method 2: Standalone Executable (no Python needed)
 
 Every [release](https://github.com/thorsten-klein/git-nested/releases) ships
 one archive per platform: a single file with git-nested, its dependencies and
@@ -90,7 +91,7 @@ newer). Not on musl distros such as Alpine.
 The macOS binary is not signed, so macOS quarantines it after a download. Run
 `xattr -d com.apple.quarantine git-nested` once to let it start.
 
-#### Method 3: From Source with Shell Integration
+### Method 3: From Source with Shell Integration
 
 Adds git-nested to PATH and enables tab completion:
 
@@ -107,7 +108,7 @@ git clone https://github.com/thorsten-klein/git-nested /path/to/git-nested
 echo 'source /path/to/git-nested/.fish.rc' >> ~/.config/fish/config.fish
 ```
 
-#### Method 4: From Source (Manual)
+### Method 4: From Source (Manual)
 
 ```bash
 git clone https://github.com/thorsten-klein/git-nested /path/to/git-nested
@@ -116,7 +117,7 @@ export PATH="/path/to/git-nested/bin:$PATH"
 
 > **Note:** Add the export command to your shell profile (~/.bashrc, ~/.zshrc) to make it permanent.
 
-#### Shell Completion
+### Shell Completion
 
 Method 3 turns completion on for you. With any other installation method, add
 the matching line to your shell profile:
@@ -139,7 +140,7 @@ parser is built from, so the offered commands, flags and values always match
 the version you have installed. It completes nested repository subdirectories
 and branch names too, by asking git.
 
-#### Manual Page
+### Manual Page
 
 `git nested --help` opens the manual page, so git has to be able to find it.
 Methods 3 and 4 ship it in `man/`, and `.rc` puts that on `MANPATH` for you;
@@ -181,14 +182,14 @@ git nested push        # same as 'git nested push path/to/nested' from the top
 
 ## Commands
 
-#### Getting help
+### Getting help
 
 ```bash
 git nested --help          # the manual page
 git nested pull --help     # one command: what it does, its options, examples
 ```
 
-#### How much it tells you
+### How much it tells you
 
 These work with every command. They only affect what git-nested says about
 its work, which goes to stderr -- a result you would pipe somewhere (`status`,
@@ -204,7 +205,7 @@ git nested pull ext/lib -vv    # plus every git command that is run
 Colour is used when the output is a terminal. `NO_COLOR=1` turns it off,
 `FORCE_COLOR=1` keeps it on when piping.
 
-#### `git nested clone`
+### `git nested clone`
 
 Clone an external repository into a subdirectory of your project.
 
@@ -230,6 +231,8 @@ them to upstream as submodules again.
 
 #### `git nested init`
 
+### `git nested init`
+
 Turn an existing subdirectory into a nested repository.
 
 ```bash
@@ -248,7 +251,7 @@ commit and url:
 git nested init --from-submodule ext/mylib
 ```
 
-#### `git nested pull`
+### `git nested pull`
 
 Update a nested repo with the latest upstream changes.
 
@@ -266,7 +269,7 @@ git nested pull ext/lib
 git nested pull --all  # Pull all nested repos
 ```
 
-#### `git nested push`
+### `git nested push`
 
 Push local changes back to the upstream repository.
 
@@ -280,7 +283,7 @@ git nested push ext/lib
 git nested push --all  # Push all nested repos
 ```
 
-#### `git nested status`
+### `git nested status`
 
 Show the status of nested repositories: where each comes from, how many local
 commits it has since the last sync, how many upstream commits are not pulled
@@ -297,7 +300,7 @@ yet (after a fetch), and whether its content differs from upstream.
 git nested status --help
 ```
 
-#### `git nested fetch`
+### `git nested fetch`
 
 Fetch remote content for a nested repository.
 
@@ -305,7 +308,7 @@ Fetch remote content for a nested repository.
 git nested fetch --help
 ```
 
-#### `git nested diff`
+### `git nested diff`
 
 Show the local diff of a nested repo compared to upstream. Fetches the latest upstream
 content first, so it always compares against the freshest available state. Requires that
@@ -321,7 +324,7 @@ git nested diff ext/lib
 git nested diff --all  # Diff all nested repos
 ```
 
-#### `git nested branch`
+### `git nested branch`
 
 Create a branch with local nested commits for manual conflict resolution,
 checked out in a worktree under `.git/tmp/nested/<subdir>` -- or wherever
@@ -341,7 +344,7 @@ In a linked worktree of the repository, the branch gets the worktree's name:
 git nested branch --help
 ```
 
-#### `git nested run`
+### `git nested run`
 
 Run a git command in the worktree that `git nested branch` created, without
 changing directory: `git nested run <subdir> log` is `git -C <worktree> log`.
@@ -350,7 +353,7 @@ changing directory: `git nested run <subdir> log` is `git -C <worktree> log`.
 git nested run --help
 ```
 
-#### `git nested commit`
+### `git nested commit`
 
 Add a nested branch to current history as a single commit.
 
@@ -358,7 +361,7 @@ Add a nested branch to current history as a single commit.
 git nested commit --help
 ```
 
-#### `git nested repair`
+### `git nested repair`
 
 Fix the `parent` in `.gitnested` after the branch a pull or clone was made on
 was squash-merged or rebased (see
@@ -368,7 +371,7 @@ was squash-merged or rebased (see
 git nested repair --help
 ```
 
-#### `git nested clean`
+### `git nested clean`
 
 Remove temporary branches, refs, and remotes created during nested operations.
 It works without `.gitnested`, e.g. after a reset undid the clone.
@@ -378,7 +381,7 @@ It works without `.gitnested`, e.g. after a reset undid the clone.
 git nested clean --help
 ```
 
-#### `git nested config`
+### `git nested config`
 
 Read or update the `.gitnested` configuration of a nested repository.
 
@@ -408,7 +411,7 @@ changed `.gitnested` file, it does not commit it.
 git nested config ext/lib method rebase
 ```
 
-#### `git nested completion`
+### `git nested completion`
 
 Print the shell completion script. With no argument the shell is detected from
 the parent process.
@@ -419,7 +422,7 @@ git nested completion [bash|zsh|fish]
 
 See [Shell Completion](#shell-completion) for how to wire it up.
 
-#### `git nested version`
+### `git nested version`
 
 Display version information.
 
@@ -576,7 +579,7 @@ git-nested is a Python rewrite with some modified features and improvements.
 
 - **GitHub**: https://github.com/thorsten-klein/git-nested
 - **Issues**: https://github.com/thorsten-klein/git-nested/issues
-- **Documentation**: https://github.com/thorsten-klein/git-nested#readme
+- **Documentation**: https://thorsten-klein.github.io/git-nested/
 
 ## Contributing
 

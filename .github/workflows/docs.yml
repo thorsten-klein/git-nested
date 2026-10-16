@@ -1,0 +1,54 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+    tags: ['*.*.*']
+  pull_request:
+    branches: ['**']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          python-version: '3.14'
+          enable-cache: true
+      - name: Setup project
+        run: uv sync --frozen
+      - name: Build docs
+        run: uv run poe docs
+      - name: Upload docs
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-html
+          path: docs/_build/html
+
+  publish:
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download docs
+        uses: actions/download-artifact@v8
+        with:
+          name: docs-html
+          path: site
+      - name: Publish docs
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh_pages
+          publish_dir: site
+          force_orphan: true

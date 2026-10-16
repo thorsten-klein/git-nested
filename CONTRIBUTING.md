@@ -75,6 +75,7 @@ uv run poe pyright      # static typing (different checker, both must pass)
 uv run poe bandit       # security linting
 uv run poe pip-audit    # dependency vulnerability scan
 uv run poe complexity   # cognitive complexity (complexipy)
+uv run poe docs         # build the Sphinx site with warnings as errors
 ```
 
 ## Commit messages
@@ -84,9 +85,9 @@ reference issues where relevant.
 
 ## Documentation
 
-Update [README.md](README.md) for user-facing changes and
+Update [README.md](README.md) for user-facing changes,
 [docs/diagrams.md](docs/diagrams.md) when a command's underlying git calls
-change.
+change, and the Sphinx pages in `docs/` when the docs site needs new content.
 
 ## Reporting bugs and security issues
 
