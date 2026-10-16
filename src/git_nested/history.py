@@ -47,21 +47,21 @@ def find_sync_point(git: GitRunner, gitnested: Path) -> str | None:
     return None
 
 
-def _check_rebase_safety(git: GitRunner, command: str, subref: str, gitrepo_commit: str) -> None:
+def _check_rebase_safety(git: GitRunner, command: str, subdir: Path, subref: str, gitrepo_commit: str) -> None:
     """Raise if a pull would silently accept a rewritten/unreachable upstream history."""
     refs_fetch = f'refs/nested/{subref}/fetch'
     if not (git.rev_exists(refs_fetch) and command == 'pull'):
         return
     if git.commit_in_rev_list(gitrepo_commit, refs_fetch):
         return
-    if not git.rev_exists(gitrepo_commit):
-        raise GitNestedError(
-            f"upstream commit {gitrepo_commit} is missing locally; "
-            f"run 'git nested fetch {subref}' or pass -F to take upstream as it is"
-        )
+    problem = (
+        f"upstream commit {gitrepo_commit} is missing locally"
+        if not git.rev_exists(gitrepo_commit)
+        else f"upstream history was rewritten: {gitrepo_commit} is no longer part of it"
+    )
     raise GitNestedError(
-        f"upstream history was rewritten: {gitrepo_commit} is no longer part of it; "
-        f"run 'git nested fetch {subref}' or pass -F to take upstream as it is"
+        f"{problem}; run 'git nested pull --force {subdir.as_posix()}' to take upstream as it is. "
+        "This drops local changes that are not pushed."
     )
 
 
@@ -124,7 +124,7 @@ def _build_nested_commit_chain(
     merge = (flags.method or config.method) != 'rebase'
     prev = joined = None
     for commit, upstream in chain:
-        _check_rebase_safety(git, command, subref, upstream)
+        _check_rebase_safety(git, command, subdir, subref, upstream)
         second_parent = upstream if upstream != joined and (merge or joined is None) else None
         joined = second_parent or joined
         prev = _create_chain_commit(git, commit, subdir, prev, second_parent)

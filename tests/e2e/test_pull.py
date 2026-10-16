@@ -82,8 +82,12 @@ def test_pull(prepare_pull_test):
     assert (
         result.output.strip()
         == f"git-nested: upstream history was rewritten: {bar_head_commit} is no longer part of it; "
-        "run 'git nested fetch bar' or pass -F to take upstream as it is"
+        "run 'git nested pull --force bar' to take upstream as it is. This drops local changes that are not pushed."
     )
+
+    # What the message suggests works
+    cmd_git_nested('pull --force bar', cwd=env.workspace / 'foo')
+    assert (env.workspace / 'foo' / 'bar' / 'Bar3').is_file()
 
 
 def test_pull_all(foo_bar_cloned):

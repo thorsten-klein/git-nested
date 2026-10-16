@@ -14,7 +14,10 @@ def test_commit_missing_fetch_ref_error(env):
 
     result = cmd_git_nested('commit doc', cwd=init_dir, check=False)
     assert result.returncode == 1
-    assert result.output.strip() == "git-nested: no ref refs/nested/doc/fetch; run 'git nested fetch' first, or pass -F"
+    assert (
+        result.output.strip()
+        == "git-nested: no ref refs/nested/doc/fetch; run 'git nested fetch doc' first, or pass -F"
+    )
 
 
 def test_commit_fetch_flag_fetches_before_committing(env):
