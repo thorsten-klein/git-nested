@@ -51,12 +51,21 @@ _STYLES: dict[int, tuple[str, str]] = {
 }
 
 
-_USERINFO = re.compile(r'(?<=://)[^/@\s]+@')
+def _redact_word(match: re.Match[str]) -> str:
+    """The word with the user info of its URL replaced, if it has one."""
+    word = match.group()
+    scheme, sep, rest = word.partition('://')
+    if not sep:
+        return word
+    authority, slash, tail = rest.partition('/')
+    if '@' not in authority:
+        return word
+    return f"{scheme}://***@{authority.rpartition('@')[2]}{slash}{tail}"
 
 
 def redact(text: str) -> str:
     """Hide the user info (such as a token) of every URL in `text`."""
-    return _USERINFO.sub('***@', text)
+    return re.sub(r'\S+', _redact_word, text)
 
 
 def _use_colour(stream: TextIO) -> bool:
