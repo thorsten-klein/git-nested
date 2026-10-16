@@ -59,7 +59,8 @@ def test_recorded_commit_is_stripped():
 
 
 def test_fetch_push_target_is_none_when_the_branch_is_not_upstream_yet():
-    git = FakeGit().respond('fetch', returncode=1, stderr="fatal: couldn't find remote ref refs/heads/foo\n")
+    # Exit code 2 means "no such ref", in any language.
+    git = FakeGit().respond('ls-remote', returncode=2, stderr="fatal: Konnte Remote-Referenz foo nicht finden\n")
     assert push._fetch_push_target(git, Flags(), NestedConfig(remote='x', branch='main'), 'foo') is None
 
 
@@ -78,7 +79,7 @@ def test_do_push_refuses_a_branch_without_the_upstream_head(monkeypatch):
 
 
 def test_fetch_push_target_raises_on_other_errors():
-    git = FakeGit().respond('fetch', returncode=1, stderr="fatal: unable to access remote\n")
+    git = FakeGit().respond('ls-remote', returncode=128, stderr="fatal: unable to access remote\n")
     flags, config = Flags(), NestedConfig(remote='x', branch='main')
     with pytest.raises(GitNestedError, match="the fetch before the push failed"):
         push._fetch_push_target(git, flags, config, 'foo')

@@ -249,8 +249,9 @@ sequenceDiagram
 
     rect rgb(255, 245, 230)
         Note over git-nested,Git: Fetch target branch
-        git-nested->>Git: fetch --no-tags --quiet <remote> <branch_name>
+        git-nested->>Git: ls-remote --exit-code <remote> refs/heads/<branch_name>
         alt Branch exists upstream
+            git-nested->>Git: fetch --no-tags --quiet <remote> <branch_name>
             git-nested->>Git: rev-parse FETCH_HEAD^0
             Note over git-nested: Verify no new upstream changes
         else Branch does not exist
