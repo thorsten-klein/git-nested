@@ -129,3 +129,18 @@ def test_a_failed_commit_leaves_nothing_behind(foo_bar_cloned):
     assert env.run(['git', 'status', '--porcelain'], cwd=foo).output == ''
     hook.unlink()
     cmd_git_nested(['clone', (env.upstream / 'bar').as_posix()], foo)
+
+
+def test_clone_of_an_empty_upstream_says_so(foo_bar_cloned):
+    """An upstream without a branch is reachable, just empty."""
+    env = foo_bar_cloned
+    empty = env.upstream / 'empty'
+    env.run(['git', 'init', '-q', '--bare', empty.as_posix()])
+
+    result = cmd_git_nested(['clone', empty.as_posix(), 'e'], env.workspace / 'foo', check=False)
+
+    assert result.returncode == 1
+    assert result.output.strip() == (
+        f"git-nested: {empty.as_posix()} is empty: it has no branch yet. "
+        "To fill it from a directory, use 'git nested init' and then 'git nested push'"
+    )
