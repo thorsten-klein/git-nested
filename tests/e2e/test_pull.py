@@ -568,9 +568,9 @@ def test_pull_with_force(prepare_pull_test):
     result = cmd_git_nested('pull bar', cwd=env.workspace / 'foo')
     assert result.output.strip() == f"bar: already up to date with {env.upstream.as_posix()}/bar (master)"
 
-    # Enforce a pull with --force flag when already up to date: still a no-op reclone
+    # With --force and the content unchanged, nothing is reset
     result = cmd_git_nested('pull --force bar', cwd=env.workspace / 'foo')
-    assert result.output.strip() == f"bar: pulled from {env.upstream.as_posix()}/bar (master)"
+    assert result.output.strip() == f"bar: already up to date with {env.upstream.as_posix()}/bar (master)"
 
     # Push more changes upstream, then force-pull: this time the reclone actually
     # picks up new content, exercising _pull_forced's non-up-to-date commit path.

@@ -81,8 +81,9 @@ def cmd_pull(ctx: CommandContext) -> None:
     subdir, gitnested, subref, config = setup.setup_command(git, 'pull', flags, ctx.subdir, ctx.upstream)
 
     if flags.force:
-        config, _ = clone.do_clone(git, flags, config, subdir, gitnested, subref, ctx.head)
-        output.say(f"{subdir.as_posix()}: pulled from {config.remote} ({config.branch})")
+        config, up_to_date = clone.do_clone(git, flags, config, subdir, gitnested, subref, ctx.head)
+        verb = "already up to date with" if up_to_date else "pulled from"
+        output.say(f"{subdir.as_posix()}: {verb} {config.remote} ({config.branch})")
         return
 
     pulled = do_pull(git, flags, config, subdir, gitnested, ctx.tmp, subref)
