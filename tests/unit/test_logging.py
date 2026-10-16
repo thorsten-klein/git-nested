@@ -187,3 +187,12 @@ def test_the_default_level_is_info():
     """configure() alone is enough to hear say(), before any flag is parsed."""
     output.configure()()
     assert output.LOGGER.level == logging.INFO
+
+
+def test_user_info_of_urls_is_hidden(printing, no_colour, capsys):
+    """A token in a URL never reaches the output."""
+    output.say("fetched from https://user:token@example.com/repo.git (main)")
+    output.trace("git fetch https://token@example.com/repo.git ssh://git@host/x.git")
+
+    assert capsys.readouterr().err == "fetched from https://***@example.com/repo.git (main)\n"
+    assert output.redact("https://token@example.com/a git@host:a.git") == "https://***@example.com/a git@host:a.git"

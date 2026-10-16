@@ -6,6 +6,7 @@ import re
 import textwrap
 from pathlib import Path
 
+from . import output
 from ._version import VERSION
 from .constants import GITNESTED_FILENAME
 from .errors import GitNestedError
@@ -54,7 +55,7 @@ def build_commit_message(
           subdir:   "{subdir.as_posix()}"
           merged:   "{commit}"
         upstream:
-          remote:   "{config.remote}"
+          remote:   "{output.redact(config.remote)}"
           branch:   "{config.branch}"
           commit:   "{upstream_commit}"
         git-nested:

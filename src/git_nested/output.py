@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sys
 from typing import TYPE_CHECKING, NoReturn, TextIO
 
@@ -50,6 +51,23 @@ _STYLES: dict[int, tuple[str, str]] = {
 }
 
 
+def _redact_word(match: re.Match[str]) -> str:
+    """The word with the user info of its URL replaced, if it has one."""
+    word = match.group()
+    scheme, sep, rest = word.partition('://')
+    if not sep:
+        return word
+    authority, slash, tail = rest.partition('/')
+    if '@' not in authority:
+        return word
+    return f"{scheme}://***@{authority.rpartition('@')[2]}{slash}{tail}"
+
+
+def redact(text: str) -> str:
+    """Hide the user info (such as a token) of every URL in `text`."""
+    return re.sub(r'\S+', _redact_word, text)
+
+
 def _use_colour(stream: TextIO) -> bool:
     """Whether to colour output on `stream`, asked at the moment of writing.
 
@@ -67,7 +85,7 @@ def _use_colour(stream: TextIO) -> bool:
 def _render(record: logging.LogRecord, colour: bool) -> str:
     """One line of output: the level's marker, the message, a newline."""
     marker, sgr = _STYLES[record.levelno]
-    text = f"{marker}{record.getMessage()}"
+    text = f"{marker}{redact(record.getMessage())}"
     if colour and sgr:
         text = f"\033[{sgr}m{text}\033[0m"
     return text + "\n"
