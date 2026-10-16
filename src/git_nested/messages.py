@@ -21,27 +21,22 @@ GITNESTED_HEADER = textwrap.dedent("""\
     """)
 
 
-def sync_point_lost(gitnested: Path, subdir: Path, previous: str) -> str:
+def sync_point_lost(gitnested: Path, subdir: Path) -> str:
     """What to do when the recorded parent is no longer an ancestor of HEAD.
 
     The parent is the last commit at which the nested subdir and its upstream
     were identical; everything git-nested reconstructs is measured from it. A
-    rebase that rewrote it leaves nothing to measure from, so the only way out
-    is to point the file at the rewritten commit by hand.
+    rebase or a squash merge leaves it on a history HEAD no longer has, and
+    `git nested repair` finds its counterpart on the history HEAD does have.
     """
-    # rstrip: the search for the previous sync point can come up empty, and
-    # 'parent:' on its own is still the right thing to write -- with a
-    # trailing space it would not be.
-    setting = f"parent: {previous}".rstrip()
     return textwrap.dedent(f"""\
-        the recorded sync point is no longer an ancestor of HEAD
+        the sync point recorded in {gitnested.as_posix()} is no longer an ancestor of HEAD
 
         The sync point is the commit at which {subdir.as_posix()} and its upstream were last
-        equal. A rebase usually rewrites it. To recover, set
+        equal. A rebase or a squash merge leaves it behind on another history.
+        To recover, point it at its counterpart in this one:
 
-            {setting}
-
-        in {gitnested.as_posix()}, then check the result with 'git nested branch {subdir.as_posix()}'.""")
+            git nested repair {subdir.as_posix()}""")
 
 
 def worktree_exists(subdir: Path, worktree_path: str | None, prunable: bool) -> str:

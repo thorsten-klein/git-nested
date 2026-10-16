@@ -43,24 +43,10 @@ def test_check_parent_is_ancestor_noop_when_ancestor():
     history._check_parent_is_ancestor(git, config, Path('sub/.gitnested'), Path('sub'))
 
 
-def test_check_parent_is_ancestor_raises_with_no_previous_sync_point():
-    git = (
-        FakeGit().respond('merge-base', '--is-ancestor', returncode=1).respond('log', '-1', '-G', 'commit =', stdout='')
-    )
-    config = NestedConfig(parent='deadbeef')
-    with pytest.raises(GitNestedError, match="no longer an ancestor of HEAD"):
-        history._check_parent_is_ancestor(git, config, Path('sub/.gitnested'), Path('sub'))
-
-
 def test_check_parent_is_ancestor_raises_with_recovery_hint():
-    git = (
-        FakeGit()
-        .respond('merge-base', '--is-ancestor', returncode=1)
-        .respond('log', '-1', '-G', 'commit =', stdout='cafef00d\n')
-        .respond('log', '-1', '--format=%H', stdout='cafebabe\n')
-    )
+    git = FakeGit().respond('merge-base', '--is-ancestor', returncode=1)
     config = NestedConfig(parent='deadbeef')
-    with pytest.raises(GitNestedError, match="parent: cafebabe"):
+    with pytest.raises(GitNestedError, match=r"(?s)no longer an ancestor of HEAD.*git nested repair sub"):
         history._check_parent_is_ancestor(git, config, Path('sub/.gitnested'), Path('sub'))
 
 
@@ -280,9 +266,10 @@ def test_create_branch_from_parent_raises_when_no_commit_touches_subdir():
     config = NestedConfig(remote='x', branch='main', parent='deadbeef')
     flags = Flags()
     subdir = Path('sub')
-    gitnested = Path('sub/.gitnested')
     with pytest.raises(GitNestedError, match="no nested history to rebuild"):
-        history._create_branch_from_parent(git, flags, config, subdir, gitnested, 'sub', 'pull', 'nested/sub')
+        history._create_branch_from_parent(
+            git, flags, config, subdir, Path('sub/.gitnested'), 'sub', 'pull', 'nested/sub'
+        )
 
 
 # ============================================================================

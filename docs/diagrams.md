@@ -411,6 +411,46 @@ sequenceDiagram
 
 ---
 
+## repair
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant git-nested
+    participant Git
+
+    User->>git-nested: git nested repair <subdir>
+    git-nested->>Git: rev-parse --show-prefix
+    Note over git-nested: Below the top level: rev-parse --show-toplevel,<br/>paths rebased, then run from there
+    git-nested->>Git: rev-parse --git-dir
+    git-nested->>Git: rev-parse --git-common-dir
+    git-nested->>Git: symbolic-ref --short --quiet HEAD
+    git-nested->>Git: rev-parse --is-inside-work-tree
+    git-nested->>Git: update-index -q --ignore-submodules --refresh
+    git-nested->>Git: diff-files --quiet --ignore-submodules
+    git-nested->>Git: rev-parse --verify HEAD
+    git-nested->>Git: diff-index --quiet --ignore-submodules HEAD
+    git-nested->>Git: diff-index --quiet --cached --ignore-submodules HEAD
+    git-nested->>Git: rev-parse HEAD
+    git-nested->>Git: worktree list
+    git-nested->>Git: merge-base --is-ancestor <parent> HEAD
+    Note over git-nested: Stop here if there is no parent,<br/>or it is still an ancestor of HEAD
+
+    git-nested->>Git: log --format=%H -- <subdir>/.gitnested
+    loop Each commit, newest first, until one changed the recorded upstream commit
+        git-nested->>Git: show -s --format=%P <commit>
+        git-nested->>Git: cat-file -p <first parent>:<subdir>/.gitnested
+        git-nested->>Git: cat-file -p <commit>:<subdir>/.gitnested
+    end
+    Note over git-nested: Its first parent is the new sync point;<br/>abort if it is the root commit
+
+    git-nested->>Git: add -f -- <subdir>/.gitnested
+    git-nested->>Git: rev-parse --short <sync point>
+    git-nested->>Git: commit -m <message>
+```
+
+---
+
 ## commit
 
 ```mermaid

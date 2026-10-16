@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from . import checks, content, discovery, filters, gitfile, history, output, refs, worktree, yamlio
-from .commands import branch, clean, clone, commit, diff, fetch, init, pull, push, run, status, version
+from .commands import branch, clean, clone, commit, diff, fetch, init, pull, push, repair, run, status, version
 
 # Scanned in order by GitNestedRepo.__getattr__. A name defined by two of
 # these modules would resolve to whichever comes first, so a unit test
@@ -36,6 +36,7 @@ _MODULES = (
     init,
     pull,
     push,
+    repair,
     run,
     status,
     version,

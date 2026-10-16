@@ -74,7 +74,7 @@ def _check_head_and_index_clean(git: GitRunner, command: str, pwd: Path) -> None
 
 def check_worktree_clean(git: GitRunner, command: str) -> None:
     """Ensure working copy has no uncommitted changes."""
-    if command not in ['clone', 'init', 'pull', 'push', 'branch', 'commit', 'diff']:
+    if command not in ['clone', 'init', 'pull', 'push', 'branch', 'commit', 'diff', 'repair']:
         return
 
     pwd = Path.cwd()
