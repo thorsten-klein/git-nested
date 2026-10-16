@@ -288,7 +288,7 @@ def test_push_after_init(env):
     env.run(['git', 'init', '--bare'], cwd=upstream_dir)
 
     # Push
-    result = cmd_git_nested('push doc --remote=../upstream -b master --commit', cwd=init_dir)
+    result = cmd_git_nested('push doc --remote=../upstream -b master --commit -u', cwd=init_dir)
     assert result.output.strip() == "doc: pushed to ../upstream (master)"
 
     # Test init/doc/.gitnested file contents
@@ -356,7 +356,7 @@ def test_push_new_branch(foo_bar_cloned_and_nested):
     env.add_new_files('bar/FooBar', cwd=env.workspace / 'foo')
 
     # Do the nested push to another branch
-    result = cmd_git_nested('push bar --branch newbar --commit', cwd=env.workspace / 'foo')
+    result = cmd_git_nested('push bar --branch newbar --commit -u', cwd=env.workspace / 'foo')
     assert result.output.strip() == f"bar: pushed to {env.upstream.as_posix()}/bar (newbar)"
 
     # Do the nested push to another branch again
@@ -564,3 +564,31 @@ def test_push_commit_refuses_a_branch_it_does_not_track(foo_bar_cloned_and_neste
         "not to the tracked branch master; push there with -b master"
     )
     assert env.run(['git', 'branch', '--list', 'foo-master'], cwd=env.upstream / 'bar').output == ''
+
+
+def test_push_override_without_u_keeps_the_tracked_branch(foo_bar_cloned_and_nested):
+    """-r/-b only change where this push goes; .gitnested keeps tracking what it did."""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    fork = (env.upstream / 'fork').as_posix()
+    env.run(['git', 'clone', '--quiet', '--bare', (env.upstream / 'bar').as_posix(), fork])
+    env.add_new_files('bar/from-foo', cwd=foo)
+
+    cmd_git_nested(['push', '-r', fork, '-b', 'topic', 'bar'], foo)
+
+    assert_gitnested_field(foo / 'bar' / '.gitnested', remote=(env.upstream / 'bar').as_posix(), branch='master')
+
+
+def test_push_commit_with_an_override_needs_u(foo_bar_cloned_and_nested):
+    """--commit would record a commit of a branch .gitnested does not track."""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    env.add_new_files('bar/from-foo', cwd=foo)
+
+    result = cmd_git_nested('push -b topic --commit bar', cwd=foo, check=False)
+
+    assert result.returncode == 1
+    assert result.output.strip() == (
+        "git-nested: bar: --commit records the push in .gitnested, but -r and -b only change this push; "
+        "add -u to track them"
+    )

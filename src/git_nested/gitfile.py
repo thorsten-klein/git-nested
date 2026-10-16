@@ -114,11 +114,10 @@ def update_gitrepo_file(
 def _update_lineage(nested: dict, initial: bool, flags: Flags, config: NestedConfig, command: str) -> None:
     """Write remote and branch where this is a new file, or the command line overrides them.
 
-    An override is written when --update asks for it, and always by push
-    and clone. A clone always records its branch and remote, even a
-    forced reclone.
+    An override is written when --update asks for it, and always by clone.
+    A clone always records its branch and remote, even a forced reclone.
     """
-    overriding = flags.update or command in ('push', 'clone')
+    overriding = flags.update or command == 'clone'
     if initial or command == 'clone' or (overriding and flags.remote):
         nested['remote'] = config.remote
     if initial or command == 'clone' or (overriding and flags.branch):
