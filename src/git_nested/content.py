@@ -44,7 +44,9 @@ def create_nested_branch(
     history.create_branch(git, flags, config, subdir, gitnested, subref, command, branch)
 
     subdir_worktree = worktree_dir or git_tmp / branch
-    git.run(['worktree', 'add', subdir_worktree, branch])
+    # --no-checkout and reset: so the parent's post-checkout hook does not run
+    git.run(['worktree', 'add', '--no-checkout', subdir_worktree, branch])
+    git.run(['reset', '-q', '--hard'], cwd=subdir_worktree)
     refs.create_nested_ref(git, subref, 'branch', branch)
     return subdir_worktree
 
@@ -119,8 +121,10 @@ def commit_gitnested_update(git: GitRunner, flags: Flags, subdir: Path, msg: str
     """
     output.verbose("committing the .gitnested update")
     message = ['--file', flags.message_file] if flags.message_file else ['-m', msg]
+    # The parent's hooks are for its own changes. `git config nested.verify true` runs them.
+    verify = git.check_output(['config', '--type=bool', '--get', 'nested.verify'], may_fail=True) == 'true'
     try:
-        git.run(['commit', *message])
+        git.run(['commit', *([] if verify else ['--no-verify']), *message])
     except GitNestedError as e:
         git.run(['reset', '-q', '--hard', 'HEAD'])
         raise GitNestedError(f"{subdir.as_posix()}: the commit failed, so nothing was changed:\n{e.message}") from None

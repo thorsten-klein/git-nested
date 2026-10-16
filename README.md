@@ -463,6 +463,16 @@ This file:
 - Tracks the upstream location and current state
 - Enables seamless pull/push operations
 
+### Hooks
+
+git-nested does not run the hooks of your repository. They are for your own
+changes, not for the content of an upstream. To run `pre-commit` and
+`commit-msg` on git-nested's commits too:
+
+```bash
+git config nested.verify true
+```
+
 ### Conflict Resolution
 
 If a pull or push operation encounters merge conflicts, git-nested will guide you through manual resolution:
