@@ -13,6 +13,7 @@ from ..models import CommandContext
 # Keyed by field name; a field absent from here takes any value.
 _VALID_VALUES: dict[str, tuple[str, ...]] = {
     'method': ('merge', 'rebase'),
+    'readonly': ('true', 'false'),
 }
 
 

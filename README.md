@@ -377,6 +377,7 @@ git nested config <subdir> <key> <value>    # set one field
 | `commit` | the upstream commit currently nested | no |
 | `filter` | the paths of the upstream repository that are nested | no |
 | `cmdver` | the git-nested version that last wrote this file | no |
+| `readonly` | `true` makes `push` refuse, for a repository that is only pulled | yes |
 
 The read-only keys are written by the nested operations themselves; setting one
 by hand would describe a state the repository is not in. A write stages the

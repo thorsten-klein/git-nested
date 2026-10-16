@@ -49,6 +49,7 @@ class NestedConfig:
     filter: list[str] | None = None
     parent: str = ''
     method: str = 'merge'
+    readonly: bool = False
 
     @classmethod
     def from_file(cls, filepath: str | Path) -> NestedConfig:
@@ -64,6 +65,7 @@ class NestedConfig:
             filter=nested.get('filter'),
             parent=nested.get('parent', ''),
             method='rebase' if nested.get('method') == 'rebase' else 'merge',
+            readonly=str(nested.get('readonly')).lower() == 'true',
         )
         if not config.remote:
             raise GitNestedError(f"{path.as_posix()} has no 'remote'")
