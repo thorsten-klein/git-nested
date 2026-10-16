@@ -356,3 +356,19 @@ def test_four_levels_deep(nested_in_nested_repos):
 
     # Clean up
     remove_tree(work_dir)
+
+
+def test_outer_and_inner_branches_coexist(foo_bar_cloned):
+    """nested/lib and the branch of lib/inner must not block each other."""
+    env = foo_bar_cloned
+    foo = env.workspace / 'foo'
+    bar = (env.upstream / 'bar').as_posix()
+    cmd_git_nested(['clone', bar, 'lib'], foo)
+    cmd_git_nested(['clone', bar, 'lib/inner'], foo)
+
+    cmd_git_nested('branch lib/inner', cwd=foo)
+    result = cmd_git_nested('branch lib', cwd=foo)
+
+    assert result.output.strip() == "lib: branch nested/lib created, worktree at .git/tmp/nested/lib"
+    branches = env.run(['git', 'branch', '--list', 'nested/*', '--format=%(refname:short)'], cwd=foo).output.split()
+    assert branches == ['nested/lib', 'nested/lib%2Finner']

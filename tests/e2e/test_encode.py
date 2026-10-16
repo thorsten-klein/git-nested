@@ -26,7 +26,7 @@ NOT_ON_WINDOWS = pytest.mark.skipif(sys.platform == 'win32', reason="not a valid
         ('trailing-slash/', 'trailing-slash', 'trailing-slash'),
         pytest.param('trailing-dots...', 'trailing-dots...', 'trailing-dots_', marks=NOT_ON_WINDOWS),
         pytest.param('special-char:^[?*', 'special-char:^[?*', 'special-char%3A%5E%5B%3F%2A', marks=NOT_ON_WINDOWS),
-        ('many////slashes', 'many/slashes', 'many/slashes'),
+        ('many////slashes', 'many/slashes', 'many%2Fslashes'),
         ('_under_scores_', '_under_scores_', '_under_scores_'),
         pytest.param('.str%a\\nge...', '.str%a\\nge...', '_str%25a%5Cnge_', marks=NOT_ON_WINDOWS),
         pytest.param(

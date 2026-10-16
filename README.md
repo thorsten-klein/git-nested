@@ -299,6 +299,8 @@ rebuilds the branch there; the worktree of another one is never touched.
 `--name <name>` gives the branch another name than `nested/<subdir>`; it is
 recorded in `.git/config` (`nested.<subdir>.branchname`), so `run`, `commit`,
 `push`, `pull` and `status` use it too, until `git nested clean` forgets it.
+A `/` in `<subdir>` becomes `%2F` in the branch name: `lib/inner` gets
+`nested/lib%2Finner`. So it does not clash with `nested/lib`.
 A branch named `nested` blocks the `nested/<subdir>` branches. Rename it, or
 use `--name`.
 
