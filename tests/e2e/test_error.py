@@ -165,10 +165,10 @@ def test_error_clone_non_repo(foo_bar_cloned):
 
 
 def test_error_all_with_branch(foo_bar_cloned):
-    """Test error when --all and --branch are used together"""
+    """Test error when a command cannot share one branch across --all"""
     env = foo_bar_cloned
     cmd_git_nested(f'clone {env.upstream.as_posix()}/foo', cwd=env.workspace / 'bar')
-    cp = cmd_git_nested('pull --all --branch other', check=False, cwd=env.workspace / 'bar')
+    cp = cmd_git_nested('diff --all --branch other', check=False, cwd=env.workspace / 'bar')
     assert_error(cp, "git-nested: --branch and --all can't be used together", returncode=1)
 
 

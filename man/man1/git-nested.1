@@ -145,6 +145,8 @@ git nested pull ext/lib
 git nested pull --no-squash ext/lib
 
 git nested pull --rebase ext/lib
+
+git nested pull --all -b release/2.0
 .fi
 .RE
 .PP
@@ -155,6 +157,16 @@ Send your changes back:
 git nested push ext/lib
 .br
 git nested push --rebase ext/lib
+
+git nested push --all -b release/2.0
+.fi
+.RE
+.PP
+Fetch one shared branch across all nested repositories:
+.PP
+.RS
+.nf
+git nested fetch --all -b release/2.0
 .fi
 .RE
 .PP

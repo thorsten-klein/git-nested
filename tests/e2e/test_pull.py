@@ -116,6 +116,29 @@ def test_pull_all(foo_bar_cloned):
     assert bar2_content.strip() == 'some changes xyz'
 
 
+def test_pull_all_with_branch_skips_repositories_missing_it(foo_bar_cloned):
+    env = foo_bar_cloned
+    foo = env.workspace / 'foo'
+    bar = env.workspace / 'bar'
+    branch = 'release/2.0'
+
+    cmd_git_nested(['clone', (env.upstream / 'bar').as_posix(), 'bar-lib'], cwd=foo)
+    cmd_git_nested(['clone', (env.upstream / 'foo').as_posix(), 'foo-lib'], cwd=foo)
+
+    env.run(['git', 'checkout', '-b', branch], cwd=bar)
+    env.add_new_files('Release', cwd=bar)
+    env.run(['git', 'push', '--set-upstream', 'origin', branch], cwd=bar)
+
+    result = cmd_git_nested(['pull', '--all', '-b', branch], cwd=foo)
+
+    assert result.output.strip().splitlines() == [
+        f"bar-lib: pulled from {env.upstream.as_posix()}/bar ({branch})",
+        f"foo-lib: skipped, {env.upstream.as_posix()}/foo has no branch {branch}",
+    ]
+    assert (foo / 'bar-lib' / 'Release').is_file()
+    assert not (foo / 'foo-lib' / 'Release').exists()
+
+
 def create_pull_conflict(env):
     # foo: make modifications in bar (nested repository in foo)
     env.modify_files('bar/Bar2', text='bar/Bar2', cwd=env.workspace / 'foo')

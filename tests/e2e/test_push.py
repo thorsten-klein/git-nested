@@ -789,6 +789,37 @@ def test_push_all_skips_a_read_only_repository(foo_bar_cloned_and_nested):
     assert result.output.strip() == "bar: skipped, it is read-only"
 
 
+def test_push_all_with_branch_pushes_each_repository_to_that_branch(foo_bar_cloned):
+    env = foo_bar_cloned
+    foo = env.workspace / 'foo'
+    branch = 'release/2.0'
+
+    cmd_git_nested(['clone', (env.upstream / 'bar').as_posix(), 'bar-lib'], cwd=foo)
+    cmd_git_nested(['clone', (env.upstream / 'foo').as_posix(), 'foo-lib'], cwd=foo)
+    env.add_new_files('bar-lib/from-foo', cwd=foo)
+    env.add_new_files('foo-lib/from-foo', cwd=foo)
+
+    result = cmd_git_nested(['push', '--all', '-b', branch, '-u', '--commit'], cwd=foo)
+
+    assert result.output.strip().splitlines() == [
+        f"bar-lib: pushed to {env.upstream.as_posix()}/bar ({branch})",
+        f"foo-lib: pushed to {env.upstream.as_posix()}/foo ({branch})",
+    ]
+
+    env.run(['git', 'fetch', 'origin', branch], cwd=env.workspace / 'bar')
+    env.run(['git', 'fetch', 'origin', branch], cwd=env.workspace / 'foo')
+    assert (
+        env.run(['git', 'show', f'origin/{branch}:from-foo'], cwd=env.workspace / 'bar').stdout
+        == "new file bar-lib/from-foo\n"
+    )
+    assert (
+        env.run(['git', 'show', f'origin/{branch}:from-foo'], cwd=env.workspace / 'foo').stdout
+        == "new file foo-lib/from-foo\n"
+    )
+    assert_gitnested_field(foo / 'bar-lib' / '.gitnested', branch=branch)
+    assert_gitnested_field(foo / 'foo-lib' / '.gitnested', branch=branch)
+
+
 def _init_with_an_empty_upstream(env):
     """A directory 'mine' in foo, nested with an empty upstream that tracks master."""
     foo = env.workspace / 'foo'

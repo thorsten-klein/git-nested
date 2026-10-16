@@ -57,7 +57,7 @@ class GitNestedCommand:
             if not ctx.flags.all or command in ('status', 'clean'):
                 self.dispatch_command(command, ctx)
                 return
-            if ctx.flags.branch:
+            if ctx.flags.branch and command not in ('fetch', 'pull', 'push'):
                 output.error("--branch and --all can't be used together")
             for subdir in discovery.find_all_nested_repositories(self.git, ctx.flags):
                 self.dispatch_command(command, cast('CommandContext', replace(ctx, subdir=subdir)))
