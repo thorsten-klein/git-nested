@@ -217,6 +217,9 @@ git nested clone --help
 git nested clone https://github.com/user/lib ext/lib -b main
 ```
 
+This also works in a fresh repository with no commits yet. The clone commit
+becomes the root commit, and the first later sync records the parent.
+
 If upstream has submodules, `--recurse-submodules` nests them too. Each one
 stays at the commit upstream pins. Without it they stay empty, and
 git-nested says so.

@@ -39,8 +39,10 @@ def check_repository(git: GitRunner, command: str) -> tuple[Path | None, str | N
 
     check_worktree_clean(git, command)
 
-    # May fail in an empty repository
-    return git_tmp, git.check_output(['rev-parse', 'HEAD'], may_fail=True)
+    # `git rev-parse HEAD` prints the literal string `HEAD` on an unborn branch,
+    # so the exit code has to decide whether there is a commit.
+    head = git.run(['rev-parse', 'HEAD'], may_fail=True)
+    return git_tmp, head.stdout.strip() if head.returncode == 0 else None
 
 
 def check_worktree_clean(git: GitRunner, command: str) -> None:

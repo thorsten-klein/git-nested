@@ -89,7 +89,7 @@ def update_gitrepo_file(
     gitnested: Path,
     upstream_head_commit: str,
     nested_commit_ref: str,
-    head_commit: str,
+    head_commit: str | None,
     command: str,
 ) -> None:
     """Update .gitnested YAML file, and stage it."""
@@ -125,12 +125,14 @@ def _update_lineage(nested: dict, initial: bool, flags: Flags, config: NestedCon
         nested['branch'] = config.branch
 
 
-def _recreate_gitnested_from_parent(git: GitRunner, gitnested: Path, head_commit: str) -> bool:
+def _recreate_gitnested_from_parent(git: GitRunner, gitnested: Path, head_commit: str | None) -> bool:
     """Try to recreate an initial .gitnested from the parent commit's copy of it.
 
     Returns:
         True if the file was recreated from head_commit.
     """
+    if not head_commit:
+        return False
     content = git.run(['cat-file', '-p', f'{head_commit}:{gitnested.as_posix()}'], may_fail=True)
     if content.returncode != 0:
         return False

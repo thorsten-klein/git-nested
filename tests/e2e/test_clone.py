@@ -6,17 +6,38 @@ from conftest import VERSION, assert_gitnested_field, cmd_git_nested, git_rev_pa
 
 
 def test_clone_into_empty_repo(env):
-    # Test clone into empty repository fails
+    """A clone into an unborn branch becomes the root commit."""
     empty_dir = env.workspace / 'empty'
     empty_dir.mkdir(parents=True)
     env.run(['git', 'init'], cwd=empty_dir)
     assert (env.workspace / 'empty' / '.git').is_dir()
-    result = cmd_git_nested(f'clone {env.upstream.as_posix()}/bar', cwd=empty_dir, check=False)
-    assert result.output.strip() == "git-nested: can't clone into a repository that has no commits yet"
+    result = cmd_git_nested(f'clone {env.upstream.as_posix()}/bar', cwd=empty_dir)
+    assert result.output.strip() == f"bar: cloned from {env.upstream.as_posix()}/bar (master)"
+
+    env.clone_bar()
+    gitnested = empty_dir / 'bar' / '.gitnested'
+    bar_head_commit = git_rev_parse(['HEAD'], cwd=env.workspace / 'bar')
+    assert_gitnested_field(
+        gitnested,
+        remote=(env.upstream / 'bar').as_posix(),
+        branch='master',
+        commit=bar_head_commit,
+        parent='',
+        method='merge',
+        version=VERSION,
+    )
+    assert env.run(['git', 'rev-list', '--count', 'HEAD'], cwd=empty_dir).stdout.strip() == '1'
+    assert (empty_dir / 'bar' / 'Bar').is_file()
 
     # assert that repo has no changes
     result = env.run(['git', 'status', '-s'], cwd=empty_dir)
     assert result.stdout.strip() == ''
+
+    env.add_new_files('Bar2', cwd=env.workspace / 'bar')
+    env.run(['git', 'push'], cwd=env.workspace / 'bar')
+    result = cmd_git_nested('pull bar', cwd=empty_dir)
+    assert result.output.strip() == f"bar: pulled from {env.upstream.as_posix()}/bar (master)"
+    assert (empty_dir / 'bar' / 'Bar2').is_file()
 
 
 def test_basic_clone(foo_bar_cloned):

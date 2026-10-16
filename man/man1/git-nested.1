@@ -13,6 +13,10 @@ commits them as ordinary files. Anyone who clones your repository gets those
 files with it. There is nothing extra to initialise, no second set of access
 rights to hand out, and every commit of yours is complete on its own.
 .PP
+.B git nested clone
+also works in a new repository with no commits yet: the clone commit becomes
+the root commit there.
+.PP
 Each such subdirectory holds a
 .B .gitnested
 file recording where the content came from and how far it has been kept up to

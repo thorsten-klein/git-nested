@@ -350,6 +350,24 @@ def test_check_repository_raises_on_nested_branch_checked_out():
         checks.check_repository(git, 'pull')
 
 
+def test_check_repository_returns_no_head_in_empty_repo():
+    git = (
+        FakeGit()
+        .respond('rev-parse', '--git-dir', stdout='.git')
+        .respond('symbolic-ref', stdout='main')
+        .respond('rev-parse', '--is-inside-work-tree', stdout='true')
+        .respond('update-index')
+        .respond('diff-files', '--quiet', '--ignore-submodules')
+        .respond('rev-list', 'HEAD', '-1', returncode=1)
+        .respond('rev-parse', 'HEAD', stdout='HEAD', returncode=128)
+    )
+
+    git_tmp, head_commit = checks.check_repository(git, 'clone')
+
+    assert git_tmp == Path('.git/tmp')
+    assert head_commit is None
+
+
 def _clean_up_to_head(**head_responses):
     git = FakeGit().respond('update-index').respond('diff-files', '--quiet', '--ignore-submodules')
     for args, returncode in head_responses.values():

@@ -22,11 +22,12 @@ sequenceDiagram
     git-nested->>Git: update-index -q --ignore-submodules --refresh
     git-nested->>Git: diff-files --quiet --ignore-submodules
     git-nested->>Git: rev-list HEAD -1
-    Note over git-nested: Validate HEAD exists<br/>(skip the two checks below if it does not)
+    Note over git-nested: Validate HEAD exists<br/>(skip the three checks below if it does not)
     git-nested->>Git: rev-parse --verify HEAD
     git-nested->>Git: diff-index --quiet --ignore-submodules HEAD
     git-nested->>Git: diff-index --quiet --cached --ignore-submodules HEAD
     git-nested->>Git: rev-parse HEAD
+    Note over git-nested: In a repo with no commits yet,<br/>the clone commit becomes the root commit<br/>and .gitnested leaves parent empty
 
     opt No branch specified
         git-nested->>Git: ls-remote --symref <remote>
