@@ -133,5 +133,5 @@ def _recreate_gitnested_from_parent(git: GitRunner, gitnested: Path, head_commit
     content = git.run(['cat-file', '-p', f'{head_commit}:{gitnested.as_posix()}'], may_fail=True)
     if content.returncode != 0:
         return False
-    gitnested.write_text(content.stdout.strip())
+    gitnested.write_text(content.stdout.strip(), encoding='utf-8', newline='\n')
     return True
