@@ -24,6 +24,11 @@ def test_parse_args_version_flag_selects_version_command(cmd):
     assert command == 'version'
 
 
+def test_parse_args_push_dry_run_sets_the_flag(cmd):
+    _command, ctx = cmd.parse_args(['push', '--dry-run', 'sub'])
+    assert ctx.flags.dry_run is True
+
+
 def test_parse_args_missing_command_is_a_usage_error(cmd):
     with pytest.raises(GitNestedError, match='no command given'):
         cmd.parse_args([])
@@ -32,6 +37,11 @@ def test_parse_args_missing_command_is_a_usage_error(cmd):
 def test_parse_args_pull_no_squash_sets_the_flag(cmd):
     _, ctx = cmd.parse_args(['pull', '--no-squash', 'sub'])
     assert ctx.flags.no_squash is True
+
+
+def test_parse_args_rejects_dry_run_with_commit(cmd):
+    with pytest.raises(GitNestedError, match="--dry-run can't be combined with --commit"):
+        cmd.parse_args(['push', '--dry-run', '--commit', 'sub'])
 
 
 # ============================================================================

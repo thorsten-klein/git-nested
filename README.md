@@ -310,6 +310,9 @@ Dirty tracked changes in the nested subdir are warned about and ignored.
 git nested push --help
 ```
 
+`--dry-run` shows the target branch and the commits a push would send, then
+stops. It changes nothing.
+
 **Example:**
 ```bash
 git nested push ext/lib

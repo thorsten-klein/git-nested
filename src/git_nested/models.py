@@ -23,6 +23,7 @@ class Flags:
     all_deep: bool = False
     branch: str | None = None
     commit: bool = False
+    dry_run: bool = False
     dir: str | None = None
     exclude: list[str] | None = None
     filter: list[str] | None = None
