@@ -178,10 +178,23 @@ def _check_commit_target(flags: Flags, subdir: Path, gitnested: Path, config: Ne
         )
 
 
+def _skip_read_only(flags: Flags, subdir: Path) -> None:
+    """Skip a read-only repository with --all; refuse it otherwise."""
+    if not flags.all:
+        raise GitNestedError(
+            f"{subdir.as_posix()}: is read-only, so push refuses; "
+            f"'git nested config {subdir.as_posix()} readonly false' allows it"
+        )
+    output.say(f"{subdir.as_posix()}: skipped, it is read-only")
+
+
 def cmd_push(ctx: CommandContext) -> None:
     """Push local nested repo changes upstream."""
     git, flags, branch = ctx.git, ctx.flags, ctx.nested_commit_ref
     subdir, gitnested, subref, config = setup.setup_command(git, 'push', flags, ctx.subdir, ctx.upstream)
+    if config.readonly:
+        _skip_read_only(flags, subdir)
+        return
     if branch and flags.squash:
         raise GitNestedError("--squash can't be combined with an explicit branch")
 

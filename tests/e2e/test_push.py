@@ -684,3 +684,30 @@ def test_push_squash_of_one_commit_keeps_its_message(foo_bar_cloned_and_nested):
     cmd_git_nested('push --squash -b master bar', cwd=foo)
 
     assert _upstream_message(env) == 'add new file: bar/s1'
+
+
+def test_push_refuses_a_read_only_repository(foo_bar_cloned_and_nested):
+    """readonly: true in .gitnested keeps push from writing to someone else's repository."""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    cmd_git_nested('config bar readonly true', cwd=foo)
+    env.run(['git', 'commit', '-qm', 'bar is read-only'], cwd=foo)
+    env.add_new_files('bar/from-foo', cwd=foo)
+
+    result = cmd_git_nested('push -b master bar', cwd=foo, check=False)
+
+    assert result.returncode == 1
+    assert result.output.strip() == (
+        "git-nested: bar: is read-only, so push refuses; 'git nested config bar readonly false' allows it"
+    )
+
+
+def test_push_all_skips_a_read_only_repository(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    cmd_git_nested('config bar readonly true', cwd=foo)
+    env.run(['git', 'commit', '-qm', 'bar is read-only'], cwd=foo)
+
+    result = cmd_git_nested('push --all', cwd=foo)
+
+    assert result.output.strip() == "bar: skipped, it is read-only"

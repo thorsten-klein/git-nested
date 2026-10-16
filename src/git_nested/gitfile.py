@@ -24,11 +24,12 @@ CONFIG_FIELDS: dict[str, str] = {
     'parent': "the commit the nested history hangs off",
     'filter': "the paths of the upstream repository that are nested",
     'cmdver': "the git-nested version that last wrote this file",
+    'readonly': "'true' makes push refuse, for a repository that is only pulled",
 }
 
 # The rest are written by the nested operations themselves; setting one by
 # hand would describe a state the repository is not in.
-WRITABLE_CONFIG_FIELDS = ('remote', 'branch', 'method', 'parent')
+WRITABLE_CONFIG_FIELDS = ('remote', 'branch', 'method', 'parent', 'readonly')
 
 
 def create_level_gitnested_files(git: GitRunner, subdir: Path, level: int | None = None) -> None:
