@@ -179,23 +179,28 @@ sequenceDiagram
 
             alt Has parent commit (incremental)
                 git-nested->>Git: merge-base --is-ancestor <parent> HEAD
-                git-nested->>Git: rev-list --reverse --ancestry-path --topo-order <parent>..HEAD
-                loop For each commit, keeping those in direct descent that record an upstream commit
+                git-nested->>Git: rev-list --reverse --topo-order --ancestry-path --parents <parent>..HEAD
+                loop For each commit, merges included
                     git-nested->>Git: cat-file -p <commit>:<subdir>/.gitnested
-                    git-nested->>Git: show -s --format=%P <commit>
+                    Note over git-nested: Its tree, in a temporary index
+                    git-nested->>Git: read-tree <commit>:<subdir>
+                    git-nested->>Git: rm --cached -r -q -f --ignore-unmatch -- .gitnested <dropped>
+                    git-nested->>Git: write-tree
+                    opt Two or more parents
+                        git-nested->>Git: merge-base --independent <parents>
+                    end
+                    opt The tree changes
+                        git-nested->>Git: log -1 --format=%ad%n%ae%n%an%n%cd%n%ce%n%cn%n%B <commit>
+                        git-nested->>Git: commit-tree -p <parents> <tree>
+                    end
                 end
-                loop For each commit kept
-                    git-nested->>Git: cat-file -e <commit>:<subdir>
-                    git-nested->>Git: log -1 --format=%ad%n%ae%n%an%n%cd%n%ce%n%cn%n%B <commit>
-                    git-nested->>Git: commit-tree -p <parents> <commit>:<subdir>
-                end
-                git-nested->>Git: branch nested/<subref> <last_commit>
+                git-nested->>Git: branch nested/<subref> <tip>
             else No parent (first time)
                 git-nested->>Git: branch nested/<subref> HEAD
                 git-nested->>Git: filter-branch -f --subdirectory-filter <subref> nested/<subref>
+                git-nested->>Git: filter-branch -f --prune-empty --tree-filter 'rm -rf -- .gitnested <dropped>' -- nested/<subref>
             end
 
-            git-nested->>Git: filter-branch -f --prune-empty --tree-filter 'rm -rf -- .gitnested' -- <range>
             git-nested->>Git: worktree add <worktree_path> nested/<subref>
             git-nested->>Git: update-ref refs/nested/<subref>/branch nested/<subref>
         end
@@ -280,10 +285,9 @@ sequenceDiagram
         Note over git-nested,Git: create_nested_branch
         git-nested->>Git: rev-list refs/heads/nested/<subref> -1
         Note over git-nested: (Same branch creation as in pull — see pull diagram)
-        git-nested->>Git: branch nested/<subref> <commit>
         git-nested->>Git: ls-tree -r -z --name-only HEAD -- <subdir>
         Note over git-nested: Also drop .gitnested.levelN files and inner nested repos upstream does not have
-        git-nested->>Git: filter-branch -f --prune-empty --tree-filter 'rm -rf -- .gitnested <dropped>' -- <range>
+        git-nested->>Git: branch nested/<subref> <tip>
         git-nested->>Git: worktree add <worktree_path> nested/<subref>
         git-nested->>Git: update-ref refs/nested/<subref>/branch nested/<subref>
     end
@@ -381,23 +385,28 @@ sequenceDiagram
         Note over git-nested,Git: create_nested_branch
         alt Has parent commit
             git-nested->>Git: merge-base --is-ancestor <parent> HEAD
-            git-nested->>Git: rev-list --reverse --ancestry-path --topo-order <parent>..HEAD
-            loop For each commit, keeping those in direct descent that record an upstream commit
+            git-nested->>Git: rev-list --reverse --topo-order --ancestry-path --parents <parent>..HEAD
+            loop For each commit, merges included
                 git-nested->>Git: cat-file -p <commit>:<subdir>/.gitnested
-                git-nested->>Git: show -s --format=%P <commit>
+                Note over git-nested: Its tree, in a temporary index
+                git-nested->>Git: read-tree <commit>:<subdir>
+                git-nested->>Git: rm --cached -r -q -f --ignore-unmatch -- .gitnested <dropped>
+                git-nested->>Git: write-tree
+                opt Two or more parents
+                    git-nested->>Git: merge-base --independent <parents>
+                end
+                opt The tree changes
+                    git-nested->>Git: log -1 --format=... <commit>
+                    git-nested->>Git: commit-tree -p <parents> <tree>
+                end
             end
-            loop For each commit kept
-                git-nested->>Git: cat-file -e <commit>:<subdir>
-                git-nested->>Git: log -1 --format=... <commit>
-                git-nested->>Git: commit-tree -p <parents> <commit>:<subdir>
-            end
-            git-nested->>Git: branch nested/<subref> <last_commit>
+            git-nested->>Git: branch nested/<subref> <tip>
         else No parent
             git-nested->>Git: branch nested/<subref> HEAD
             git-nested->>Git: filter-branch -f --subdirectory-filter <subref> nested/<subref>
+            git-nested->>Git: filter-branch -f --prune-empty --tree-filter 'rm -rf -- .gitnested <dropped>' -- nested/<subref>
         end
 
-        git-nested->>Git: filter-branch -f --prune-empty --tree-filter 'rm -rf -- .gitnested' -- <range>
         git-nested->>Git: worktree add <dir or .git/tmp/branch> <branch>
         git-nested->>Git: update-ref refs/nested/<subref>/branch <branch>
     end
