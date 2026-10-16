@@ -245,6 +245,10 @@ git nested init --from-submodule ext/mylib
 
 Update a nested repo with the latest upstream changes.
 
+If upstream rewrote its history (a force-push), `pull` stops. `pull -M rebase`
+then moves your local changes onto the new history. `pull --force` takes
+upstream as it is and drops them.
+
 ```bash
 git nested pull --help
 ```

@@ -82,7 +82,8 @@ def test_pull(prepare_pull_test):
     assert (
         result.output.strip()
         == f"git-nested: upstream history was rewritten: {bar_head_commit} is no longer part of it; "
-        "run 'git nested pull --force bar' to take upstream as it is. This drops local changes that are not pushed."
+        "run 'git nested pull --force bar' to take upstream as it is. This drops local changes that are not pushed. "
+        "Or run 'git nested pull -M rebase bar' to rebase your local changes onto it."
     )
 
     # What the message suggests works
@@ -557,7 +558,7 @@ def test_pull_rebase_conflict(prepare_pull_test):
     result = cmd_git_nested('pull bar', cwd=env.workspace / 'foo', check=False)
     assert result.returncode == 1
     assert 'bar: the pull is unfinished, git rebase failed:' in result.output
-    assert "command failed: git rebase refs/nested/bar/fetch nested/bar" in result.output
+    assert "command failed: git rebase --onto refs/nested/bar/fetch " in result.output
 
 
 def test_pull_with_force(prepare_pull_test):
@@ -611,3 +612,23 @@ def test_pull_ignores_merge_ff_only(prepare_pull_test):
 
     assert (foo / 'bar' / 'Bar2').is_file()
     assert (foo / 'bar' / 'from-foo').is_file()
+
+
+def test_pull_rebase_takes_local_changes_onto_a_rewritten_upstream(foo_bar_cloned_and_nested):
+    """After a force-push upstream, -M rebase keeps the local work, on top of the new history."""
+    env = foo_bar_cloned_and_nested
+    foo, bar = env.workspace / 'foo', env.workspace / 'bar'
+    env.add_new_files('bar/from-foo', cwd=foo)
+    env.run(['git', 'reset', '-q', '--hard', 'HEAD^'], cwd=bar)
+    env.add_new_files('Bar3', cwd=bar)
+    env.run(['git', 'push', '-q', '--force'], cwd=bar)
+
+    refused = cmd_git_nested('pull bar', cwd=foo, check=False)
+    assert "Or run 'git nested pull -M rebase bar' to rebase your local changes onto it." in refused.output
+    cmd_git_nested('clean bar', cwd=foo)
+
+    cmd_git_nested('pull -M rebase bar', cwd=foo)
+
+    assert (foo / 'bar' / 'from-foo').is_file()
+    assert (foo / 'bar' / 'Bar3').is_file()
+    assert not (foo / 'bar' / 'bard').exists()
