@@ -283,7 +283,10 @@ git nested diff --all  # Diff all nested repos
 
 #### `git nested branch`
 
-Create a branch with local nested commits for manual conflict resolution.
+Create a branch with local nested commits for manual conflict resolution,
+checked out in a worktree under `.git/tmp/nested/<subdir>` -- or wherever
+`-d <dir>` says. Pointing `-d` at the worktree of the same nested repository
+rebuilds the branch there; the worktree of another one is never touched.
 
 ```bash
 git nested branch --help

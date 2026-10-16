@@ -302,3 +302,82 @@ def test_branch_fetch_flag_refreshes_upstream_ref_first(foo_bar_cloned_and_neste
 
     result = cmd_git_nested('branch bar --fetch', cwd=env.workspace / 'foo')
     assert result.output.strip() == "bar: branch nested/bar created, worktree at .git/tmp/nested/bar"
+
+
+def test_branch_dir_puts_the_worktree_there(foo_bar_cloned_and_nested):
+    """`branch -d` checks the branch out where it is told, and the other commands find it there"""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    env.add_new_files('bar/file', cwd=foo)
+    wt = env.workspace / 'bar-wt'
+
+    result = cmd_git_nested(['branch', '-d', wt.as_posix(), 'bar'], cwd=foo)
+    assert result.output.strip() == f"bar: branch nested/bar created, worktree at {wt.as_posix()}"
+    assert (wt / 'file').is_file()
+    assert not (foo / '.git' / 'tmp' / 'nested' / 'bar').exists()
+
+    assert f"Worktree: {wt.as_posix()}" in cmd_git_nested('status', cwd=foo).output
+
+    # an existing branch elsewhere is still reported, with where it is checked out
+    result = cmd_git_nested('branch bar', cwd=foo, check=False)
+    assert result.returncode == 1
+    assert f"  worktree:  {wt.as_posix()}" in result.output
+
+    cmd_git_nested('clean bar', cwd=foo)
+    assert not wt.exists()
+
+
+def test_branch_dir_rebuilds_the_same_nested_in_place(foo_bar_cloned_and_nested):
+    """Pointing -d at the worktree of the same nested rebuilds the branch there, without --force"""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    env.add_new_files('bar/file1', cwd=foo)
+    wt = env.workspace / 'bar-wt'
+    cmd_git_nested(['branch', '-d', wt.as_posix(), 'bar'], cwd=foo)
+
+    env.add_new_files('bar/file2', cwd=foo)
+    result = cmd_git_nested(['branch', '-d', wt.as_posix(), 'bar'], cwd=foo)
+    assert result.output.strip() == f"bar: branch nested/bar created, worktree at {wt.as_posix()}"
+    assert (wt / 'file2').is_file()
+
+
+def test_branch_dir_refuses_the_worktree_of_another_nested(foo_bar_cloned):
+    """-d never takes over a worktree of another nested repository, not even with --force"""
+    env = foo_bar_cloned
+    foo = env.workspace / 'foo'
+    cmd_git_nested(['clone', (env.upstream / 'bar').as_posix(), 'one'], cwd=foo)
+    cmd_git_nested(['clone', (env.upstream / 'bar').as_posix(), 'two'], cwd=foo)
+    wt = env.workspace / 'wt'
+    cmd_git_nested(['branch', '-d', wt.as_posix(), 'one'], cwd=foo)
+
+    for args in (['branch', '-d', wt.as_posix(), 'two'], ['branch', '--force', '-d', wt.as_posix(), 'two']):
+        result = cmd_git_nested(args, cwd=foo, check=False)
+        assert result.returncode == 1
+        assert f"{wt.as_posix()}: already a worktree, of branch nested/one -- not of two" in result.output
+    assert env.run(['git', 'branch', '--list', 'nested/two'], cwd=foo).stdout.strip() == ''
+
+
+def test_branch_dir_refuses_a_directory_with_files(foo_bar_cloned_and_nested):
+    """A directory that is not a worktree is only used when it is empty"""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    occupied = env.workspace / 'occupied'
+    occupied.mkdir()
+    (occupied / 'keep').write_text('mine')
+
+    result = cmd_git_nested(['branch', '-d', occupied.as_posix(), 'bar'], cwd=foo, check=False)
+    assert result.returncode == 1
+    assert f"{occupied.as_posix()}: already exists and is not a worktree of bar" in result.output
+    assert (occupied / 'keep').read_text() == 'mine'
+
+    empty = env.workspace / 'empty'
+    empty.mkdir()
+    cmd_git_nested(['branch', '-d', empty.as_posix(), 'bar'], cwd=foo)
+    assert (empty / '.git').exists()
+
+
+def test_branch_dir_and_all_are_exclusive(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    result = cmd_git_nested(['branch', '--all', '-d', 'x'], cwd=env.workspace / 'foo', check=False)
+    assert result.returncode == 1
+    assert "--dir names one worktree, so it can't be used with --all" in result.output

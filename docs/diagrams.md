@@ -328,13 +328,19 @@ sequenceDiagram
         end
     end
 
-    opt --force flag
+    opt --dir <dir> that exists
+        git-nested->>Git: worktree list --porcelain
+        Note over git-nested: Abort unless <dir> is empty<br/>or the worktree of nested/<subref>
+    end
+
+    opt --force flag, or --dir holding nested/<subref>
+        git-nested->>Git: worktree list --porcelain
         git-nested->>Git: worktree prune
         git-nested->>Git: branch -D nested/<subref>
     end
 
     git-nested->>Git: rev-list refs/heads/nested/<subref> -1
-    Note over git-nested: Check branch existence
+    Note over git-nested: Abort if the branch exists, describing it
 
     rect rgb(230, 245, 255)
         Note over git-nested,Git: create_nested_branch
@@ -355,7 +361,7 @@ sequenceDiagram
         end
 
         git-nested->>Git: filter-branch -f --prune-empty --tree-filter 'rm -f .gitnested' -- <range>
-        git-nested->>Git: worktree add <worktree_path> nested/<subref>
+        git-nested->>Git: worktree add <dir or .git/tmp/nested/subref> nested/<subref>
         git-nested->>Git: update-ref refs/nested/<subref>/branch nested/<subref>
     end
 ```

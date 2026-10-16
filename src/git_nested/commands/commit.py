@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .. import content, output
+from .. import content, output, worktree
 from ..cli import setup
 from ..models import CommandContext
 from . import fetch
@@ -40,7 +40,7 @@ def cmd_commit(ctx: CommandContext) -> None:
         nested_commit_ref=nested_commit_ref,
         upstream_head_commit=upstream_head_commit,
         head_commit=head_commit,
-        subdir_worktree=git_tmp / f'nested/{subref}',
+        subdir_worktree=worktree.find_worktree(git, f'nested/{subref}') or git_tmp / f'nested/{subref}',
         command='commit',
     )
     output.say(f"{subdir.as_posix()}: committed {nested_commit_ref}")

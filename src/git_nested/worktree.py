@@ -40,16 +40,29 @@ def list_worktrees(git: GitRunner) -> list[tuple[Path, str | None]]:
 
 
 def find_worktree(git: GitRunner, branch: str) -> Path | None:
-    """Where `branch` is checked out, or None if it is not."""
+    """Where `branch` is checked out, or None if it is not.
+
+    Wherever that is: `git nested worktree -d` puts it anywhere, so the
+    default place under .git/tmp is no guide.
+    """
     for path, checked_out in list_worktrees(git):
         if checked_out == branch:
             return path
     return None
 
 
-def create_worktree(git: GitRunner, branch: str, git_tmp: Path) -> Path:
-    """Create a worktree for the given branch."""
-    subdir_worktree = git_tmp / branch
+def branch_at(git: GitRunner, path: Path) -> tuple[bool, str | None]:
+    """Whether `path` is a worktree, and which branch it has checked out."""
+    resolved = path.resolve()
+    for worktree_path, checked_out in list_worktrees(git):
+        if worktree_path.resolve() == resolved:
+            return True, checked_out
+    return False, None
+
+
+def create_worktree(git: GitRunner, branch: str, git_tmp: Path, path: Path | None = None) -> Path:
+    """Create a worktree for the given branch, at `path` or else in the default place under git_tmp."""
+    subdir_worktree = path or git_tmp / branch
     git.run(['worktree', 'add', subdir_worktree, branch])
     return subdir_worktree
 
@@ -72,6 +85,5 @@ def remove_worktree(git: GitRunner, worktree: Path | None) -> None:
 
 def delete_branch(git: GitRunner, branch: str, git_tmp: Path) -> None:
     """Delete a branch."""
-    subdir_worktree = git_tmp / branch
-    remove_worktree(git, subdir_worktree)
+    remove_worktree(git, find_worktree(git, branch) or git_tmp / branch)
     git.run(['branch', '-D', branch], may_fail=True)

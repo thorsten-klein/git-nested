@@ -172,14 +172,14 @@ def test_status_for_subdir_not_a_nested_repository(tmp_path, monkeypatch):
     subdir = Path('plainsub')
     subdir.mkdir()
     git = FakeGit().respond('check-ref-format', returncode=0)
-    lines, entries = status._status_for_subdir(git=git, flags=Flags(), git_tmp=tmp_path, subdir=subdir)
+    lines, entries = status._status_for_subdir(git=git, flags=Flags(), subdir=subdir)
     assert entries == []
     assert f"'{subdir}' is not a nested repository" in lines[0]
 
 
 def test_get_status_no_nested_repositories():
     git = FakeGit().respond('ls-files', stdout='')
-    output, entries = status.get_status(git, Flags(quiet=False), git_tmp=Path('/tmp/gt'))
+    output, entries = status.get_status(git, Flags(quiet=False))
     assert output == "No nested repositories.\n"
     assert entries == []
 
@@ -197,9 +197,7 @@ def test_status_for_subdir_fetches_when_flag_set(tmp_path, monkeypatch):
         .respond('rev-parse', 'FETCH_HEAD^0', stdout='deadbeef')
         .respond('update-ref', returncode=0)
     )
-    lines, entries = status._status_for_subdir(
-        git=git, flags=Flags(fetch=True, quiet=True), git_tmp=tmp_path, subdir=subdir
-    )
+    lines, entries = status._status_for_subdir(git=git, flags=Flags(fetch=True, quiet=True), subdir=subdir)
     assert entries[0][0] == subdir
     assert lines == [f"{subdir}\n"]
 
@@ -226,9 +224,7 @@ def test_status_detail_lines_appends_refs_when_verbose():
         .respond('show-ref', stdout='')
     )
     config = NestedConfig(remote='https://example.com/x.git', branch='main')
-    lines = status._status_detail_lines(
-        git, Flags(verbose=1), Path('/tmp/gt'), Path('sub'), 'sub', config, upstream_head=''
-    )
+    lines = status._status_detail_lines(git, Flags(verbose=1), Path('sub'), 'sub', config, upstream_head='')
     assert any(line == "" for line in lines) or True  # format_refs("") is appended; just exercising the branch
 
 
@@ -257,7 +253,7 @@ def test_verify_commit_ref_raises_when_missing_upstream_head():
 
 
 def test_create_nested_branch_reuses_existing_branch(tmp_path):
-    git = FakeGit().respond('rev-list', 'refs/heads/nested/sub', returncode=0)
+    git = FakeGit().respond('rev-list', 'refs/heads/nested/sub', returncode=0).respond('worktree', 'list', stdout='')
     config = NestedConfig(remote='https://example.com/x.git', branch='main')
     worktree = content.create_nested_branch(
         git=git,
