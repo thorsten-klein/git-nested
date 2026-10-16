@@ -527,7 +527,7 @@ sequenceDiagram
     git-nested->>Git: rev-parse --is-inside-work-tree
     git-nested->>Git: rev-parse HEAD
 
-    git-nested->>Git: ls-files
+    git-nested->>Git: ls-files -z
     Note over git-nested: Find all .gitnested files
 
     loop For each nested repository

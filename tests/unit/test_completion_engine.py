@@ -88,13 +88,13 @@ def test_a_flag_whose_value_cannot_be_enumerated_offers_nothing(git):
 
 def test_a_valueless_flag_does_not_swallow_the_next_word(git):
     """`--force` takes no value, so what follows it is still the subdir."""
-    git.respond('ls-files', stdout='ext/lib/.gitnested\n')
+    git.respond('ls-files', stdout='ext/lib/.gitnested\0')
     assert words(git, 'git nested pull --force ')[0] == 'ext/lib'
 
 
 def test_a_flags_value_is_not_counted_as_a_positional(git):
     """`-m msg` is two words but no positional, so the subdir is still open."""
-    git.respond('ls-files', stdout='ext/lib/.gitnested\n')
+    git.respond('ls-files', stdout='ext/lib/.gitnested\0')
     assert words(git, 'git nested push -m msg ')[0] == 'ext/lib'
 
 
@@ -104,7 +104,7 @@ def test_a_flags_value_is_not_counted_as_a_positional(git):
 
 
 def test_the_subdir_offers_the_nested_repositories(git):
-    git.respond('ls-files', stdout='ext/lib/.gitnested\next/lib/deep/.gitnested\nREADME.md\n')
+    git.respond('ls-files', stdout='ext/lib/.gitnested\0ext/lib/deep/.gitnested\0README.md\0')
     assert words(git, 'git nested pull ')[:2] == ['ext/lib', 'ext/lib/deep']
 
 
@@ -113,18 +113,18 @@ def test_a_command_without_positionals_offers_only_flags(git):
 
 
 def test_a_positional_past_the_last_one_offers_only_flags(git):
-    git.respond('ls-files', stdout='ext/lib/.gitnested\n')
+    git.respond('ls-files', stdout='ext/lib/.gitnested\0')
     assert words(git, 'git nested pull ext/lib ')[:2] == ['-h', '--help']
 
 
 def test_the_second_positional_of_push_offers_the_nested_branches(git):
-    git.respond('ls-files', stdout='ext/lib/.gitnested\n')
+    git.respond('ls-files', stdout='ext/lib/.gitnested\0')
     git.respond('for-each-ref', stdout='nested/ext/lib\nnested/other\n')
     assert words(git, 'git nested push ext/lib ')[:2] == ['nested/ext/lib', 'nested/other']
 
 
 def test_commit_offers_the_nested_branches_too(git):
-    git.respond('ls-files', stdout='ext/lib/.gitnested\n')
+    git.respond('ls-files', stdout='ext/lib/.gitnested\0')
     git.respond('for-each-ref', stdout='nested/ext/lib\n')
     assert words(git, 'git nested commit ext/lib ')[0] == 'nested/ext/lib'
 
@@ -134,23 +134,23 @@ def test_completion_offers_the_shells(git):
 
 
 def test_config_offers_its_own_keys(git):
-    git.respond('ls-files', stdout='ext/lib/.gitnested\n')
+    git.respond('ls-files', stdout='ext/lib/.gitnested\0')
     assert words(git, 'git nested config ext/lib ')[: len(CONFIG_FIELDS)] == list(CONFIG_FIELDS)
 
 
 def test_every_config_key_carries_its_description(git):
-    git.respond('ls-files', stdout='ext/lib/.gitnested\n')
+    git.respond('ls-files', stdout='ext/lib/.gitnested\0')
     offered = dict(completion.candidates(git, ['git-nested', 'config', 'ext/lib', '']))
     assert all(offered[field] for field in CONFIG_FIELDS)
 
 
 def test_the_value_of_a_config_key_is_offered(git):
-    git.respond('ls-files', stdout='ext/lib/.gitnested\n')
+    git.respond('ls-files', stdout='ext/lib/.gitnested\0')
     assert words(git, 'git nested config ext/lib method ')[:2] == ['merge', 'rebase']
 
 
 def test_a_config_key_with_no_enumerable_value_offers_only_flags(git):
-    git.respond('ls-files', stdout='ext/lib/.gitnested\n')
+    git.respond('ls-files', stdout='ext/lib/.gitnested\0')
     assert words(git, 'git nested config ext/lib remote ') == ['-h', '--help']
 
 
@@ -199,7 +199,7 @@ def test_dunder_complete_describes_when_asked(git, capsys):
 
 
 def test_dunder_complete_omits_an_empty_description(git, capsys):
-    git.respond('ls-files', stdout='ext/lib/.gitnested\n')
+    git.respond('ls-files', stdout='ext/lib/.gitnested\0')
     completion.handle_dunder_complete(git, ['__complete', '--describe', 'git-nested', 'pull', 'ext'])
     assert capsys.readouterr().out.splitlines()[0] == 'ext/lib'
 

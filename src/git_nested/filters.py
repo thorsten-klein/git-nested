@@ -60,8 +60,8 @@ def build_filtered_commit(git: GitRunner, cwd: Path, entries: list[str], commit:
             mode, _, blob_sha = git.check_output(['ls-tree', commit, '--', path]).split()[:3]
             git.run(['update-index', '--add', '--cacheinfo', f'{mode},{blob_sha},{path}'], cwd=cwd, env=env)
 
-        listing = git.check_output(['ls-tree', '-r', commit], may_fail=True, cwd=cwd) if patterns else ''
-        for line in listing.splitlines():
+        listing = git.check_output(['ls-tree', '-r', '-z', commit], may_fail=True, cwd=cwd) if patterns else ''
+        for line in filter(None, listing.split('\0')):
             meta, path = line.split('\t', 1)
             if _matches(patterns, path) and not git.check_output(
                 ['ls-files', '--stage', '--', path], cwd=cwd, env=env, may_fail=True
@@ -102,7 +102,9 @@ def place_filtered_content(git: GitRunner, subdir: Path, entries: list[str], nes
             continue
         _place_blob(git, subdir, nested_commit_ref, path)
 
-    listing = git.check_output(['ls-tree', '-r', '--name-only', nested_commit_ref], may_fail=True) if patterns else ''
-    for path in listing.splitlines():
+    listing = (
+        git.check_output(['ls-tree', '-r', '-z', '--name-only', nested_commit_ref], may_fail=True) if patterns else ''
+    )
+    for path in filter(None, listing.split('\0')):
         if _matches(patterns, path) and not (subdir / path).exists():
             _place_blob(git, subdir, nested_commit_ref, path)

@@ -143,8 +143,8 @@ def test_get_status_quiet_has_no_header():
 @pytest.mark.parametrize(
     ('files', 'header'),
     [
-        ('a/.gitnested\n', "1 nested repository:\n"),
-        ('a/.gitnested\nb/.gitnested\n', "2 nested repositories:\n"),
+        ('a/.gitnested\0', "1 nested repository:\n"),
+        ('a/.gitnested\0b/.gitnested\0', "2 nested repositories:\n"),
     ],
 )
 def test_get_status_header_singular_vs_plural(tmp_path, monkeypatch, files, header):

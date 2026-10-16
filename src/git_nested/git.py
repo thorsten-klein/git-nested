@@ -33,7 +33,11 @@ class GitRunner:
         env = dict(os.environ if kwargs.get('env') is None else kwargs['env'])
         env.setdefault('FILTER_BRANCH_SQUELCH_WARNING', '1')
         kwargs['env'] = env
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False, **kwargs)
+        # git writes paths and messages as UTF-8, whatever the locale (cp1252 on
+        # Windows). surrogateescape keeps paths that are not UTF-8 intact.
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, encoding='utf-8', errors='surrogateescape', check=False, **kwargs
+        )
         if result.returncode != 0 and not may_fail:
             raise GitNestedError(f"command failed: {' '.join(cmd)}\n{result.stderr!s}")
         return result
