@@ -15,13 +15,13 @@ from ..constants import COMPLETION_SHELLS
 VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
     'branch': ['all', 'dir', 'fetch', 'force', 'name'],
     'clean': ['ALL', 'all', 'force'],
-    'clone': ['branch', 'filter', 'force', 'message', 'method'],
+    'clone': ['branch', 'filter', 'force', 'message', 'method', 'recurse_submodules'],
     'commit': ['fetch', 'force', 'message', 'msg_file'],
     'completion': [],
     'config': [],
     'diff': ['all', 'branch', 'remote'],
     'fetch': ['all', 'branch', 'force', 'remote'],
-    'init': ['branch', 'remote', 'method'],
+    'init': ['branch', 'from_submodule', 'remote', 'method'],
     'pull': ['all', 'branch', 'force', 'message', 'method', 'remote', 'update'],
     'repair': ['all', 'message', 'msg_file'],
     'run': [],
@@ -77,6 +77,16 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
         {'action': 'store_true', 'help': "record the pushed commit in .gitnested; needs a push to the tracked branch"},
     ),
     ('force', ('-f', '--force'), {'action': 'store_true', 'help': "force the operation"}),
+    (
+        'from_submodule',
+        ('--from-submodule',),
+        {'action': 'store_true', 'help': "turn the submodule at <subdir> into a nested repository"},
+    ),
+    (
+        'recurse_submodules',
+        ('--recurse-submodules',),
+        {'action': 'store_true', 'help': "nest the submodules of upstream too, at the commits it pins"},
+    ),
     ('filter', ('--filter',), {'action': 'append', 'help': "only consider this path of the nested repository"}),
     (
         'fetch',

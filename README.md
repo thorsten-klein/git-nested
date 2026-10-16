@@ -217,6 +217,10 @@ git nested clone --help
 git nested clone https://github.com/user/lib ext/lib -b main
 ```
 
+If upstream has submodules, `--recurse-submodules` nests them too. Each one
+stays at the commit upstream pins. Without it they stay empty, and
+git-nested says so.
+
 #### `git nested init`
 
 Turn an existing subdirectory into a nested repository.
@@ -228,6 +232,13 @@ git nested init --help
 **Example:**
 ```bash
 git nested init ext/mylib -r https://github.com/user/mylib
+```
+
+`--from-submodule` turns a submodule into a nested repository, at the same
+commit and url:
+
+```bash
+git nested init --from-submodule ext/mylib
 ```
 
 #### `git nested pull`

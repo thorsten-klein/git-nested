@@ -156,6 +156,11 @@ def say(msg: str) -> None:
     LOGGER.info(msg)
 
 
+def warn(msg: str) -> None:
+    """Report something worth knowing that did not stop the command."""
+    LOGGER.warning(msg)
+
+
 def error(msg: str) -> NoReturn:
     """Abort the command with `msg`.
 
