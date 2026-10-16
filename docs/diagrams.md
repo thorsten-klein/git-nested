@@ -170,6 +170,8 @@ sequenceDiagram
             Note over git-nested,Git: create_nested_branch
             git-nested->>Git: rev-list refs/heads/nested/<subref> -1
             Note over git-nested: Check branch existence
+            git-nested->>Git: rev-list refs/heads/nested -1
+            Note over git-nested: Abort if a branch named nested is in the way
 
             alt Has parent commit (incremental)
                 git-nested->>Git: merge-base --is-ancestor <parent> HEAD

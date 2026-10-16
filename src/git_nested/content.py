@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from . import discovery, filters, gitfile, history, output, refs, worktree
 from .constants import GITNESTED_FILENAME
@@ -31,6 +31,14 @@ def create_nested_branch(
     output.verbose(f"checking whether branch {branch} exists")
     if git.branch_exists(branch):
         return worktree.find_worktree(git, branch) or git_tmp / branch
+
+    # git cannot create nested/lib next to a branch named nested.
+    for prefix in PurePosixPath(branch).parents[:-1]:
+        if git.branch_exists(prefix.as_posix()):
+            raise GitNestedError(
+                f"{subdir.as_posix()}: the branch {prefix} is in the way of {branch}; "
+                f"rename it, or pick another name with 'git nested branch --name <name> {subdir.as_posix()}'"
+            )
 
     output.verbose(f"nested parent is {config.parent}")
     history.create_branch(git, flags, config, subdir, gitnested, subref, command, branch)

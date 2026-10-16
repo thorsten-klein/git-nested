@@ -461,3 +461,31 @@ def test_branch_name_and_all_are_exclusive(foo_bar_cloned_and_nested):
     result = cmd_git_nested(['branch', '--all', '--name', 'x'], cwd=env.workspace / 'foo', check=False)
     assert result.returncode == 1
     assert "--name names one branch, so it can't be used with --all" in result.output
+
+
+def test_a_branch_named_nested_is_reported(foo_bar_cloned_and_nested):
+    """A branch 'nested' blocks every nested/<subdir> branch; say so, and how to get past it."""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    env.run(['git', 'branch', 'nested'], cwd=foo)
+
+    result = cmd_git_nested('branch bar', cwd=foo, check=False)
+
+    assert result.returncode == 1
+    assert result.output.strip() == (
+        "git-nested: bar: the branch nested is in the way of nested/bar; "
+        "rename it, or pick another name with 'git nested branch --name <name> bar'"
+    )
+
+
+def test_name_gets_past_a_branch_named_nested(foo_bar_cloned_and_nested):
+    """With --name the nested branch lives elsewhere, and push uses it too."""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    env.run(['git', 'branch', 'nested'], cwd=foo)
+    env.add_new_files('bar/from-foo', cwd=foo)
+
+    cmd_git_nested('branch --name bar-fixes bar', cwd=foo)
+    cmd_git_nested('push bar', cwd=foo)
+
+    env.run(['git', 'cat-file', '-e', 'foo-master:from-foo'], cwd=env.upstream / 'bar')
