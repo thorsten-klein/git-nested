@@ -78,14 +78,16 @@ def test_dunder_main_is_wired_to_the_package_entry_point():
 
 def test_git_runner_raises_when_git_not_on_path(monkeypatch):
     monkeypatch.setattr(git_module.shutil, "which", lambda name: None)
+    git = GitRunner()
     with pytest.raises(GitNestedError, match="git is not on PATH"):
-        GitRunner().check()
+        git.check()
 
 
 def test_git_runner_raises_when_git_version_too_old(monkeypatch):
     monkeypatch.setattr(GitRunner, "get_version", lambda self: "1.0.0")
+    git = GitRunner()
     with pytest.raises(GitNestedError, match="or newer is required"):
-        GitRunner().check()
+        git.check()
 
 
 def test_git_runner_squelches_the_filter_branch_warning(monkeypatch):

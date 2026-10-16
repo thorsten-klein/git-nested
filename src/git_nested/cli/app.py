@@ -7,6 +7,7 @@ right handler in `commands`.
 from __future__ import annotations
 
 from dataclasses import replace
+from typing import cast
 
 from .. import checks, commands, completion, discovery, output
 from ..errors import GitNestedError
@@ -58,7 +59,7 @@ class GitNestedCommand:
             if ctx.flags.branch:
                 output.error("--branch and --all can't be used together")
             for subdir in discovery.find_all_nested_repositories(self.git, ctx.flags):
-                self.dispatch_command(command, replace(ctx, subdir=subdir))
+                self.dispatch_command(command, cast('CommandContext', replace(ctx, subdir=subdir)))
 
     def parse_args(self, args_list: list[str]) -> tuple[str, CommandContext]:
         """Parse command line arguments.

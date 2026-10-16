@@ -72,15 +72,16 @@ def test_do_push_refuses_a_branch_without_the_upstream_head(monkeypatch):
         .respond('rev-parse', 'nested/sub', stdout='new')
         .respond('merge-base', '--is-ancestor', returncode=1)
     )
-    config = NestedConfig(remote='x', branch='main')
+    args = (git, Flags(), NestedConfig(remote='x', branch='main'), Path('sub'), Path('sub/.gitnested'), Path('tmp'))
     with pytest.raises(GitNestedError, match="does not contain the upstream HEAD upstream"):
-        push.do_push(git, Flags(), config, Path('sub'), Path('sub/.gitnested'), Path('tmp'), 'sub', 'foo', None)
+        push.do_push(*args, 'sub', 'foo', None)
 
 
 def test_fetch_push_target_raises_on_other_errors():
     git = FakeGit().respond('fetch', returncode=1, stderr="fatal: unable to access remote\n")
+    flags, config = Flags(), NestedConfig(remote='x', branch='main')
     with pytest.raises(GitNestedError, match="the fetch before the push failed"):
-        push._fetch_push_target(git, Flags(), NestedConfig(remote='x', branch='main'), 'foo')
+        push._fetch_push_target(git, flags, config, 'foo')
 
 
 # ============================================================================
@@ -230,8 +231,9 @@ def _commit(git):
 
 
 def test_commit_nested_branch_raises_when_commit_missing():
+    git = FakeGit().respond('rev-list', returncode=1)
     with pytest.raises(GitNestedError, match="no such commit"):
-        _commit(FakeGit().respond('rev-list', returncode=1))
+        _commit(git)
 
 
 def test_commit_nested_branch_raises_when_missing_upstream_head():
