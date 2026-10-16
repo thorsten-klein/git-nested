@@ -6,7 +6,6 @@ from pathlib import Path
 
 from .. import content, discovery, gitfile, output, submodules
 from ..cli import setup
-from ..constants import GITNESTED_FILENAME
 from ..errors import GitNestedError
 from ..git import GitRunner
 from ..models import CommandContext, Flags, NestedConfig
@@ -54,14 +53,7 @@ def _is_up_to_date(git: GitRunner, config: NestedConfig, recorded: NestedConfig,
     """Whether a reclone would change nothing: same source, and the local content is upstream's."""
     # The same commit on another branch or remote is still a switch to record.
     same_source = (fetched, config.branch, config.remote) == (recorded.commit, recorded.branch, recorded.remote)
-    return same_source and _content_matches(git, subdir, fetched)
-
-
-def _content_matches(git: GitRunner, subdir: Path, upstream_commit: str) -> bool:
-    """Whether subdir at HEAD holds the upstream tree, ignoring its top-level .gitnested files."""
-    local = git.check_output(['rev-parse', f'HEAD:{subdir.as_posix()}'])
-    changed = git.check_output(['diff-tree', '-r', '--name-only', f'{upstream_commit}^{{tree}}', local])
-    return all(Path(name).name.startswith(GITNESTED_FILENAME) and '/' not in name for name in changed.splitlines())
+    return same_source and content.matches_upstream(git, subdir, fetched)
 
 
 def _clone_into(

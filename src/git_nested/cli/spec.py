@@ -39,7 +39,7 @@ VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
         'squash',
         'update',
     ],
-    'status': ['ALL', 'all', 'fetch'],
+    'status': ['ALL', 'all', 'fetch', 'short'],
     'version': [],
 }
 
@@ -125,6 +125,11 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
     ('message', ('-m', '--message'), {'dest': 'message', 'help': "commit message"}),
     ('msg_file', ('--file',), {'dest': 'msg_file', 'help': "file to read the commit message from"}),
     ('remote', ('-r', '--remote'), {'dest': 'remote', 'help': "upstream remote to push/pull/fetch"}),
+    (
+        'short',
+        ('--short',),
+        {'action': 'store_true', 'help': "one line per repository: <subdir> <local commits> <behind> <changed|same>"},
+    ),
     (
         'squash',
         ('-s', '--squash'),

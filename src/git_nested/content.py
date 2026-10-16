@@ -113,6 +113,19 @@ def _place_content(git: GitRunner, config: NestedConfig, subdir: Path, nested_co
         git.run(['read-tree', f'--prefix={subdir.as_posix()}', '-u', nested_commit_ref])
 
 
+def matches_upstream(git: GitRunner, subdir: Path, upstream_commit: str, ignored: tuple[str, ...] = ()) -> bool:
+    """Whether subdir at HEAD holds the upstream tree.
+
+    Its top-level .gitnested files don't count, nor the `ignored` paths in it.
+    """
+    local = git.check_output(['rev-parse', f'HEAD:{subdir.as_posix()}'])
+    changed = git.check_output(['diff-tree', '-r', '--name-only', f'{upstream_commit}^{{tree}}', local])
+    return all(
+        (Path(name).name.startswith(GITNESTED_FILENAME) and '/' not in name) or name.startswith(ignored)
+        for name in changed.splitlines()
+    )
+
+
 def commit_gitnested_update(git: GitRunner, flags: Flags, subdir: Path, msg: str) -> None:
     """Commit what is staged onto the current branch, with --file's message if given, else `msg`.
 

@@ -193,6 +193,7 @@ def test_status_for_subdir_lists_the_refs_when_verbose(tmp_path, monkeypatch):
         .respond('rev-list', returncode=1)
         .respond('worktree', 'list', stdout='')
         .respond('show-ref', stdout='abc refs/nested/sub/fetch')
+        .respond('ls-files', stdout='')
     )
     assert "  Refs:\n    Fetch Ref      abc (refs/nested/sub/fetch)\n" in status._status_for_subdir(
         git, Flags(verbose=1), Path('sub')

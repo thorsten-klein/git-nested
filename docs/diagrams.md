@@ -615,6 +615,13 @@ sequenceDiagram
         git-nested->>Git: rev-parse --short <config.commit>
         git-nested->>Git: rev-parse --short <config.parent>
         git-nested->>Git: worktree list
+        git-nested->>Git: ls-files -z
+        Note over git-nested: Inner nested repositories don't count
+        git-nested->>Git: rev-list <parent>..HEAD -- <subdir> <excludes>
+        git-nested->>Git: rev-list <parent>..HEAD -- <subdir>/.gitnested
+        Note over git-nested: Local commits: the first minus the second
+        git-nested->>Git: rev-list --count <commit>..refs/nested/<subref>/fetch
+        git-nested->>Git: diff-tree -r --name-only <commit>^{tree} HEAD:<subdir>
 
         opt --verbose flag
             git-nested->>Git: show-ref

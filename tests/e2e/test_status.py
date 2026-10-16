@@ -33,13 +33,19 @@ def test_status(foo_bar_cloned):
           Tracking Branch: master
           Pulled Commit:   {bar_upstream}
           Pull Parent:     {foo_upstream}
+          Local Commits:   0
+          Behind Upstream: 0
+          Content:         same
 
         Git nested repository 'lib/bar':
           Remote URL:      {env.upstream.as_posix()}/bar
           Upstream Ref:    {bar_upstream}
           Tracking Branch: master
           Pulled Commit:   {bar_upstream}
-          Pull Parent:     {pull_parent2}""")
+          Pull Parent:     {pull_parent2}
+          Local Commits:   0
+          Behind Upstream: 0
+          Content:         same""")
 
     # Test status --ALL (recursive)
     result = cmd_git_nested('status --ALL', cwd=env.workspace / 'foo')
@@ -52,6 +58,9 @@ def test_status(foo_bar_cloned):
           Tracking Branch: master
           Pulled Commit:   {bar_upstream}
           Pull Parent:     {foo_upstream}
+          Local Commits:   0
+          Behind Upstream: 0
+          Content:         same
 
         Git nested repository 'bar/foo':
           Remote URL:      {env.upstream.as_posix()}/foo
@@ -59,6 +68,9 @@ def test_status(foo_bar_cloned):
           Tracking Branch: master
           Pulled Commit:   {foo_upstream}
           Pull Parent:     {pull_parent3}
+          Local Commits:   0
+          Behind Upstream: 0
+          Content:         same
 
         Git nested repository 'lib/bar':
           Remote URL:      {env.upstream.as_posix()}/bar
@@ -66,13 +78,19 @@ def test_status(foo_bar_cloned):
           Tracking Branch: master
           Pulled Commit:   {bar_upstream}
           Pull Parent:     {pull_parent2}
+          Local Commits:   0
+          Behind Upstream: 0
+          Content:         same
 
         Git nested repository 'lib/bar/foo':
           Remote URL:      {env.upstream.as_posix()}/foo
           Upstream Ref:    {foo_upstream}
           Tracking Branch: master
           Pulled Commit:   {foo_upstream}
-          Pull Parent:     {pull_parent1}""")
+          Pull Parent:     {pull_parent1}
+          Local Commits:   0
+          Behind Upstream: 0
+          Content:         same""")
 
     # Test status --all again (should be same as first test)
     result = cmd_git_nested('status --all', cwd=env.workspace / 'foo')
@@ -85,13 +103,19 @@ def test_status(foo_bar_cloned):
           Tracking Branch: master
           Pulled Commit:   {bar_upstream}
           Pull Parent:     {foo_upstream}
+          Local Commits:   0
+          Behind Upstream: 0
+          Content:         same
 
         Git nested repository 'lib/bar':
           Remote URL:      {env.upstream.as_posix()}/bar
           Upstream Ref:    {bar_upstream}
           Tracking Branch: master
           Pulled Commit:   {bar_upstream}
-          Pull Parent:     {pull_parent2}""")
+          Pull Parent:     {pull_parent2}
+          Local Commits:   0
+          Behind Upstream: 0
+          Content:         same""")
 
 
 def test_status_quiet(foo_bar_cloned):
@@ -106,3 +130,16 @@ def test_status_quiet(foo_bar_cloned):
     result = cmd_git_nested('--quiet status', cwd=env.workspace / 'foo')
     assert result.stderr.strip() == ""
     assert result.stdout.strip() == "bar"
+
+
+def test_status_short_shows_local_work(foo_bar_cloned_and_nested):
+    """One line per repository: local commits, upstream commits not pulled, and the content."""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    env.add_new_files('bar/from-foo', cwd=foo)
+    env.add_new_files('Bar2', cwd=env.workspace / 'bar')
+    env.run(['git', 'push'], cwd=env.workspace / 'bar')
+
+    result = cmd_git_nested('status --short --fetch', cwd=foo)
+
+    assert result.stdout.strip() == "bar 1 1 changed"
