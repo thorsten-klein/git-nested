@@ -592,3 +592,19 @@ def test_push_commit_with_an_override_needs_u(foo_bar_cloned_and_nested):
         "git-nested: bar: --commit records the push in .gitnested, but -r and -b only change this push; "
         "add -u to track them"
     )
+
+
+def test_a_failed_push_leaves_no_branch_behind(foo_bar_cloned_and_nested):
+    """The branch built for the push goes, even when upstream rejects it, so the next pull works."""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    hook = env.upstream / 'bar' / 'hooks' / 'pre-receive'
+    hook.write_text('#!/bin/sh\nexit 1\n')
+    hook.chmod(0o755)
+    env.add_new_files('bar/from-foo', cwd=foo)
+
+    result = cmd_git_nested('push -b master bar', cwd=foo, check=False)
+
+    assert result.returncode == 1
+    assert env.run(['git', 'branch', '--list', 'nested/*'], cwd=foo).output == ''
+    cmd_git_nested('pull bar', cwd=foo)

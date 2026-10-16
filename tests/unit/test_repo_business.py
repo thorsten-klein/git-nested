@@ -67,6 +67,7 @@ def test_fetch_push_target_is_none_when_the_branch_is_not_upstream_yet():
 def test_do_push_refuses_a_branch_without_the_upstream_head(monkeypatch):
     monkeypatch.setattr(push, '_fetch_push_target', lambda *_args: 'upstream')
     monkeypatch.setattr(push, '_build_push_branch', lambda *_args: 'nested/sub')
+    monkeypatch.setattr(push.worktree, 'delete_branch', lambda *_args: None)
     git = (
         FakeGit()
         .respond('rev-list', 'refs/heads/nested/sub')
