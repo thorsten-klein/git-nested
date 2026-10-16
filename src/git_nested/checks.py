@@ -29,12 +29,10 @@ def check_repository(git: GitRunner, command: str) -> tuple[Path | None, str | N
     # Per worktree of this repository, so they do not block each other.
     git_tmp = Path(git.check_output(['rev-parse', '--git-dir'])) / 'tmp'
 
-    # A real branch, not a nested branch and not a detached HEAD
+    # Not a nested branch. A detached HEAD is fine: commits go there, as with git commit.
     current_branch = git.check_output(['symbolic-ref', '--short', '--quiet', 'HEAD'], may_fail=True)
     if current_branch.startswith('nested/'):
         raise GitNestedError(f"can't {command} while the nested branch {current_branch} is checked out")
-    if not current_branch or current_branch == 'HEAD':
-        raise GitNestedError("HEAD is detached; check out a branch first")
 
     if git.check_output(['rev-parse', '--is-inside-work-tree'], may_fail=True) != 'true':
         raise GitNestedError("not inside a git working tree")

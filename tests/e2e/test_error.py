@@ -1,7 +1,7 @@
 """Tests for git nested error messages"""
 
 import pytest
-from conftest import cmd_git_nested, git_rev_parse
+from conftest import cmd_git_nested
 
 from git_nested.cli.spec import VALID_COMMAND_OPTIONS
 
@@ -124,15 +124,6 @@ def test_error_invalid_nested_subdir(foo_bar_cloned):
     env = foo_bar_cloned
     cp = cmd_git_nested('pull lala', check=False, cwd=env.workspace / 'bar')
     assert_error(cp, "git-nested: lala/.gitnested does not exist", returncode=1)
-
-
-def test_error_not_on_branch(foo_bar_cloned):
-    """Test error when repo is in detached HEAD state"""
-    env = foo_bar_cloned
-    commit = git_rev_parse(['master'], cwd=env.workspace / 'bar')
-    env.run(['git', 'checkout', '--quiet', commit], cwd=env.workspace / 'bar')
-    cp = cmd_git_nested('status', check=False, cwd=env.workspace / 'bar')
-    assert_error(cp, "git-nested: HEAD is detached; check out a branch first", returncode=1)
 
 
 def test_error_outside_working_tree(foo_bar_cloned):
