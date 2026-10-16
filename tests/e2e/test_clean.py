@@ -68,3 +68,27 @@ def test_clean_force_all_without_gitnested(foo_bar_cloned):
 
     assert result.output.strip() == "removed branch 'nested/bar'"
     assert _leftovers(env, foo) == ('', False)
+
+
+def test_clean_removes_the_empty_directories(foo_bar_cloned):
+    """Nothing is left of .git/tmp once the last worktree is gone."""
+    env = foo_bar_cloned
+    foo = env.workspace / 'foo'
+    cmd_git_nested(['clone', (env.upstream / 'bar').as_posix(), 'ext/deep/lib2'], foo)
+    cmd_git_nested('branch ext/deep/lib2', cwd=foo)
+
+    cmd_git_nested('clean ext/deep/lib2', cwd=foo)
+
+    assert not (foo / '.git' / 'tmp').exists()
+
+
+def test_clean_keeps_the_directories_around_a_worktree_of_its_own(foo_bar_cloned_and_nested, tmp_path):
+    """A worktree put elsewhere with -d goes, the directory it was in stays."""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    cmd_git_nested(['branch', '-d', (tmp_path / 'outside' / 'wt').as_posix(), 'bar'], foo)
+
+    cmd_git_nested('clean bar', cwd=foo)
+
+    assert not (tmp_path / 'outside' / 'wt').exists()
+    assert (tmp_path / 'outside').is_dir()
