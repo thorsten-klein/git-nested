@@ -6,12 +6,14 @@ on:
   pull_request:
     branches: ['**']
 
-# One run per branch/PR at a time. A run in progress always finishes, so its
-# full results stay visible; a newer push waits for it instead of cancelling
-# it (only the newest waiting run is kept).
+# One run per branch/PR at a time. On a PR a newer push cancels the run in
+# progress: only the newest commit's results matter there, and waiting for a
+# superseded run would hold its checks back by the length of a whole run. On
+# main every run finishes, so each merged commit keeps its full results (a
+# newer push waits; only the newest waiting run is kept).
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Builds the standalone executable with the very script the release uses
