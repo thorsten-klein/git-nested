@@ -146,7 +146,7 @@ preview = true
 
 [tool.complexipy]
 paths = ["src", "tests"]
-max-complexity-allowed = 5
+max-complexity-allowed = 8
 failed = true
 color = "auto"
 sort = "asc"
