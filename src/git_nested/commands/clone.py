@@ -33,7 +33,10 @@ def do_clone(
     if flags.force and gitnested.is_file():
         fetched = fetch.do_fetch(git, config, subref)
         recorded = NestedConfig.from_file(gitnested)
+        # A given URL wins over the recorded remote.
+        given_remote = config.remote
         config = gitfile.read_config(gitnested, flags)
+        config.remote = given_remote or config.remote
         output.verbose("checking whether it is already up to date")
         # The same commit on another branch or remote is still a switch to record.
         if (fetched, config.branch, config.remote) == (recorded.commit, recorded.branch, recorded.remote):

@@ -80,3 +80,23 @@ def test_pull_force_switches_to_a_remote_on_the_same_commit(foo_bar_cloned_and_n
 
     gitnested = yaml.safe_load((env.workspace / 'foo' / 'bar' / '.gitnested').read_text())['nested']
     assert gitnested['remote'] == mirror
+
+
+def test_clone_force_with_a_new_url_switches_the_remote(foo_bar_cloned_and_nested):
+    """The URL given replaces the recorded remote, for fetching and in .gitnested."""
+    env = foo_bar_cloned_and_nested
+    moved = env.upstream / 'bar2'
+    env.run(['git', 'clone', '--bare', (env.upstream / 'bar').as_posix(), moved.as_posix()])
+    clone = env.workspace / 'bar2'
+    env.run(['git', 'clone', moved.as_posix(), clone.as_posix()])
+    (clone / 'only_in_moved').write_text('x')
+    env.run(['git', 'add', 'only_in_moved'], cwd=clone)
+    env.run(['git', 'commit', '-m', 'b'], cwd=clone)
+    env.run(['git', 'push', 'origin', 'HEAD'], cwd=clone)
+
+    cp = cmd_git_nested(f'clone -f {moved.as_posix()} bar', cwd=env.workspace / 'foo')
+
+    assert cp.output.strip() == f"bar: cloned from {moved.as_posix()} (master)"
+    assert (env.workspace / 'foo' / 'bar' / 'only_in_moved').exists()
+    recorded = yaml.safe_load((env.workspace / 'foo' / 'bar' / '.gitnested').read_text())
+    assert recorded['nested']['remote'] == moved.as_posix()
