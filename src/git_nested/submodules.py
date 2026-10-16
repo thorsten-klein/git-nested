@@ -54,5 +54,5 @@ def warn_if_any(git: GitRunner, subdir: Path) -> None:
     if paths:
         output.warn(
             f"{subdir.as_posix()}: these submodules stay empty: {', '.join(paths)}; "
-            "clone with --recurse-submodules to nest them"
+            "use --recurse-submodules to nest them"
         )

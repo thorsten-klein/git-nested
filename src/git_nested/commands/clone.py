@@ -92,12 +92,15 @@ def _clone_into(
         submodules.warn_if_any(git, subdir)
 
 
-def nest_submodules(git: GitRunner, flags: Flags, subdir: Path, remote: str) -> None:
+def nest_submodules(git: GitRunner, flags: Flags, subdir: Path, remote: str, only: set[str] | None = None) -> None:
     """Turn each submodule under subdir into a nested repository, at the commit it pins.
 
-    Each one is cloned with -b <commit>, so it stays at that commit.
+    Each one is cloned with -b <commit>, so it stays at that commit. With
+    `only`, just the submodules at those paths.
     """
     for path, pinned in submodules.gitlinks(git, subdir):
+        if only is not None and path not in only:
+            continue
         url = submodules.url_of(git, subdir / '.gitmodules', path.removeprefix(f'{subdir.as_posix()}/'), remote)
         if url is None:
             output.warn(f"{path}: .gitmodules has no url for it, so it stays empty")

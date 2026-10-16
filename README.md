@@ -224,6 +224,10 @@ If upstream has submodules, `--recurse-submodules` nests them too. Each one
 stays at the commit upstream pins. Without it they stay empty, and
 git-nested says so.
 
+`pull` keeps them nested and moves each to the commit upstream pins after
+the pull. `pull --recurse-submodules` also nests new ones. `push` sends
+them to upstream as submodules again.
+
 #### `git nested init`
 
 Turn an existing subdirectory into a nested repository.
