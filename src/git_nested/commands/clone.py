@@ -39,9 +39,7 @@ def do_clone(
         config = gitfile.read_config(gitnested, flags)
         config.remote = given_remote or config.remote
         output.verbose("checking whether it is already up to date")
-        # The same commit on another branch or remote is still a switch to record.
-        same_source = (fetched, config.branch, config.remote) == (recorded.commit, recorded.branch, recorded.remote)
-        if same_source and _content_matches(git, config, subdir, fetched):
+        if _is_up_to_date(git, config, recorded, subdir, fetched):
             return config, True
         output.verbose("removing the existing subdir")
         git.run(['rm', '-r', '--', subdir])
@@ -52,13 +50,16 @@ def do_clone(
     return config, False
 
 
-def _content_matches(git: GitRunner, config: NestedConfig, subdir: Path, upstream_commit: str) -> bool:
+def _is_up_to_date(git: GitRunner, config: NestedConfig, recorded: NestedConfig, subdir: Path, fetched: str) -> bool:
+    """Whether a reclone would change nothing: same source, and the local content is upstream's."""
+    # The same commit on another branch or remote is still a switch to record.
+    same_source = (fetched, config.branch, config.remote) == (recorded.commit, recorded.branch, recorded.remote)
+    return same_source and _content_matches(git, subdir, fetched)
+
+
+def _content_matches(git: GitRunner, subdir: Path, upstream_commit: str) -> bool:
     """Whether subdir at HEAD holds the upstream tree, ignoring its top-level .gitnested files."""
-    if config.filter:
-        return False
-    local = git.check_output(['rev-parse', f'HEAD:{subdir.as_posix()}'], may_fail=True)
-    if not local:
-        return False
+    local = git.check_output(['rev-parse', f'HEAD:{subdir.as_posix()}'])
     changed = git.check_output(['diff-tree', '-r', '--name-only', f'{upstream_commit}^{{tree}}', local])
     return all(Path(name).name.startswith(GITNESTED_FILENAME) and '/' not in name for name in changed.splitlines())
 
