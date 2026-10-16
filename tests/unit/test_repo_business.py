@@ -185,6 +185,7 @@ def test_status_for_subdir_lists_the_refs_when_verbose(tmp_path, monkeypatch):
     git = (
         FakeGit()
         .respond('check-ref-format')
+        .respond('rev-parse', '--git-dir', '--git-common-dir', stdout='.git\n.git')
         .respond('rev-parse', '--short', 'refs/nested/sub/fetch', returncode=1)
         .respond('rev-parse', '--short', 'abc', stdout='abc')
         .respond('config', returncode=1)
@@ -201,6 +202,7 @@ def test_status_details_with_branch_and_remote_present():
     git = (
         FakeGit()
         .respond('config', '--get', 'nested.sub.branchname', returncode=1)
+        .respond('rev-parse', '--git-dir', '--git-common-dir', stdout='.git\n.git')
         .respond('rev-list', 'refs/heads/nested/sub', returncode=0)
         .respond('config', 'remote.nested/sub.url', stdout='https://example.com/x.git')
         .respond('worktree', 'list', stdout='')

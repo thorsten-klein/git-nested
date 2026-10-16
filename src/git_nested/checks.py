@@ -26,7 +26,8 @@ def check_repository(git: GitRunner, command: str) -> tuple[Path | None, str | N
         # the only line the user sees.
         raise GitNestedError("not inside a git repository") from None
 
-    git_tmp = Path(git.check_output(['rev-parse', '--git-common-dir'])) / 'tmp'
+    # Per worktree of this repository, so they do not block each other.
+    git_tmp = Path(git.check_output(['rev-parse', '--git-dir'])) / 'tmp'
 
     # A real branch, not a nested branch and not a detached HEAD
     current_branch = git.check_output(['symbolic-ref', '--short', '--quiet', 'HEAD'], may_fail=True)

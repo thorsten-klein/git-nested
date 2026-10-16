@@ -21,13 +21,24 @@ def _branch_name_key(subref: str) -> str:
     return f'nested.{subref}.branchname'
 
 
-def _default_branch(subref: str) -> str:
-    """'nested/<subref>', with '/' in subref escaped.
+def worktree_suffix(git: GitRunner) -> str:
+    """'@<name>' in a linked worktree of this repository, '' in the main one.
+
+    So the worktrees of this repository each get their own nested branches.
+    """
+    git_dir, common_dir = git.check_output(['rev-parse', '--git-dir', '--git-common-dir']).splitlines()
+    if Path(git_dir).resolve() == Path(common_dir).resolve():
+        return ''
+    return f'@{Path(git_dir).name}'
+
+
+def _default_branch(git: GitRunner, subref: str) -> str:
+    """'nested/<subref>', with '/' in subref escaped, and the worktree suffix.
 
     git can't have both nested/lib and nested/lib/inner. So lib/inner gets
     nested/lib%2Finner.
     """
-    return 'nested/' + subref.replace('/', '%2F')
+    return 'nested/' + subref.replace('/', '%2F') + worktree_suffix(git)
 
 
 def nested_branch(git: GitRunner, subref: str) -> str:
@@ -37,12 +48,12 @@ def nested_branch(git: GitRunner, subref: str) -> str:
     That name is kept in .git/config, so every other command finds it too.
     """
     recorded = git.check_output(['config', '--get', _branch_name_key(subref)], may_fail=True)
-    return recorded or _default_branch(subref)
+    return recorded or _default_branch(git, subref)
 
 
 def record_nested_branch(git: GitRunner, subref: str, branch: str | None) -> None:
     """Record `branch` as the nested branch of `subref`; None, or the default name, forgets it."""
-    if branch and branch != _default_branch(subref):
+    if branch and branch != _default_branch(git, subref):
         git.run(['config', _branch_name_key(subref), branch])
     else:
         # exits 5 when there is nothing to unset, which is just as good

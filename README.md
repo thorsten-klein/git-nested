@@ -303,6 +303,8 @@ A `/` in `<subdir>` becomes `%2F` in the branch name: `lib/inner` gets
 `nested/lib%2Finner`. So it does not clash with `nested/lib`.
 A branch named `nested` blocks the `nested/<subdir>` branches. Rename it, or
 use `--name`.
+In a linked worktree of the repository, the branch gets the worktree's name:
+`nested/lib@wt`. So worktrees do not block each other.
 
 ```bash
 git nested branch --help

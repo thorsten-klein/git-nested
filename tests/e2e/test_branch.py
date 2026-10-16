@@ -489,3 +489,32 @@ def test_name_gets_past_a_branch_named_nested(foo_bar_cloned_and_nested):
     cmd_git_nested('push bar', cwd=foo)
 
     env.run(['git', 'cat-file', '-e', 'foo-master:from-foo'], cwd=env.upstream / 'bar')
+
+
+def test_worktrees_of_the_parent_do_not_block_each_other(foo_bar_cloned_and_nested):
+    """Each worktree of the parent repository has its own nested branch and worktree."""
+    env = foo_bar_cloned_and_nested
+    foo, wt = env.workspace / 'foo', env.workspace / 'wt'
+    env.run(['git', 'worktree', 'add', '-q', '-b', 'other', wt.as_posix()], cwd=foo)
+
+    cmd_git_nested('branch bar', cwd=foo)
+    result = cmd_git_nested('branch bar', cwd=wt)
+
+    assert result.output.strip().startswith("bar: branch nested/bar@wt created, worktree at ")
+    assert (foo / '.git' / 'worktrees' / 'wt' / 'tmp' / 'nested' / 'bar@wt').is_dir()
+    cmd_git_nested('clean --force --all', cwd=wt)
+    branches = env.run(['git', 'branch', '--list', 'nested/*', '--format=%(refname:short)'], cwd=foo).output.split()
+    assert branches == ['nested/bar']
+
+
+def test_clean_all_in_the_main_worktree_keeps_the_branches_of_others(foo_bar_cloned_and_nested):
+    """clean --force --all only sweeps the nested branches of its own worktree."""
+    env = foo_bar_cloned_and_nested
+    foo, wt = env.workspace / 'foo', env.workspace / 'wt'
+    env.run(['git', 'worktree', 'add', '-q', '-b', 'other', wt.as_posix()], cwd=foo)
+    cmd_git_nested('branch bar', cwd=wt)
+
+    cmd_git_nested('clean --force --all', cwd=foo)
+
+    branches = env.run(['git', 'branch', '--list', 'nested/*', '--format=%(refname:short)'], cwd=foo).output.split()
+    assert branches == ['nested/bar@wt']
