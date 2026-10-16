@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .. import output, refs, worktree
+from .. import discovery, output, refs, worktree
 from ..cli import setup
 from ..git import GitRunner
 from ..models import CommandContext, Flags
@@ -12,19 +12,21 @@ from ..models import CommandContext, Flags
 
 def do_clean(git: GitRunner, flags: Flags, subdir: Path, git_tmp: Path) -> list[str]:
     """Clean nested branches and refs."""
-    items = []
     subref = refs.sanitize_subref(git, subdir.as_posix())
-    branch = refs.nested_branch(git, subref)
-    worktree.remove_worktree(git, worktree.find_worktree(git, branch) or git_tmp / branch)
-
-    if git.branch_exists(branch):
-        git.run(['update-ref', '-d', f'refs/heads/{branch}'])
-        items.append(f"branch '{branch}'")
+    items = _delete_branch(git, refs.nested_branch(git, subref), git_tmp)
     refs.record_nested_branch(git, subref, None)
-
     if flags.force:
-        _delete_refs(git, '' if flags.all else f'{subref}/')
+        _delete_refs(git, f'{subref}/')
     return items
+
+
+def _delete_branch(git: GitRunner, branch: str, git_tmp: Path) -> list[str]:
+    """Remove `branch` and its worktree; return what was removed."""
+    worktree.remove_worktree(git, worktree.find_worktree(git, branch) or git_tmp / branch)
+    if not git.branch_exists(branch):
+        return []
+    git.run(['update-ref', '-d', f'refs/heads/{branch}'])
+    return [f"branch '{branch}'"]
 
 
 def _delete_refs(git: GitRunner, suffix: str) -> None:
@@ -36,8 +38,27 @@ def _delete_refs(git: GitRunner, suffix: str) -> None:
             git.run(['update-ref', '-d', parts[1]])
 
 
+def _clean_all(git: GitRunner, flags: Flags, git_tmp: Path) -> list[str]:
+    """Clean every nested repository; with --force also what is left of former ones."""
+    items = [
+        item
+        for subdir in discovery.find_all_nested_repositories(git, flags)
+        for item in do_clean(git, flags, subdir, git_tmp)
+    ]
+    if flags.force:
+        # Their .gitnested may be gone, so they are found by branch name.
+        leftover = git.check_output(['for-each-ref', '--format=%(refname:short)', 'refs/heads/nested/'])
+        items += [item for branch in leftover.splitlines() for item in _delete_branch(git, branch, git_tmp)]
+        _delete_refs(git, '')
+    return items
+
+
 def cmd_clean(ctx: CommandContext) -> None:
-    """Remove branches, remotes and refs for a nested repo."""
-    subdir, _, _, _ = setup.setup_command(ctx.git, 'clean', ctx.flags, ctx.subdir, ctx.upstream)
-    for item in do_clean(ctx.git, ctx.flags, subdir, ctx.tmp):
+    """Remove branches, remotes and refs for a nested repo, or for all of them."""
+    if ctx.flags.all:
+        items = _clean_all(ctx.git, ctx.flags, ctx.tmp)
+    else:
+        subdir, _, _, _ = setup.setup_command(ctx.git, 'clean', ctx.flags, ctx.subdir, ctx.upstream)
+        items = do_clean(ctx.git, ctx.flags, subdir, ctx.tmp)
+    for item in items:
         output.say(f"removed {item}")
