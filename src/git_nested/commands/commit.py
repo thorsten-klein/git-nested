@@ -18,7 +18,7 @@ def cmd_commit(ctx: CommandContext) -> None:
 
     refs_fetch = f'refs/nested/{subref}/fetch'
     if not git.rev_exists(refs_fetch):
-        output.error(f"no ref {refs_fetch}; run 'git nested fetch' first, or pass -F")
+        output.error(f"no ref {refs_fetch}; run 'git nested fetch {subdir.as_posix()}' first, or pass -F")
 
     branch = refs.nested_branch(git, subref)
     nested_commit_ref = ctx.nested_commit_ref or branch

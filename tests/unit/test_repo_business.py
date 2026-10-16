@@ -309,7 +309,7 @@ def test_check_rebase_safety_raises_when_gitrepo_commit_unreachable_locally():
         .respond('rev-list', 'deadbeef', returncode=1)
     )
     with pytest.raises(GitNestedError, match="is missing locally"):
-        history._check_rebase_safety(git, 'pull', 'sub', 'deadbeef')
+        history._check_rebase_safety(git, 'pull', Path('sub'), 'sub', 'deadbeef')
 
 
 # ============================================================================
