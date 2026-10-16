@@ -16,8 +16,9 @@ from .models import Flags, NestedConfig
 
 def find_all_nested_repositories(git: GitRunner, flags: Flags) -> list[Path]:
     """Find all nested repositories in repository; only the outermost ones unless --ALL."""
-    tracked_files = git.check_output(['ls-files'])
-    paths = sorted(Path(line).parent for line in tracked_files.splitlines() if line.endswith(GITNESTED_FILENAME))
+    # -z: without it git quotes non-ASCII paths, and they would not match.
+    tracked_files = git.check_output(['ls-files', '-z']).split('\0')
+    paths = sorted(Path(line).parent for line in tracked_files if line.endswith(GITNESTED_FILENAME))
     if flags.all_deep:
         return paths
     return [p for p in paths if not any(p.is_relative_to(other) for other in paths if p != other)]

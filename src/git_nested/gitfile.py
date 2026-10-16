@@ -38,7 +38,7 @@ def create_level_gitnested_files(git: GitRunner, subdir: Path, level: int | None
     even when they are nested within another nested repository. `level` is
     auto-detected from existing level files when not given.
     """
-    tracked = git.check_output(['ls-files', '--', subdir], may_fail=True).splitlines()
+    tracked = git.check_output(['ls-files', '-z', '--', subdir], may_fail=True).split('\0')
     level = level or _next_level(subdir, tracked)
     own = f'{subdir.as_posix()}/{GITNESTED_FILENAME}'
     for path in tracked:
