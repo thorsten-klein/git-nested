@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import dataclasses
 from pathlib import Path
 
 from .. import content, discovery, gitfile, output, refs, worktree
@@ -33,7 +32,14 @@ def _fetch_push_target(git: GitRunner, flags: Flags, config: NestedConfig, branc
 
 
 def _build_push_branch(
-    git: GitRunner, flags: Flags, config: NestedConfig, subdir: Path, gitnested: Path, git_tmp: Path, subref: str
+    git: GitRunner,
+    flags: Flags,
+    config: NestedConfig,
+    subdir: Path,
+    gitnested: Path,
+    git_tmp: Path,
+    subref: str,
+    upstream_head: str | None,
 ) -> str:
     """Build the nested branch to push, rebased onto the fetched upstream when that is the method."""
     branch = refs.nested_branch(git, subref)
@@ -41,7 +47,7 @@ def _build_push_branch(
     subdir_worktree = content.create_nested_branch(
         git=git,
         flags=flags,
-        config=dataclasses.replace(config, parent='HEAD^') if flags.squash else config,
+        config=config,
         branch=branch,
         subdir=subdir,
         gitnested=gitnested,
@@ -55,7 +61,28 @@ def _build_push_branch(
         except GitNestedError:
             worktree.delete_branch(git, branch, git_tmp)
             output.error(f"{subdir.as_posix()}: git rebase failed, so nothing was pushed")
+    if flags.squash:
+        _squash(git, flags, branch, upstream_head or config.commit)
     return branch
+
+
+def _squash(git: GitRunner, flags: Flags, branch: str, upstream: str) -> None:
+    """Make `branch` one commit on top of where it meets `upstream`.
+
+    The message is -m or --file. Else it lists the squashed commits.
+    """
+    base = git.check_output(['merge-base', branch, upstream], may_fail=True) if upstream else ''
+    subjects = git.check_output(['log', '--reverse', '--format=%s', *([f'{base}..{branch}'] if base else [branch])])
+    lines = subjects.splitlines()
+    if len(lines) == 1:
+        message = git.check_output(['log', '-1', '--format=%B', branch])
+    else:
+        message = f"Squash {len(lines)} commits\n\n" + "\n".join(f"- {line}" for line in lines)
+    message = flags.message or message
+    parent = ['-p', base] if base else []
+    source = flags.message_file or '-'
+    squashed = git.check_output(['commit-tree', *parent, '-F', source, f'{branch}^{{tree}}'], input=message)
+    git.run(['update-ref', f'refs/heads/{branch}', squashed])
 
 
 def do_push(
@@ -79,7 +106,7 @@ def do_push(
     if branch is not None:
         return _push(git, flags, config, subref, branch, branch_name, None)
     upstream_head = _fetch_push_target(git, flags, config, branch_name)
-    built = _build_push_branch(git, flags, config, subdir, gitnested, git_tmp, subref)
+    built = _build_push_branch(git, flags, config, subdir, gitnested, git_tmp, subref, upstream_head)
     try:
         return _push(git, flags, config, subref, built, branch_name, upstream_head)
     finally:
