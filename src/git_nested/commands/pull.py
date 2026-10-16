@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .. import content, filters, messages, output, refs, worktree
+from .. import content, filters, history, messages, output, refs, submodules, worktree
 from ..cli import setup
 from ..errors import GitNestedError
 from ..git import GitRunner
@@ -88,6 +88,8 @@ def cmd_pull(ctx: CommandContext) -> None:
         output.say(f"{subdir.as_posix()}: {verb} {config.remote} ({config.branch})")
         return
 
+    # Submodules of upstream that are nested now stay nested, at the commit upstream pins after the pull
+    nested_before = {f'{subdir.as_posix()}/{path}' for path in history.gitlinked_inner(git, config, subdir)}
     pulled = do_pull(git, flags, config, subdir, gitnested, ctx.tmp, subref)
     if pulled is None:
         output.say(f"{subdir.as_posix()}: already up to date with {config.remote} ({config.branch})")
@@ -107,4 +109,6 @@ def cmd_pull(ctx: CommandContext) -> None:
         subdir_worktree=subdir_worktree,
         command='pull',
     )
+    clone.nest_submodules(git, flags, subdir, config.remote, None if flags.recurse_submodules else nested_before)
+    submodules.warn_if_any(git, subdir)
     output.say(f"{subdir.as_posix()}: pulled from {config.remote} ({config.branch})")

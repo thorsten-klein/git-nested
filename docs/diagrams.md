@@ -256,6 +256,10 @@ sequenceDiagram
             git-nested->>Git: update-ref refs/nested/<subref>/commit <nested_commit_ref>
         end
     end
+
+    opt Submodules of upstream that were nested, or --recurse-submodules
+        Note over git-nested: Nest each at the commit upstream pins now (as in clone)
+    end
 ```
 
 ---

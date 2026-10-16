@@ -101,6 +101,7 @@ class _Replay:
     index_env: dict[str, str]
     removed: list[str]
     sign: bool = False
+    gitlinked: tuple[str, ...] = ()
     nested: dict[str, str] = field(default_factory=dict)
     joined: dict[str, str | None] = field(default_factory=dict)
     trees: dict[str, str] = field(default_factory=dict)
@@ -158,7 +159,19 @@ class _Replay:
         self.git.run(['read-tree', f'{commit}:{self.subdir.as_posix()}'], env=self.index_env)
         # -f: this index has nothing to do with the working tree
         self.git.run(['rm', '--cached', '-r', '-q', '-f', '--ignore-unmatch', '--', *self.removed], env=self.index_env)
+        for path in self.gitlinked:
+            self._as_gitlink(commit, path)
         return self.git.check_output(['write-tree'], env=self.index_env)
+
+    def _as_gitlink(self, commit: str, path: str) -> None:
+        """Put the inner nested repository at `path` back as the submodule it came from.
+
+        Its gitlink pins the commit its .gitnested records in `commit`.
+        """
+        pinned = _recorded_commit(self.git, commit, self.subdir / path / GITNESTED_FILENAME)
+        if pinned:
+            self.git.run(['rm', '--cached', '-r', '-q', '-f', '--ignore-unmatch', '--', path], env=self.index_env)
+            self.git.run(['update-index', '--add', '--cacheinfo', f'160000,{pinned},{path}'], env=self.index_env)
 
 
 def _usable_parent(git: GitRunner, parent: str, gitnested: Path, subdir: Path) -> str:
@@ -216,11 +229,13 @@ def create_branch(
     upstream must not get.
     """
     parent = _usable_parent(git, config.parent, gitnested, subdir) if config.parent else ''
-    removed = [GITNESTED_FILENAME, *(_local_only_paths(git, config, subdir) if command == 'push' else [])]
+    gitlinked = gitlinked_inner(git, config, subdir)
+    local_only = _local_only_paths(git, config, subdir, gitlinked) if command == 'push' else []
+    removed = [GITNESTED_FILENAME, *local_only]
     merge = (flags.method or config.method) != 'rebase'
     with tempfile.TemporaryDirectory() as tmp:
         index_env = {**os.environ, 'GIT_INDEX_FILE': str(Path(tmp) / 'index')}
-        replay = _Replay(git, subdir, subref, command, merge, index_env, removed, sign=flags.gpg_sign)
+        replay = _Replay(git, subdir, subref, command, merge, index_env, removed, flags.gpg_sign, gitlinked)
         if parent:
             built = _replay_into_branch(replay, ['--ancestry-path', f'{parent}..HEAD'], branch, plain=False)
         else:
@@ -233,11 +248,29 @@ def create_branch(
         )
 
 
-def _local_only_paths(git: GitRunner, config: NestedConfig, subdir: Path) -> list[str]:
+def gitlinked_inner(git: GitRunner, config: NestedConfig, subdir: Path) -> tuple[str, ...]:
+    """The inner nested repositories that are submodules in the recorded upstream commit, relative to subdir."""
+    if not config.commit:
+        return ()
+    prefix = f'{subdir.as_posix()}/'
+    inner = [
+        PurePosixPath(path.removeprefix(prefix)).parent.as_posix()
+        for path in git.check_output(['ls-tree', '-r', '-z', '--name-only', 'HEAD', '--', subdir]).split('\0')
+        if PurePosixPath(path).name == GITNESTED_FILENAME and path != f'{prefix}{GITNESTED_FILENAME}'
+    ]
+    return tuple(
+        path
+        for path in inner
+        if git.check_output(['ls-tree', config.commit, '--', path], may_fail=True).startswith('160000 ')
+    )
+
+
+def _local_only_paths(git: GitRunner, config: NestedConfig, subdir: Path, gitlinked: tuple[str, ...]) -> list[str]:
     """The paths in subdir that upstream must not get, relative to subdir.
 
     These are the .gitnested.levelN files, and the nested repositories added
-    in this repository. A nested repository that upstream has stays.
+    in this repository. A nested repository that upstream has stays, also as
+    a submodule.
     """
     paths = []
     prefix = f'{subdir.as_posix()}/'
@@ -245,7 +278,12 @@ def _local_only_paths(git: GitRunner, config: NestedConfig, subdir: Path) -> lis
         relative = PurePosixPath(path.removeprefix(prefix))
         if re.fullmatch(r'\.gitnested\.level\d+', relative.name):
             paths.append(relative.as_posix())
-        elif relative.name == GITNESTED_FILENAME and relative.parent.name and not _upstream_has(git, config, relative):
+        elif (
+            relative.name == GITNESTED_FILENAME
+            and relative.parent.name
+            and relative.parent.as_posix() not in gitlinked
+            and not _upstream_has(git, config, relative)
+        ):
             paths.append(relative.parent.as_posix())
     return paths
 

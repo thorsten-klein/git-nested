@@ -22,4 +22,7 @@ def test_submodule(foo_bar_cloned):
     # Pull and verify
     result = cmd_git_nested('pull bar', cwd=env.workspace / 'foo')
 
-    assert result.output.strip() == "bar: pulled from ../bar (master)"
+    assert result.output.strip() == (
+        "git-nested: bar: these submodules stay empty: submodule; use --recurse-submodules to nest them\n"
+        "bar: pulled from ../bar (master)"
+    )

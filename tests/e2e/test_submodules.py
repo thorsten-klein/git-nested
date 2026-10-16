@@ -21,9 +21,7 @@ def test_clone_warns_about_submodules(foo_bar_cloned):
 
     result = cmd_git_nested(['clone', (env.upstream / 'bar').as_posix()], env.workspace / 'foo')
 
-    assert "git-nested: bar: these submodules stay empty: sub; clone with --recurse-submodules to nest them" in (
-        result.output
-    )
+    assert "git-nested: bar: these submodules stay empty: sub; use --recurse-submodules to nest them" in (result.output)
 
 
 def test_clone_recurse_submodules_nests_them(foo_bar_cloned):
@@ -81,3 +79,45 @@ def test_init_from_submodule_refuses_a_directory(foo_bar_cloned):
 
     assert result.returncode == 1
     assert result.output.strip() == "git-nested: plain: is not a submodule"
+
+
+def _bump_the_submodule(env):
+    """Give upstream foo a new commit, and make upstream bar pin it. Return that commit."""
+    other = env.workspace / 'foo-other'
+    env.run(['git', 'clone', '-q', (env.upstream / 'foo').as_posix(), other.as_posix()])
+    env.add_new_files('FooNew', cwd=other)
+    env.run(['git', 'push', '-q'], cwd=other)
+    bar = env.workspace / 'bar'
+    env.run(['git', 'pull', '-q'], cwd=bar / 'sub')
+    env.run(['git', 'commit', '-qam', 'bump sub'], cwd=bar)
+    env.run(['git', 'push', '-q'], cwd=bar)
+    return git_rev_parse(['HEAD'], cwd=bar / 'sub')
+
+
+def test_pull_follows_a_submodule_that_upstream_moved(foo_bar_cloned):
+    """A nested submodule moves to the commit upstream pins now."""
+    env = foo_bar_cloned
+    foo = env.workspace / 'foo'
+    _bar_with_a_submodule(env)
+    cmd_git_nested(['clone', '--recurse-submodules', (env.upstream / 'bar').as_posix()], foo)
+    pinned = _bump_the_submodule(env)
+
+    cmd_git_nested('pull bar', cwd=foo)
+
+    assert (foo / 'bar' / 'sub' / 'FooNew').is_file()
+    assert_gitnested_field(foo / 'bar' / 'sub' / '.gitnested', commit=pinned)
+    assert env.run(['git', 'status', '--porcelain'], cwd=foo).output == ''
+
+
+def test_push_keeps_the_submodule_of_upstream(foo_bar_cloned):
+    """A push sends the submodule as the gitlink upstream had, not its files, and does not drop it."""
+    env = foo_bar_cloned
+    foo = env.workspace / 'foo'
+    pinned = _bar_with_a_submodule(env)
+    cmd_git_nested(['clone', '--recurse-submodules', (env.upstream / 'bar').as_posix()], foo)
+    env.add_new_files('bar/from-foo', cwd=foo)
+
+    cmd_git_nested('push -b master bar', cwd=foo)
+
+    entry = env.run(['git', 'ls-tree', 'master', 'sub'], cwd=env.upstream / 'bar').output.split()
+    assert entry[:3] == ['160000', 'commit', pinned]
