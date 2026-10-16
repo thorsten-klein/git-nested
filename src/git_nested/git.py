@@ -35,12 +35,31 @@ class GitRunner:
         kwargs['env'] = env
         # git writes paths and messages as UTF-8, whatever the locale (cp1252 on
         # Windows). surrogateescape keeps paths that are not UTF-8 intact.
+        # stderr=None lets git's stderr through to the terminal
+        kwargs.setdefault('stderr', subprocess.PIPE)
         result = subprocess.run(
-            cmd, capture_output=True, text=True, encoding='utf-8', errors='surrogateescape', check=False, **kwargs
+            cmd,
+            stdout=subprocess.PIPE,
+            text=True,
+            encoding='utf-8',
+            errors='surrogateescape',
+            check=False,
+            **kwargs,
         )
         if result.returncode != 0 and not may_fail:
-            raise GitNestedError(f"command failed: {' '.join(cmd)}\n{result.stderr!s}")
+            raise GitNestedError(f"command failed: {' '.join(cmd)}\n{result.stderr or ''}")
         return result
+
+    def network(self, args: list[str], what: str, may_fail: bool = False) -> subprocess.CompletedProcess:
+        """Run a git command that contacts a remote, saying `what` first.
+
+        In a terminal, fetch and push show git's own progress.
+        """
+        output.network(what)
+        if not (output.interactive() and args[0] in ('fetch', 'push')):
+            return self.run(args, may_fail)
+        progress = [args[0], '--progress', *(arg for arg in args[1:] if arg != '--quiet')]
+        return self.run(progress, may_fail, stderr=None)
 
     def check_output(self, args: Sequence[str | Path], may_fail: bool = False, **kwargs: Any) -> str:  # noqa: ANN401
         """Run git command and return its stripped stdout."""

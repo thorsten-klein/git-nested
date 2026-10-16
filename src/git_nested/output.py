@@ -130,6 +130,22 @@ def set_level(flags: Flags) -> None:
         LOGGER.setLevel({0: logging.INFO, 1: logging.DEBUG}.get(flags.verbose, TRACE))
 
 
+def interactive() -> bool:
+    """Whether a person watches: stderr is a terminal, and -q is not given."""
+    return _HANDLER in LOGGER.handlers and LOGGER.isEnabledFor(logging.INFO) and sys.stderr.isatty()
+
+
+def network(msg: str) -> None:
+    """Say that git contacts a remote now; in a terminal by default, else with -v.
+
+    So a prompt for a password or a key touch has a reason.
+    """
+    if interactive():
+        say(msg)
+    else:
+        verbose(msg)
+
+
 def payload(text: str) -> None:
     """Write a command's actual result to stdout, whatever the level.
 

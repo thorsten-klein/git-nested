@@ -36,6 +36,7 @@ sequenceDiagram
     rect rgb(230, 245, 255)
         Note over git-nested,Git: do_fetch
         git-nested->>Git: fetch --no-tags --quiet <remote> <branch>
+        Note over git-nested: In a terminal: --progress, not --quiet, and a line naming the remote
         git-nested->>Git: rev-parse FETCH_HEAD^0
         git-nested->>Git: update-ref refs/nested/<subref>/fetch FETCH_HEAD^0
     end
