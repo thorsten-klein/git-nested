@@ -27,6 +27,8 @@ class Flags:
     force: bool = False
     from_submodule: bool = False
     recurse_submodules: bool = False
+    gpg_sign: bool = False
+    signoff: bool = False
     fetch: bool = False
     message: str | None = None
     message_file: str | None = None

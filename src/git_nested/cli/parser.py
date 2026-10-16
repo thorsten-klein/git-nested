@@ -68,6 +68,8 @@ def _flags_from_args(args: argparse.Namespace) -> Flags:
         force=getattr(args, 'force', False),
         from_submodule=getattr(args, 'from_submodule', False),
         recurse_submodules=getattr(args, 'recurse_submodules', False),
+        gpg_sign=getattr(args, 'gpg_sign', False),
+        signoff=getattr(args, 'signoff', False),
         fetch=getattr(args, 'fetch_flag', False),
         squash=getattr(args, 'squash', False),
         update=getattr(args, 'update', False),
