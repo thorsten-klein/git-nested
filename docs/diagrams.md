@@ -195,7 +195,7 @@ sequenceDiagram
                 git-nested->>Git: filter-branch -f --subdirectory-filter <subref> nested/<subref>
             end
 
-            git-nested->>Git: filter-branch -f --prune-empty --tree-filter 'rm -f .gitnested' -- <range>
+            git-nested->>Git: filter-branch -f --prune-empty --tree-filter 'rm -rf -- .gitnested' -- <range>
             git-nested->>Git: worktree add <worktree_path> nested/<subref>
             git-nested->>Git: update-ref refs/nested/<subref>/branch nested/<subref>
         end
@@ -281,7 +281,9 @@ sequenceDiagram
         git-nested->>Git: rev-list refs/heads/nested/<subref> -1
         Note over git-nested: (Same branch creation as in pull — see pull diagram)
         git-nested->>Git: branch nested/<subref> <commit>
-        git-nested->>Git: filter-branch -f --prune-empty --tree-filter 'rm -f .gitnested' -- <range>
+        git-nested->>Git: ls-tree -r -z --name-only HEAD -- <subdir>
+        Note over git-nested: Also drop .gitnested.levelN files and inner nested repos upstream does not have
+        git-nested->>Git: filter-branch -f --prune-empty --tree-filter 'rm -rf -- .gitnested <dropped>' -- <range>
         git-nested->>Git: worktree add <worktree_path> nested/<subref>
         git-nested->>Git: update-ref refs/nested/<subref>/branch nested/<subref>
     end
@@ -395,7 +397,7 @@ sequenceDiagram
             git-nested->>Git: filter-branch -f --subdirectory-filter <subref> nested/<subref>
         end
 
-        git-nested->>Git: filter-branch -f --prune-empty --tree-filter 'rm -f .gitnested' -- <range>
+        git-nested->>Git: filter-branch -f --prune-empty --tree-filter 'rm -rf -- .gitnested' -- <range>
         git-nested->>Git: worktree add <dir or .git/tmp/branch> <branch>
         git-nested->>Git: update-ref refs/nested/<subref>/branch <branch>
     end
