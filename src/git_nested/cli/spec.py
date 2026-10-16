@@ -71,7 +71,11 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
         ('-d', '--dir'),
         {'dest': 'dir', 'help': "where to put the worktree; defaults to .git/tmp/nested/<subdir>"},
     ),
-    ('commit', ('-c', '--commit'), {'action': 'store_true', 'help': "record the pushed commit in .gitnested"}),
+    (
+        'commit',
+        ('-c', '--commit'),
+        {'action': 'store_true', 'help': "record the pushed commit in .gitnested; needs a push to the tracked branch"},
+    ),
     ('force', ('-f', '--force'), {'action': 'store_true', 'help': "force the operation"}),
     ('filter', ('--filter',), {'action': 'append', 'help': "only consider this path of the nested repository"}),
     (
