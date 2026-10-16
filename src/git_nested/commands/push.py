@@ -197,6 +197,14 @@ def _skip_read_only(flags: Flags, subdir: Path) -> None:
     output.say(f"{subdir.as_posix()}: skipped, it is read-only")
 
 
+def _default_target(git: GitRunner, config: NestedConfig) -> str:
+    """'<repo>-<branch>', or the tracked branch itself while upstream does not have it yet."""
+    if discovery.has_branch(git, config.remote, config.branch) is False:
+        output.verbose(f"{config.remote} has no branch {config.branch} yet, so the push makes it")
+        return config.branch
+    return f"{Path(git.check_output(['rev-parse', '--show-toplevel'])).name}-{config.branch}"
+
+
 def cmd_push(ctx: CommandContext) -> None:
     """Push local nested repo changes upstream."""
     git, flags, branch = ctx.git, ctx.flags, ctx.nested_commit_ref
@@ -208,7 +216,7 @@ def cmd_push(ctx: CommandContext) -> None:
         raise GitNestedError("--squash can't be combined with an explicit branch")
 
     output.verbose(f"pushing {subdir.as_posix()} upstream")
-    branch_name = flags.branch or f"{Path(git.check_output(['rev-parse', '--show-toplevel'])).name}-{config.branch}"
+    branch_name = flags.branch or _default_target(git, config)
     if flags.commit:
         _check_commit_target(flags, subdir, gitnested, config, branch_name)
     new_commit = do_push(git, flags, config, subdir, gitnested, ctx.tmp, subref, branch_name, branch)

@@ -24,6 +24,15 @@ def find_all_nested_repositories(git: GitRunner, flags: Flags) -> list[Path]:
     return [p for p in paths if not any(p.is_relative_to(other) for other in paths if p != other)]
 
 
+def has_branch(git: GitRunner, remote: str, branch: str) -> bool | None:
+    """Whether `remote` has `branch`; None if git could not tell."""
+    ref = branch if branch.startswith('refs/') else f'refs/heads/{branch}'
+    returncode = git.network(
+        ['ls-remote', '--exit-code', remote, ref], f"asking {remote} for {branch}", may_fail=True
+    ).returncode
+    return {0: True, 2: False}.get(returncode)
+
+
 def get_upstream_branch(git: GitRunner, config: NestedConfig) -> str:
     """Determine upstream default branch."""
     result = git.network(

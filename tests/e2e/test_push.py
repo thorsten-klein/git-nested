@@ -711,3 +711,37 @@ def test_push_all_skips_a_read_only_repository(foo_bar_cloned_and_nested):
     result = cmd_git_nested('push --all', cwd=foo)
 
     assert result.output.strip() == "bar: skipped, it is read-only"
+
+
+def _init_with_an_empty_upstream(env):
+    """A directory 'mine' in foo, nested with an empty upstream that tracks master."""
+    foo = env.workspace / 'foo'
+    empty = env.upstream / 'new'
+    env.run(['git', 'init', '-q', '--bare', empty.as_posix()])
+    env.add_new_files('mine/file', cwd=foo)
+    cmd_git_nested(['init', '-r', empty.as_posix(), '-b', 'master', 'mine'], foo)
+    return foo, empty
+
+
+def test_push_creates_the_tracked_branch_in_an_empty_upstream(foo_bar_cloned):
+    """Without the tracked branch upstream, push makes it, so pull works afterwards."""
+    env = foo_bar_cloned
+    foo, empty = _init_with_an_empty_upstream(env)
+
+    result = cmd_git_nested('push mine', cwd=foo)
+
+    assert result.output.strip() == f"mine: pushed to {empty.as_posix()} (master)"
+    cmd_git_nested('pull mine', cwd=foo)
+
+
+def test_fetch_explains_a_missing_tracked_branch(foo_bar_cloned):
+    """Not git's raw error, but what is missing and how to make it."""
+    env = foo_bar_cloned
+    foo, empty = _init_with_an_empty_upstream(env)
+
+    result = cmd_git_nested('fetch mine', cwd=foo, check=False)
+
+    assert result.returncode == 1
+    assert (
+        result.output.strip() == f"git-nested: {empty.as_posix()} has no branch master yet; 'git nested push' makes it"
+    )
