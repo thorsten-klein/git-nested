@@ -18,7 +18,8 @@ concurrency:
 jobs:
   # Builds the standalone executable with the very script the release uses
   # (scripts/create-python-exe.sh), so a change that breaks the freeze -- a new
-  # import, a moved data file -- fails here rather than on release day. The
+  # import, a moved data file -- fails here rather than on release day. All
+  # three targets, because a break is usually a break on one of them only. The
   # script smoke-tests each binary it produces; release-binary.yml additionally
   # runs the Linux one across distros before attaching it to a release.
   binary:
@@ -26,14 +27,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Linux only for now: the macOS and Windows targets made every PR
-          # wait for their slow runners. release-binary.yml still builds all
-          # three; to check them on PRs again, add back
-          #   - {target: macos, runs-on: macos-latest, container: ''}
-          #   - {target: windows, runs-on: windows-latest, container: ''}
+          # Intel macOS is deliberately absent: those runners are gone, and
+          # the arm64 binary is what a current Mac needs.
           - target: linux
             runs-on: ubuntu-26.04
             container: almalinux:8
+          - target: macos
+            runs-on: macos-latest
+            container: ''
+          - target: windows
+            runs-on: windows-latest
+            container: ''
     uses: ./.github/workflows/build-binary.yml
     with:
       artifact: git-nested-binary-ci-${{ matrix.target }}
@@ -63,15 +67,8 @@ jobs:
       # still show whether Linux and macOS pass.
       fail-fast: false
       matrix:
-        # Every supported Python on Linux; macOS and Windows, whose runners are
-        # far slower, on the newest Python only.
-        os: [ubuntu-26.04]
+        os: [ubuntu-26.04, macos-latest, windows-latest]
         python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
-        include:
-          - os: macos-latest
-            python-version: '3.14'
-          - os: windows-latest
-            python-version: '3.14'
 
     steps:
       - name: Checkout code
