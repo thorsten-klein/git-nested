@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sys
 from typing import TYPE_CHECKING, NoReturn, TextIO
 
@@ -50,6 +51,14 @@ _STYLES: dict[int, tuple[str, str]] = {
 }
 
 
+_USERINFO = re.compile(r'(?<=://)[^/@\s]+@')
+
+
+def redact(text: str) -> str:
+    """Hide the user info (such as a token) of every URL in `text`."""
+    return _USERINFO.sub('***@', text)
+
+
 def _use_colour(stream: TextIO) -> bool:
     """Whether to colour output on `stream`, asked at the moment of writing.
 
@@ -67,7 +76,7 @@ def _use_colour(stream: TextIO) -> bool:
 def _render(record: logging.LogRecord, colour: bool) -> str:
     """One line of output: the level's marker, the message, a newline."""
     marker, sgr = _STYLES[record.levelno]
-    text = f"{marker}{record.getMessage()}"
+    text = f"{marker}{redact(record.getMessage())}"
     if colour and sgr:
         text = f"\033[{sgr}m{text}\033[0m"
     return text + "\n"

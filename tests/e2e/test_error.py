@@ -197,3 +197,12 @@ def test_error_missing_commit_msg_file(foo_bar_cloned):
 
     cp = cmd_git_nested('commit foo --file nonexistent.txt', check=False, cwd=env.workspace / 'bar')
     assert_error(cp, "git-nested: no commit message file at nonexistent.txt", returncode=1)
+
+
+def test_error_does_not_show_credentials_of_the_remote(foo_bar_cloned_and_nested):
+    """The URL's user info is hidden in the error."""
+    env = foo_bar_cloned_and_nested
+    cp = cmd_git_nested('pull -r https://user:secret@example.invalid/x.git bar', check=False, cwd=env.workspace / 'foo')
+    assert cp.returncode != 0
+    assert 'secret' not in cp.output
+    assert 'https://***@example.invalid/x.git' in cp.output
