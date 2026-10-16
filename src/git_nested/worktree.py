@@ -56,6 +56,16 @@ def remove_worktree(git: GitRunner, worktree: Path | None) -> None:
     if worktree and worktree.is_dir():
         shutil.rmtree(worktree)
         git.run(['worktree', 'prune'])
+        _remove_empty_parents(git, worktree)
+
+
+def _remove_empty_parents(git: GitRunner, path: Path) -> None:
+    """Remove the directories above `path` that are now empty, up to .git/tmp."""
+    git_tmp = Path(git.check_output(['rev-parse', '--git-common-dir'])).resolve() / 'tmp'
+    for parent in path.resolve().parents:
+        if not parent.is_relative_to(git_tmp) or any(parent.iterdir()):
+            return
+        parent.rmdir()
 
 
 def delete_branch(git: GitRunner, branch: str, git_tmp: Path) -> None:

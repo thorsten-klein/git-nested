@@ -165,6 +165,8 @@ sequenceDiagram
         rect rgb(255, 245, 230)
             Note over git-nested,Git: delete_branch (cleanup old)
             git-nested->>Git: worktree prune
+            git-nested->>Git: rev-parse --git-common-dir
+            Note over git-nested: Remove empty parent dirs up to .git/tmp
             git-nested->>Git: branch -D nested/<subref>
         end
 
@@ -220,6 +222,8 @@ sequenceDiagram
             git-nested->>Git: commit -m <message>
             Note over git-nested: If it fails: reset -q --hard HEAD
             git-nested->>Git: worktree prune
+            git-nested->>Git: rev-parse --git-common-dir
+            Note over git-nested: Remove empty parent dirs up to .git/tmp
             git-nested->>Git: update-ref refs/nested/<subref>/commit <nested_commit_ref>
         end
     end
@@ -267,6 +271,8 @@ sequenceDiagram
     rect rgb(255, 245, 230)
         Note over git-nested,Git: delete_branch (cleanup)
         git-nested->>Git: worktree prune
+        git-nested->>Git: rev-parse --git-common-dir
+        Note over git-nested: Remove empty parent dirs up to .git/tmp
         git-nested->>Git: branch -D nested/<subref>
     end
 
@@ -298,6 +304,8 @@ sequenceDiagram
     rect rgb(255, 245, 230)
         Note over git-nested,Git: Cleanup
         git-nested->>Git: worktree prune
+        git-nested->>Git: rev-parse --git-common-dir
+        Note over git-nested: Remove empty parent dirs up to .git/tmp
         git-nested->>Git: branch -D nested/<subref>
     end
 
@@ -359,6 +367,8 @@ sequenceDiagram
     opt --force flag, or --dir holding nested/<subref>
         git-nested->>Git: worktree list --porcelain
         git-nested->>Git: worktree prune
+        git-nested->>Git: rev-parse --git-common-dir
+        Note over git-nested: Remove empty parent dirs up to .git/tmp
         git-nested->>Git: branch -D nested/<subref>
     end
 
@@ -510,6 +520,8 @@ sequenceDiagram
         git-nested->>Git: commit -m <message>
         Note over git-nested: If it fails: reset -q --hard HEAD
         git-nested->>Git: worktree prune
+        git-nested->>Git: rev-parse --git-common-dir
+        Note over git-nested: Remove empty parent dirs up to .git/tmp
         git-nested->>Git: update-ref refs/nested/<subref>/commit <nested_commit_ref>
     end
 ```
@@ -625,6 +637,8 @@ sequenceDiagram
 
     Note over git-nested: Remove worktree (if exists)
     git-nested->>Git: worktree prune
+    git-nested->>Git: rev-parse --git-common-dir
+    Note over git-nested: Remove empty parent dirs up to .git/tmp
 
     git-nested->>Git: rev-list refs/heads/nested/<subref> -1
     alt Branch exists
