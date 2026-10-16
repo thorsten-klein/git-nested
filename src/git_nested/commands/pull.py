@@ -34,7 +34,7 @@ def do_pull(
     if upstream_head_commit == config.commit and not flags.update:
         return False, None, None, None
 
-    branch = f'nested/{subref}'
+    branch = refs.nested_branch(git, subref)
     worktree.delete_branch(git, branch, git_tmp)
     nested_commit_ref = branch
 

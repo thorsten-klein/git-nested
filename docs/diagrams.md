@@ -328,6 +328,15 @@ sequenceDiagram
         end
     end
 
+    git-nested->>Git: config --get nested.<subref>.branchname
+    Note over git-nested: The current nested branch:<br/>recorded name, else nested/<subref>
+
+    opt --name differing from it
+        git-nested->>Git: check-ref-format --branch <name>
+        git-nested->>Git: rev-list refs/heads/<name> -1
+        Note over git-nested: Abort if <name> is invalid or already exists
+    end
+
     opt --dir <dir> that exists
         git-nested->>Git: worktree list --porcelain
         Note over git-nested: Abort unless <dir> is empty<br/>or the worktree of nested/<subref>
@@ -361,9 +370,12 @@ sequenceDiagram
         end
 
         git-nested->>Git: filter-branch -f --prune-empty --tree-filter 'rm -f .gitnested' -- <range>
-        git-nested->>Git: worktree add <dir or .git/tmp/nested/subref> nested/<subref>
-        git-nested->>Git: update-ref refs/nested/<subref>/branch nested/<subref>
+        git-nested->>Git: worktree add <dir or .git/tmp/branch> <branch>
+        git-nested->>Git: update-ref refs/nested/<subref>/branch <branch>
     end
+
+    git-nested->>Git: config nested.<subref>.branchname <name>
+    Note over git-nested: Or config --unset, for the default name
 ```
 
 ---

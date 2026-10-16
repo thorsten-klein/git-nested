@@ -14,7 +14,7 @@ def do_clean(git: GitRunner, flags: Flags, subdir: Path, git_tmp: Path) -> list[
     """Clean nested branches and refs."""
     items = []
     subref = refs.sanitize_subref(git, subdir.as_posix())
-    branch = f'nested/{subref}'
+    branch = refs.nested_branch(git, subref)
     ref = f'refs/heads/{branch}'
     subdir_worktree = worktree.find_worktree(git, branch) or git_tmp / branch
 
@@ -23,6 +23,7 @@ def do_clean(git: GitRunner, flags: Flags, subdir: Path, git_tmp: Path) -> list[
     if git.branch_exists(branch):
         git.run(['update-ref', '-d', ref])
         items.append(f"branch '{branch}'")
+    refs.record_nested_branch(git, subref, None)
 
     if flags.force:
         suffix = '' if flags.all else f'{subref}/'

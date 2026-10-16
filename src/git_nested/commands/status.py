@@ -102,8 +102,9 @@ def _status_detail_lines(
 def _status_identity_lines(git: GitRunner, subref: str, config: NestedConfig, upstream_head: str) -> list[str]:
     """Build the branch/remote/tracking status lines for one nested subdir."""
     lines = []
-    if git.branch_exists(f'nested/{subref}'):
-        lines.append(f"  Nested Branch:  nested/{subref}\n")
+    branch = refs.nested_branch(git, subref)
+    if git.branch_exists(branch):
+        lines.append(f"  Nested Branch:  {branch}\n")
 
     remote = f'nested/{subref}'
     url = git.check_output(['config', f'remote.{remote}.url'], may_fail=True)
@@ -134,7 +135,8 @@ def _status_worktree_lines(git: GitRunner, subref: str) -> list[str]:
     """Build the worktree status line(s) for one nested subdir, if any exist."""
     # By branch, not by path: `git nested worktree -d` puts it anywhere.
     worktree_list = git.check_output(['worktree', 'list'], may_fail=True) or ''
-    return [f"  Worktree: {line}\n" for line in worktree_list.splitlines() if line.endswith(f'[nested/{subref}]')]
+    branch = refs.nested_branch(git, subref)
+    return [f"  Worktree: {line}\n" for line in worktree_list.splitlines() if line.endswith(f'[{branch}]')]
 
 
 def _format_ref_line(git: GitRunner, subref: str, line: str) -> str | None:

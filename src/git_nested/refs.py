@@ -16,6 +16,30 @@ def create_nested_ref(git: GitRunner, subref: str, ref_type: str, commit: str) -
     return ref_name
 
 
+def _branch_name_key(subref: str) -> str:
+    """The .git/config key recording a nested repository's branch name, when it is not the default."""
+    return f'nested.{subref}.branchname'
+
+
+def nested_branch(git: GitRunner, subref: str) -> str:
+    """The local branch holding the nested commits of `subref`.
+
+    'nested/<subref>' unless `git nested branch --name` chose another name,
+    which it records in .git/config so that every other command finds it too.
+    """
+    recorded = git.check_output(['config', '--get', _branch_name_key(subref)], may_fail=True)
+    return recorded or f'nested/{subref}'
+
+
+def record_nested_branch(git: GitRunner, subref: str, branch: str | None) -> None:
+    """Record `branch` as the nested branch of `subref`; None, or the default name, forgets it."""
+    if branch and branch != f'nested/{subref}':
+        git.run(['config', _branch_name_key(subref), branch])
+    else:
+        # exits 5 when there is nothing to unset, which is just as good
+        git.run(['config', '--unset', _branch_name_key(subref)], may_fail=True)
+
+
 def guess_subdir(remote: str) -> str:
     """Guess subdirectory name from remote URL."""
     if not remote:

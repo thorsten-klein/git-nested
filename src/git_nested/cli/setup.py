@@ -34,10 +34,10 @@ def resolve_gitnested_file(subdir: Path) -> Path:
     return gitnested
 
 
-def _find_worktree_path(worktree_list: str, subdir: Path) -> str | None:
-    """Find the worktree path whose branch matches nested/subdir, if one exists."""
+def _find_worktree_path(worktree_list: str, branch: str) -> str | None:
+    """Find the worktree path whose branch is `branch`, if one exists."""
     for line in worktree_list.splitlines():
-        if f'[nested/{subdir.as_posix()}]' in line:
+        if f'[{branch}]' in line:
             return line.split()[0]
     return None
 
@@ -47,11 +47,11 @@ def _error_existing_worktree(subdir: Path, gitnested: Path, worktree_path: str |
     output.error(messages.worktree_exists(subdir, worktree_path, prunable=gitnested.exists()))
 
 
-def _check_existing_worktree(git: GitRunner, command: str, subdir: Path, gitnested: Path) -> None:
-    """Error out if an existing worktree for subdir conflicts with this command."""
-    output.verbose(f"checking for a worktree on nested/{subdir.as_posix()}")
+def _check_existing_worktree(git: GitRunner, command: str, subdir: Path, gitnested: Path, branch: str) -> None:
+    """Error out if an existing worktree of subdir's nested `branch` conflicts with this command."""
+    output.verbose(f"checking for a worktree on {branch}")
     worktree_list = git.check_output(['worktree', 'list'], may_fail=True) or ''
-    worktree_path = _find_worktree_path(worktree_list, subdir)
+    worktree_path = _find_worktree_path(worktree_list, branch)
     has_worktree = worktree_path is not None
 
     if command in ['commit'] and not has_worktree:
@@ -95,7 +95,7 @@ def setup_command(
     gitnested = resolve_gitnested_file(subdir)
 
     if not flags.force:
-        _check_existing_worktree(git, command, subdir, gitnested)
+        _check_existing_worktree(git, command, subdir, gitnested, refs.nested_branch(git, subref))
 
     config = _load_config_for_setup(command, gitnested, flags, upstream)
 

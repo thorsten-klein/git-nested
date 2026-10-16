@@ -1,5 +1,7 @@
 """Tests for git nested branch command"""
 
+import subprocess
+
 from conftest import (
     assert_commit,
     assert_commit_count,
@@ -381,3 +383,81 @@ def test_branch_dir_and_all_are_exclusive(foo_bar_cloned_and_nested):
     result = cmd_git_nested(['branch', '--all', '-d', 'x'], cwd=env.workspace / 'foo', check=False)
     assert result.returncode == 1
     assert "--dir names one worktree, so it can't be used with --all" in result.output
+
+
+def _git(args, cwd):
+    return subprocess.run(['git', *args], cwd=cwd, capture_output=True, text=True, check=False)
+
+
+def test_branch_name_is_used_and_remembered(foo_bar_cloned_and_nested):
+    """--name builds that branch, and the other commands follow it until clean"""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    env.add_new_files('bar/file', cwd=foo)
+
+    result = cmd_git_nested('branch --name bar-fixes bar', cwd=foo)
+    assert result.output.strip() == "bar: branch bar-fixes created, worktree at .git/tmp/bar-fixes"
+    assert _git(['config', 'nested.bar.branchname'], foo).stdout.strip() == 'bar-fixes'
+    assert _git(['branch', '--list', 'nested/bar'], foo).stdout.strip() == ''
+
+    status = cmd_git_nested('status', cwd=foo).output
+    assert "Nested Branch:  bar-fixes" in status
+    assert "[bar-fixes]" in status
+
+    # without --name again, the remembered branch is the one that already exists
+    result = cmd_git_nested('branch bar', cwd=foo, check=False)
+    assert "bar: branch bar-fixes already exists" in result.output
+
+    cmd_git_nested(['run', 'bar', 'commit', '--allow-empty', '-m', 'in bar-fixes'], cwd=foo)
+    assert _git(['log', '-1', '--format=%s', 'bar-fixes'], foo).stdout.strip() == 'in bar-fixes'
+
+    assert "removed branch 'bar-fixes'" in cmd_git_nested('clean bar', cwd=foo).output
+    assert _git(['config', 'nested.bar.branchname'], foo).returncode == 1
+    assert cmd_git_nested('branch bar', cwd=foo).output.strip().startswith("bar: branch nested/bar created")
+
+
+def test_branch_name_replaces_the_previous_branch_with_force(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    cmd_git_nested('branch bar', cwd=foo)
+
+    result = cmd_git_nested('branch --name other bar', cwd=foo, check=False)
+    assert result.returncode == 1
+    assert "bar: branch nested/bar already exists" in result.output
+
+    cmd_git_nested('branch --force --name other bar', cwd=foo)
+    assert _git(['branch', '--list', 'nested/bar'], foo).stdout.strip() == ''
+    assert _git(['config', 'nested.bar.branchname'], foo).stdout.strip() == 'other'
+
+    # back to the default name forgets the record
+    cmd_git_nested('branch --force --name nested/bar bar', cwd=foo)
+    assert _git(['config', 'nested.bar.branchname'], foo).returncode == 1
+    assert _git(['branch', '--list', 'other'], foo).stdout.strip() == ''
+
+
+def test_branch_name_never_takes_over_a_foreign_branch(foo_bar_cloned_and_nested):
+    """Not even with --force: the branch would be one of the user's own"""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    _git(['branch', 'mine'], foo)
+    mine = _git(['rev-parse', 'mine'], foo).stdout
+
+    for args in ('branch --name mine bar', 'branch --force --name mine bar'):
+        result = cmd_git_nested(args, cwd=foo, check=False)
+        assert result.returncode == 1
+        assert "branch mine already exists and is not the nested branch of bar" in result.output
+    assert _git(['rev-parse', 'mine'], foo).stdout == mine
+
+
+def test_branch_name_must_be_valid(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    result = cmd_git_nested(['branch', '--name', 'a..b', 'bar'], cwd=env.workspace / 'foo', check=False)
+    assert result.returncode == 1
+    assert "a..b: not a valid branch name" in result.output
+
+
+def test_branch_name_and_all_are_exclusive(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    result = cmd_git_nested(['branch', '--all', '--name', 'x'], cwd=env.workspace / 'foo', check=False)
+    assert result.returncode == 1
+    assert "--name names one branch, so it can't be used with --all" in result.output

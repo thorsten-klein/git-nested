@@ -287,6 +287,9 @@ Create a branch with local nested commits for manual conflict resolution,
 checked out in a worktree under `.git/tmp/nested/<subdir>` -- or wherever
 `-d <dir>` says. Pointing `-d` at the worktree of the same nested repository
 rebuilds the branch there; the worktree of another one is never touched.
+`--name <name>` gives the branch another name than `nested/<subdir>`; it is
+recorded in `.git/config` (`nested.<subdir>.branchname`), so `run`, `commit`,
+`push`, `pull` and `status` use it too, until `git nested clean` forgets it.
 
 ```bash
 git nested branch --help
