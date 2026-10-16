@@ -28,6 +28,7 @@ from . import (
     init,
     pull,
     push,
+    run,
     status,
     version,
 )
@@ -44,6 +45,7 @@ REGISTRY: dict[str, Callable[[CommandContext], None]] = {
     'init': init.cmd_init,
     'pull': pull.cmd_pull,
     'push': push.cmd_push,
+    'run': run.cmd_run,
     'status': status.cmd_status,
     'version': version.cmd_version,
 }

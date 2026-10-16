@@ -96,6 +96,7 @@ class CommandContext:
     completion_shell: str | None = None
     config_key: str | None = None
     config_value: str | None = None
+    git_args: list[str] | None = None
     git_tmp: Path | None = None
     head_commit: str | None = None
 

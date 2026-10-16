@@ -179,5 +179,6 @@ def parse_args(git: GitRunner, args_list: list[str]) -> tuple[str, CommandContex
         completion_shell=getattr(args, 'shell', None),
         config_key=getattr(args, 'key', None),
         config_value=getattr(args, 'value', None),
+        git_args=getattr(args, 'git_args', None),
     )
     return args.command, context
