@@ -368,6 +368,30 @@ sequenceDiagram
 
 ---
 
+## run
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant git-nested
+    participant Git
+
+    User->>git-nested: git nested run <subdir> <git command>
+    git-nested->>Git: rev-parse --git-dir
+    git-nested->>Git: rev-parse --git-common-dir
+    git-nested->>Git: symbolic-ref --short --quiet HEAD
+    git-nested->>Git: rev-parse --is-inside-work-tree
+    git-nested->>Git: rev-parse --show-prefix
+    git-nested->>Git: rev-parse HEAD
+    git-nested->>Git: worktree list
+    git-nested->>Git: worktree list --porcelain
+    Note over git-nested: Abort if nested/<subref> has no worktree,<br/>pointing at 'git nested branch'
+    git-nested->>Git: -C <worktree> <git command>
+    Note over git-nested: git's output and exit code pass through
+```
+
+---
+
 ## commit
 
 ```mermaid

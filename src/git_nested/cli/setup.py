@@ -58,7 +58,7 @@ def _check_existing_worktree(git: GitRunner, command: str, subdir: Path, gitnest
         output.error(
             f"{subdir.as_posix()}: no worktree to commit from; run 'git nested branch {subdir.as_posix()}' first"
         )
-    elif command not in ['branch', 'clean', 'commit', 'push'] and has_worktree:
+    elif command not in ['branch', 'clean', 'commit', 'push', 'run'] and has_worktree:
         _error_existing_worktree(subdir, gitnested, worktree_path)
 
 

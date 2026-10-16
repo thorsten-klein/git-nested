@@ -292,6 +292,15 @@ rebuilds the branch there; the worktree of another one is never touched.
 git nested branch --help
 ```
 
+#### `git nested run`
+
+Run a git command in the worktree that `git nested branch` created, without
+changing directory: `git nested run <subdir> log` is `git -C <worktree> log`.
+
+```bash
+git nested run --help
+```
+
 #### `git nested commit`
 
 Add a nested branch to current history as a single commit.

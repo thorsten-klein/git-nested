@@ -23,6 +23,7 @@ VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
     'fetch': ['all', 'branch', 'force', 'remote'],
     'init': ['branch', 'remote', 'method'],
     'pull': ['all', 'branch', 'force', 'message', 'method', 'remote', 'update'],
+    'run': [],
     'push': ['all', 'branch', 'commit', 'force', 'message', 'method', 'msg_file', 'remote', 'squash', 'update'],
     'status': ['ALL', 'all', 'fetch'],
     'version': [],
@@ -42,6 +43,7 @@ COMMAND_HELP: dict[str, str] = {
     'init': "turn an existing subdirectory into a nested repository",
     'pull': "update a nested repository from its upstream",
     'push': "push a nested repository's local changes upstream",
+    'run': "run a git command in the worktree of a nested repository",
     'status': "report on the nested repositories of this repository",
     'version': "print version information",
 }
@@ -129,6 +131,12 @@ POSITIONALS: dict[str, list[tuple[str, dict]]] = {
         ('subdir', {'nargs': '?', 'help': _SUBDIR_HELP}),
         ('nested_branch', {'nargs': '?', 'help': "branch to push; defaults to nested/<subdir>"}),
     ],
+    'run': [
+        ('subdir', {'help': _SUBDIR_HELP}),
+        # argparse.REMAINDER, spelled out to keep this module free of argparse:
+        # everything after <subdir> goes to git untouched, options included.
+        ('git_args', {'nargs': '...', 'help': "the git command to run, with its arguments"}),
+    ],
 }
 
 # The paragraph `git nested <command> --help` opens with. COMMAND_HELP is
@@ -183,6 +191,11 @@ COMMAND_DESCRIPTION: dict[str, str] = {
     'push': (
         "Send the commits you made in <subdir> to its upstream. "
         "Only the changes inside the subdirectory go; the rest of the parent repository is not part of it."
+    ),
+    'run': (
+        "Run 'git -C <worktree> <git command>' in the worktree of <subdir>, wherever 'git nested branch' "
+        "put it. git's output and exit code are passed through unchanged. "
+        "There has to be a worktree already: create it with 'git nested branch <subdir>'."
     ),
     'status': (
         "Report every nested repository in this repository: where it comes from, and whether it has local changes. "
@@ -240,6 +253,10 @@ COMMAND_EXAMPLES: dict[str, list[str]] = {
     'push': [
         "git nested push ext/lib",
         "git nested push --squash -m 'one commit upstream' ext/lib",
+    ],
+    'run': [
+        "git nested run ext/lib log --oneline",
+        "git nested run ext/lib status",
     ],
     'status': [
         "git nested status",
