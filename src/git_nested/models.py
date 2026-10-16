@@ -31,6 +31,7 @@ class Flags:
     recurse_submodules: bool = False
     gpg_sign: bool = False
     signoff: bool = False
+    single_commit: bool = False
     fetch: bool = False
     message: str | None = None
     message_file: str | None = None

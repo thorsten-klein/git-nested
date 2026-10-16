@@ -297,6 +297,7 @@ It does not work with `--filter`, `--exclude` or `--path`.
 git nested pull ext/lib
 git nested pull --no-squash ext/lib
 git nested pull --all  # Pull all nested repos
+git nested pull --all --single-commit  # ... in one commit
 ```
 
 ### `git nested push`

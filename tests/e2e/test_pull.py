@@ -695,3 +695,38 @@ def test_pull_message_lists_at_most_twenty_upstream_commits(foo_bar_cloned_and_n
     message = git_get_commit_msg(env.workspace / 'foo').strip().splitlines()
     assert message[-21].endswith("add new file: many21")
     assert message[-1] == "- and 2 more"
+
+
+def test_pull_all_single_commit(foo_bar_cloned):
+    """--single-commit makes one commit for all nested repositories."""
+    env = foo_bar_cloned
+    foo, bar = env.workspace / 'foo', env.workspace / 'bar'
+    cmd_git_nested(['clone', (env.upstream / 'bar').as_posix(), 'one'], foo)
+    cmd_git_nested(['clone', (env.upstream / 'bar').as_posix(), 'two'], foo)
+    before = git_rev_parse(['HEAD'], cwd=foo)
+    env.add_new_files('Bar2', cwd=bar)
+    env.run(['git', 'push', '-q'], cwd=bar)
+
+    cmd_git_nested('pull --all --single-commit', cwd=foo)
+
+    assert git_rev_parse(['HEAD^'], cwd=foo) == before
+    assert (foo / 'one' / 'Bar2').is_file() and (foo / 'two' / 'Bar2').is_file()
+    assert git_get_commit_msg(foo).strip() == "git nested pull --all\n\n- one\n- two"
+    assert env.run(['git', 'status', '--porcelain'], cwd=foo).output == ''
+
+
+def test_single_commit_needs_all(foo_bar_cloned_and_nested):
+    result = cmd_git_nested('pull --single-commit bar', cwd=foo_bar_cloned_and_nested.workspace / 'foo', check=False)
+    assert result.returncode == 1
+    assert result.output.strip() == "git-nested: --single-commit needs --all"
+
+
+def test_pull_all_single_commit_with_nothing_new(foo_bar_cloned_and_nested):
+    """Nothing pulled, nothing committed."""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    before = git_rev_parse(['HEAD'], cwd=foo)
+
+    cmd_git_nested('pull --all --single-commit', cwd=foo)
+
+    assert git_rev_parse(['HEAD'], cwd=foo) == before

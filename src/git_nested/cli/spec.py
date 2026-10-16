@@ -47,6 +47,7 @@ VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
         'recurse_submodules',
         'remote',
         'signoff',
+        'single_commit',
         'update',
     ],
     'repair': ['all', 'gpg_sign', 'message', 'msg_file', 'signoff'],
@@ -62,6 +63,7 @@ VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
         'msg_file',
         'remote',
         'signoff',
+        'single_commit',
         'squash',
         'update',
     ],
@@ -173,6 +175,11 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
         'short',
         ('--short',),
         {'action': 'store_true', 'help': "one line per repository: <subdir> <local commits> <behind> <changed|same>"},
+    ),
+    (
+        'single_commit',
+        ('--single-commit',),
+        {'action': 'store_true', 'help': "with --all: one commit for all nested repositories"},
     ),
     (
         'squash',

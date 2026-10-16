@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path, PurePosixPath
 
 from . import discovery, filters, gitfile, history, output, refs, worktree
@@ -134,6 +135,9 @@ def commit_gitnested_update(git: GitRunner, flags: Flags, subdir: Path, msg: str
     If the commit fails, e.g. a hook rejects it, the staged changes are undone.
     The tree was clean before the command, so nothing else is lost.
     """
+    if flags.single_commit:
+        output.verbose("staged; it goes into one commit with the others")
+        return
     output.verbose("committing the .gitnested update")
     message = ['--file', flags.message_file] if flags.message_file else ['-m', msg]
     # The parent's hooks are for its own changes. `git config nested.verify true` runs them.
@@ -144,3 +148,13 @@ def commit_gitnested_update(git: GitRunner, flags: Flags, subdir: Path, msg: str
     except GitNestedError as e:
         git.run(['reset', '-q', '--hard', 'HEAD'])
         raise GitNestedError(f"{subdir.as_posix()}: the commit failed, so nothing was changed:\n{e.message}") from None
+
+
+def commit_all(git: GitRunner, flags: Flags, command: str) -> None:
+    """Make the one commit --single-commit asks for, listing the nested repositories in it."""
+    staged = git.check_output(['diff', '--cached', '--name-only', '-z']).split('\0')
+    subdirs = sorted(Path(path).parent.as_posix() for path in staged if Path(path).name == GITNESTED_FILENAME)
+    if not subdirs:
+        return
+    msg = f"git nested {command} --all\n\n" + "\n".join(f"- {subdir}" for subdir in subdirs)
+    commit_gitnested_update(git, dataclasses.replace(flags, single_commit=False), Path(), flags.message or msg)
