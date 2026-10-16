@@ -38,19 +38,30 @@ def at_top_level(git: GitRunner, command: str, ctx: CommandContext) -> AbstractC
     Outside a working tree there is nowhere to move to; the repository
     checks that follow say so in their own words.
     """
-    prefix = '' if command in ('completion', 'version') else _prefix(git)
+    # The current directory relative to the top level; '' at the top or outside a working tree
+    prefix = (
+        '' if command in ('completion', 'version') else git.check_output(['rev-parse', '--show-prefix'], may_fail=True)
+    )
     if not prefix:
         return nullcontext()
     toplevel = Path(git.check_output(['rev-parse', '--show-toplevel']))
-    _absolute_paths(ctx)
-    _rebase_remotes(ctx, prefix)
-    ctx.subdir = _subdir_from(toplevel, prefix, ctx.subdir, command, ctx.flags.all)
+
+    # Path options are made absolute, so moving to the top level does not change what they name.
+    ctx.flags.dir = _absolute(ctx.flags.dir)
+    ctx.flags.message_file = _absolute(ctx.flags.message_file)
+    # Remotes given as relative paths are rebased onto the top level instead.
+    # Relative rather than absolute: a remote ends up in .gitnested, and a
+    # relative one keeps working in every clone of the parent repository.
+    ctx.upstream = _remote_from(prefix, ctx.upstream)
+    ctx.flags.remote = _remote_from(prefix, ctx.flags.remote)
+    if ctx.config_key == 'remote':
+        ctx.config_value = _remote_from(prefix, ctx.config_value)
+
+    if ctx.subdir is not None:
+        ctx.subdir = _joined(prefix, Path(ctx.subdir))
+    elif command not in _NO_IMPLIED_SUBDIR and not ctx.flags.all:
+        ctx.subdir = _enclosing_nested(toplevel, prefix)
     return chdir(toplevel)
-
-
-def _prefix(git: GitRunner) -> str:
-    """The current directory relative to the top level, '' at the top or outside a working tree."""
-    return git.check_output(['rev-parse', '--show-prefix'], may_fail=True)
 
 
 def _absolute(path: str | None) -> str | None:
@@ -62,47 +73,21 @@ def _absolute(path: str | None) -> str | None:
     return os.path.abspath(path) if path else None  # noqa: PTH100
 
 
-def _absolute_paths(ctx: CommandContext) -> None:
-    """Make the path options absolute, so moving to the top level does not change what they name."""
-    ctx.flags.dir = _absolute(ctx.flags.dir)
-    ctx.flags.message_file = _absolute(ctx.flags.message_file)
-
-
-def _rebase_remotes(ctx: CommandContext, prefix: str) -> None:
-    """Rebase every remote given as a relative path onto the top level.
-
-    Relative rather than absolute: a remote ends up in .gitnested, and a
-    relative one keeps working in every clone of the parent repository.
-    """
-    ctx.upstream = _remote_from(prefix, ctx.upstream)
-    ctx.flags.remote = _remote_from(prefix, ctx.flags.remote)
-    if ctx.config_key == 'remote':
-        ctx.config_value = _remote_from(prefix, ctx.config_value)
-
-
-def _is_local_path(remote: str) -> bool:
-    """Whether git reads `remote` as a path, by git's own rule (see 'GIT URLS' in git-fetch(1)).
-
-    A URL has '://'; scp-like syntax ('host:path') has a colon before any slash.
-    """
-    colon, slash = remote.find(':'), remote.find('/')
-    return '://' not in remote and (colon == -1 or -1 < slash < colon)
-
-
 def _remote_from(prefix: str, remote: str | None) -> str | None:
-    """`remote`, typed below the top level at `prefix`, as seen from the top level."""
-    if not remote or Path(remote).anchor or not _is_local_path(remote):
+    """`remote`, typed below the top level at `prefix`, as seen from the top level.
+
+    Only a remote git reads as a path is touched, by git's own rule (see
+    'GIT URLS' in git-fetch(1)): a URL has '://', and scp-like syntax
+    ('host:path') has a colon before any slash.
+    """
+    if not remote or Path(remote).anchor or '://' in remote:
+        return remote
+    colon, slash = remote.find(':'), remote.find('/')
+    if colon != -1 and not -1 < slash < colon:
         return remote
     joined = posixpath.normpath(PurePosixPath(prefix, Path(remote).as_posix()))
     # './' keeps a path that has lost its leading '..' from reading as a remote's name
     return joined if joined.startswith('.') else f'./{joined}'
-
-
-def _subdir_from(toplevel: Path, prefix: str, subdir: str | Path | None, command: str, all_flag: bool) -> str | None:
-    """`subdir` as seen from the top level; the enclosing nested repository when none was given."""
-    if subdir is None:
-        return None if command in _NO_IMPLIED_SUBDIR or all_flag else _enclosing_nested(toplevel, prefix)
-    return _joined(prefix, Path(subdir))
 
 
 def _joined(prefix: str, subdir: Path) -> str:

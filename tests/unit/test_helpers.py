@@ -9,12 +9,10 @@ from fakes import NO_GIT, FakeGit
 
 import git_nested
 from git_nested import (
-    Flags,
     GitNestedError,
     GitRunner,
     NestedConfig,
     _version,
-    discovery,
     gitfile,
     refs,
 )
@@ -80,18 +78,20 @@ def test_dunder_main_is_wired_to_the_package_entry_point():
 
 def test_git_runner_raises_when_git_not_on_path(monkeypatch):
     monkeypatch.setattr(git_module.shutil, "which", lambda name: None)
+    git = GitRunner()
     with pytest.raises(GitNestedError, match="git is not on PATH"):
-        GitRunner()
+        git.check()
 
 
 def test_git_runner_raises_when_git_version_too_old(monkeypatch):
     monkeypatch.setattr(GitRunner, "get_version", lambda self: "1.0.0")
+    git = GitRunner()
     with pytest.raises(GitNestedError, match="or newer is required"):
-        GitRunner()
+        git.check()
 
 
 def test_git_runner_squelches_the_filter_branch_warning(monkeypatch):
-    """git filter-branch sleeps 10s per call unless this is set -- see _git_env."""
+    """git filter-branch sleeps 10s per call unless this is set -- see GitRunner.run."""
     seen = {}
 
     def fake_run(cmd, **kwargs):
@@ -131,20 +131,14 @@ def test_git_runner_get_version_raises_when_unparseable(monkeypatch):
 # ============================================================================
 
 
-def test_extract_level_number_rejects_non_digit_suffix():
-    assert gitfile._extract_level_number('nested1/.gitnested.levelX', Path('nested1')) is None
+def test_next_level_ignores_a_non_digit_suffix():
+    assert gitfile._next_level(Path('nested1'), ['nested1/.gitnested.levelX']) == 2
 
 
 def test_create_one_level_file_returns_when_source_missing(tmp_path):
     """The recursive level-file writer is a no-op when its source .gitnested is gone"""
-    result = gitfile._create_one_level_file(
-        git=NO_GIT,
-        flags=Flags(),
-        gitnested_path=str(tmp_path / "sub" / ".gitnested"),
-        level=2,
-        head_commit="deadbeef",
-    )
-    assert result is None
+    gitfile._create_one_level_file(NO_GIT, tmp_path / "sub" / ".gitnested", level=2)
+    assert not (tmp_path / "sub").exists()
 
 
 def test_guess_subdir_raises_without_remote():
@@ -161,24 +155,14 @@ def test_sanitize_subref_raises_when_unsanitizable(monkeypatch):
         refs.sanitize_subref(git=NO_GIT, ref="whatever")
 
 
-def test_strip_forbidden_ref_chars_drops_a_trailing_dot():
+def test_sanitize_subref_drops_a_trailing_dot():
     """A ref name cannot end with a dot.
 
     The e2e encoding tests reach this too, but with directory names Windows
     cannot create, so there it is only covered here.
     """
-    assert refs._strip_forbidden_ref_chars('trailing-dots...') == 'trailing-dots_'
-
-
-def test_get_default_branch_falls_back_to_main(tmp_path, monkeypatch):
-    """When init.defaultbranch isn't configured anywhere, fall back to 'main'"""
-    empty_home = tmp_path / "home"
-    empty_home.mkdir()
-    monkeypatch.setenv("HOME", str(empty_home))
-    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(empty_home / ".gitconfig"))
-    monkeypatch.setenv("GIT_CONFIG_SYSTEM", "/dev/null")
-    git = object.__new__(GitRunner)
-    assert discovery.get_default_branch(git) == "main"
+    git = FakeGit().respond('check-ref-format', 'nested/trailing-dots...', returncode=1).respond('check-ref-format')
+    assert refs.sanitize_subref(git, 'trailing-dots...') == 'trailing-dots_'
 
 
 # ============================================================================

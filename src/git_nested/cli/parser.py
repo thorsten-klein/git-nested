@@ -24,22 +24,19 @@ if TYPE_CHECKING:
     from ..git import GitRunner
 
 
-def _add_subparser_args(command_subparser: argparse.ArgumentParser, command: str) -> None:
-    """Add the flag arguments supported by one command to its subparser."""
-    opts = VALID_COMMAND_OPTIONS[command]
-    for opt, arg_names, kwargs in SUBPARSER_ARG_SPECS:
-        if opt in opts:
-            command_subparser.add_argument(*arg_names, **kwargs)
+def build_arg_parser() -> argparse.ArgumentParser:
+    """Build the top-level argument parser and all per-command subparsers."""
+    parser = argparse.ArgumentParser(prog='git nested')
+    for arg_names, kwargs in GLOBAL_ARG_SPECS:
+        parser.add_argument(*arg_names, **kwargs)
+    subparsers = parser.add_subparsers(dest='command')
+    for command in VALID_COMMAND_OPTIONS:
+        _add_subparser(subparsers, command)
+    return parser
 
 
-def _add_subparser_positionals(command_subparser: argparse.ArgumentParser, command: str) -> None:
-    """Add the positional arguments supported by one command to its subparser."""
-    for name, kwargs in POSITIONALS.get(command, []):
-        command_subparser.add_argument(name, **kwargs)
-
-
-def _subparser_kwargs(command: str) -> dict:
-    """The help texts one command's subparser is built with.
+def _add_subparser(subparsers: argparse._SubParsersAction, command: str) -> None:
+    """Add the subparser of one command, with its flags, positionals and help texts.
 
     RawDescriptionHelpFormatter so that the examples keep their line breaks;
     argparse would otherwise reflow them into a paragraph. That leaves the
@@ -47,92 +44,45 @@ def _subparser_kwargs(command: str) -> dict:
     rather than the terminal's, which keeps `--help` reproducible.
     """
     examples = "\n".join(f"  {line}" for line in COMMAND_EXAMPLES[command])
-    return {
-        'help': COMMAND_HELP[command],
-        'description': textwrap.fill(COMMAND_DESCRIPTION[command], width=78),
-        'epilog': f"examples:\n{examples}",
-        'formatter_class': argparse.RawDescriptionHelpFormatter,
-    }
-
-
-def build_arg_parser() -> argparse.ArgumentParser:
-    """Build the top-level argument parser and all per-command subparsers."""
-    parser = argparse.ArgumentParser(prog='git nested')
-    for arg_names, kwargs in GLOBAL_ARG_SPECS:
-        parser.add_argument(*arg_names, **kwargs)
-
-    subparsers = parser.add_subparsers(dest='command')
-    for command in VALID_COMMAND_OPTIONS:
-        command_subparser = subparsers.add_parser(command, **_subparser_kwargs(command))
-        _add_subparser_args(command_subparser, command)
-        _add_subparser_positionals(command_subparser, command)
-
-    return parser
-
-
-def _resolve_positional_args(args: argparse.Namespace) -> tuple[str | None, str | None, str | None]:
-    """Resolve upstream/subdir/nested_commit_ref from parsed args.
-
-    Returns:
-        tuple: (upstream, subdir, nested_commit_ref)
-    """
-    upstream = getattr(args, 'upstream', None)
-    subdir = getattr(args, 'subdir', None)
-    # 'commit's positional is named nested_commit_ref, 'push's is nested_branch --
-    # only one of the two is ever present on args, depending on the subcommand.
-    nested_commit_ref = getattr(args, 'nested_commit_ref', None) or getattr(args, 'nested_branch', None)
-
-    if upstream and not subdir:
-        subdir = refs.guess_subdir(upstream)
-
-    return upstream, subdir, nested_commit_ref
-
-
-def _supported_and_set(args: argparse.Namespace, opts: list | None, opt: str) -> bool:
-    """Check whether opt is valid for the current command and was actually provided."""
-    return opt in (opts or []) and getattr(args, opt, None) is not None
-
-
-def _apply_supported_options(args: argparse.Namespace, flags: Flags) -> None:
-    """Copy option values from args to flags when supported by the command and set."""
-    opts = VALID_COMMAND_OPTIONS.get(args.command)
-    for opt, flag_attr in SUPPORTED_OPT_ATTRS:
-        if _supported_and_set(args, opts, opt):
-            setattr(flags, flag_attr, getattr(args, opt))
-
-
-def _validate_message_options(args: argparse.Namespace) -> None:
-    """Validate that -m/--file usage is consistent for the current command."""
-    opts = VALID_COMMAND_OPTIONS.get(args.command)
-    msg_file_set = _supported_and_set(args, opts, 'msg_file')
-    if msg_file_set and not Path(args.msg_file).is_file():
-        output.error(f"no commit message file at {args.msg_file}")
-    if msg_file_set and _supported_and_set(args, opts, 'message'):
-        output.error("-m and --file can't be used together")
+    command_subparser = subparsers.add_parser(
+        command,
+        help=COMMAND_HELP[command],
+        description=textwrap.fill(COMMAND_DESCRIPTION[command], width=78),
+        epilog=f"examples:\n{examples}",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    for opt, arg_names, kwargs in SUBPARSER_ARG_SPECS:
+        if opt in VALID_COMMAND_OPTIONS[command]:
+            command_subparser.add_argument(*arg_names, **kwargs)
+    for name, kwargs in POSITIONALS.get(command, []):
+        command_subparser.add_argument(name, **kwargs)
 
 
 def _flags_from_args(args: argparse.Namespace) -> Flags:
     """Build a Flags object from parsed args, applying per-command option support rules."""
-    flags = Flags()
-    flags.all = getattr(args, 'all_flag', False)
-    flags.all_deep = getattr(args, 'ALL_flag', False)
-    flags.commit = getattr(args, 'commit', False)
-    flags.filter = getattr(args, 'filter', [])
-    flags.force = getattr(args, 'force', False)
-    flags.fetch = getattr(args, 'fetch_flag', False)
-    flags.squash = getattr(args, 'squash', False)
-    flags.update = getattr(args, 'update', False)
-    flags.quiet = getattr(args, 'quiet', False)
-    # argparse's `count` action leaves the attribute at None when the flag
-    # is absent, and the output layer wants a real count.
-    flags.verbose = getattr(args, 'verbose', 0) or 0
+    flags = Flags(
+        all=getattr(args, 'all_flag', False) or getattr(args, 'ALL_flag', False),
+        all_deep=getattr(args, 'ALL_flag', False),
+        commit=getattr(args, 'commit', False),
+        filter=getattr(args, 'filter', []),
+        force=getattr(args, 'force', False),
+        fetch=getattr(args, 'fetch_flag', False),
+        squash=getattr(args, 'squash', False),
+        update=getattr(args, 'update', False),
+        quiet=getattr(args, 'quiet', False),
+        # argparse's `count` action leaves the attribute at None when the flag
+        # is absent, and the output layer wants a real count.
+        verbose=getattr(args, 'verbose', 0) or 0,
+    )
+    # A subparser only has the attributes of the options its command takes.
+    for opt, flag_attr in SUPPORTED_OPT_ATTRS:
+        if getattr(args, opt, None) is not None:
+            setattr(flags, flag_attr, getattr(args, opt))
 
-    if flags.all_deep:
-        flags.all = True
-
-    _apply_supported_options(args, flags)
-    _validate_message_options(args)
-
+    if flags.message_file and not Path(flags.message_file).is_file():
+        output.error(f"no commit message file at {flags.message_file}")
+    if flags.message_file and flags.message:
+        output.error("-m and --file can't be used together")
     return flags
 
 
@@ -143,11 +93,13 @@ _SINGLE_TARGET_FLAGS = (
 )
 
 
-def _check_single_target_flags(flags: Flags) -> None:
-    """Reject the flags of _SINGLE_TARGET_FLAGS together with --all."""
+def _check_flags(flags: Flags) -> None:
+    """Reject the flags that cannot be honoured together."""
     for attr, message in _SINGLE_TARGET_FLAGS:
         if flags.all and getattr(flags, attr):
             output.usage_error(message)
+    if flags.update and not (flags.branch or flags.remote):
+        output.usage_error("--update needs --branch or --remote to have something to update")
 
 
 def parse_args(git: GitRunner, args_list: list[str]) -> tuple[str, CommandContext]:
@@ -161,24 +113,25 @@ def parse_args(git: GitRunner, args_list: list[str]) -> tuple[str, CommandContex
 
     if args.version:
         args.command = 'version'
-
     if not args.command:
         output.usage_error("no command given; 'git nested --help' lists them")
 
-    upstream, subdir, nested_commit_ref = _resolve_positional_args(args)
     flags = _flags_from_args(args)
+    _check_flags(flags)
 
-    _check_single_target_flags(flags)
-
-    if flags.update and not (flags.branch or flags.remote):
-        output.usage_error("--update needs --branch or --remote to have something to update")
+    upstream = getattr(args, 'upstream', None)
+    subdir = getattr(args, 'subdir', None)
+    if upstream and not subdir:
+        subdir = refs.guess_subdir(upstream)
 
     context = CommandContext(
         git=git,
         flags=flags,
         subdir=subdir,
         upstream=upstream,
-        nested_commit_ref=nested_commit_ref,
+        # 'commit's positional is named nested_commit_ref, 'push's is nested_branch --
+        # only one of the two is ever present on args, depending on the subcommand.
+        nested_commit_ref=getattr(args, 'nested_commit_ref', None) or getattr(args, 'nested_branch', None),
         completion_shell=getattr(args, 'shell', None),
         config_key=getattr(args, 'key', None),
         config_value=getattr(args, 'value', None),

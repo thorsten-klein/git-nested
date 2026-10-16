@@ -215,7 +215,7 @@ def test_a_failure_while_completing_is_swallowed(git, monkeypatch):
     def explode(*_args, **_kwargs):
         raise SystemExit(2)
 
-    monkeypatch.setattr(completion, '_print_candidates', explode)
+    monkeypatch.setattr(completion, 'candidates', explode)
     assert completion.handle_dunder_complete(git, ['__complete', 'git-nested', '']) is True
 
 

@@ -8,7 +8,7 @@ from pathlib import Path
 import yaml
 
 from . import messages
-from .constants import GIT_LOG_DATE_DEFAULT_FLAG
+from .constants import GIT_LOG_DATE_DEFAULT_FLAG, GITNESTED_FILENAME
 from .errors import GitNestedError
 from .git import GitRunner
 from .models import Flags, NestedConfig
@@ -19,25 +19,14 @@ def parent_is_ancestor(git: GitRunner, parent: str) -> bool:
     return git.run(['merge-base', '--is-ancestor', parent, 'HEAD'], may_fail=True).returncode == 0
 
 
-def _check_parent_is_ancestor(git: GitRunner, config: NestedConfig, gitnested: Path, subdir: Path) -> None:
-    """Raise a recovery-hint error unless config.parent is an ancestor of HEAD."""
-    if not parent_is_ancestor(git, config.parent):
-        raise GitNestedError(messages.sync_point_lost(gitnested, subdir))
-
-
 def _recorded_commit(git: GitRunner, rev: str, gitnested: Path) -> str | None:
     """The upstream commit gitnested records as of rev, or None if it records none there."""
     gitrepo_content = git.check_output(['cat-file', '-p', f'{rev}:{gitnested.as_posix()}'], may_fail=True)
-    if not gitrepo_content:
-        return None
     try:
-        gitrepo_data = yaml.safe_load(gitrepo_content) or {}
-        gitrepo_commit = gitrepo_data.get('nested', {}).get('commit', '')
+        commit = (yaml.safe_load(gitrepo_content) or {}).get('nested', {}).get('commit')
     except yaml.YAMLError:
         return None
-    if not gitrepo_commit:
-        return None
-    return gitrepo_commit.strip()
+    return commit.strip() if commit else None
 
 
 def find_sync_point(git: GitRunner, gitnested: Path) -> str | None:
@@ -49,36 +38,13 @@ def find_sync_point(git: GitRunner, gitnested: Path) -> str | None:
     pull would have written as the parent, had it been made on this history.
     """
     for rev in git.check_output(['log', '--format=%H', '--', gitnested]).splitlines():
-        parent = _first_parent(git, rev)
-        if _changes_recorded_commit(git, rev, parent, gitnested):
+        parents = git.check_output(['show', '-s', '--format=%P', rev]).split()
+        parent = parents[0] if parents else None
+        before = _recorded_commit(git, parent, gitnested) if parent else None
+        if _recorded_commit(git, rev, gitnested) not in (None, before):
             # None for a root commit: it has nothing before it to hang off.
             return parent
     return None
-
-
-def _first_parent(git: GitRunner, rev: str) -> str | None:
-    """The first parent of rev, or None for a root commit."""
-    parents = git.check_output(['show', '-s', '--format=%P', rev]).split()
-    return parents[0] if parents else None
-
-
-def _changes_recorded_commit(git: GitRunner, rev: str, parent: str | None, gitnested: Path) -> bool:
-    """Check whether rev records an upstream commit in gitnested that its parent does not."""
-    before = _recorded_commit(git, parent, gitnested) if parent else None
-    return _recorded_commit(git, rev, gitnested) not in (None, before)
-
-
-def _extract_gitrepo_commit(git: GitRunner, commit: str, subdir: Path) -> str | None:
-    """Extract the recorded nested commit from commit's .gitnested file, or None."""
-    return _recorded_commit(git, commit, subdir / '.gitnested')
-
-
-def _is_direct_child(git: GitRunner, ancestor: str | None, commit: str) -> bool:
-    """Check whether commit is a direct child of ancestor (always true if there's no ancestor yet)."""
-    if not ancestor:
-        return True
-    parents = git.check_output(['show', '-s', '--pretty=format:%P', commit])
-    return ancestor in parents
 
 
 def _check_rebase_safety(git: GitRunner, command: str, subref: str, gitrepo_commit: str) -> None:
@@ -86,8 +52,7 @@ def _check_rebase_safety(git: GitRunner, command: str, subref: str, gitrepo_comm
     refs_fetch = f'refs/nested/{subref}/fetch'
     if not (git.rev_exists(refs_fetch) and command == 'pull'):
         return
-    result = git.run(['merge-base', '--is-ancestor', gitrepo_commit, refs_fetch], may_fail=True)
-    if result.returncode == 0:
+    if git.commit_in_rev_list(gitrepo_commit, refs_fetch):
         return
     if not git.rev_exists(gitrepo_commit):
         raise GitNestedError(
@@ -100,100 +65,70 @@ def _check_rebase_safety(git: GitRunner, command: str, subref: str, gitrepo_comm
     )
 
 
-def _compute_second_parent(flags: Flags, config: NestedConfig, gitrepo_commit: str, state: dict) -> list[str]:
-    """Compute the commit-tree second parent, tracking the first/last gitrepo commit seen."""
-    second_parent: list[str] = []
-    if not state['first_gitrepo_commit']:
-        state['first_gitrepo_commit'] = gitrepo_commit
-        second_parent = ['-p', gitrepo_commit]
-
-    method = flags.method or config.method
-    if method != 'rebase' and gitrepo_commit != state['last_gitrepo_commit']:
-        second_parent = ['-p', gitrepo_commit]
-        state['last_gitrepo_commit'] = gitrepo_commit
-
-    return second_parent
-
-
-def _commit_has_subdir_content(git: GitRunner, commit: str, subdir: Path) -> bool:
-    """Check whether commit has content under subdir/."""
-    result = git.run(['cat-file', '-e', f'{commit}:{subdir.as_posix()}'], may_fail=True)
-    return result.returncode == 0
-
-
 def _create_chain_commit(
-    git: GitRunner, commit: str, subdir: Path, first_parent: list[str], second_parent: list[str]
-) -> str:
-    """Create one nested commit-tree entry, preserving the original author/committer/date."""
-    author_date = git.check_output(['log', '-1', GIT_LOG_DATE_DEFAULT_FLAG, '--format=%ad', commit])
-    author_email = git.check_output(['log', '-1', GIT_LOG_DATE_DEFAULT_FLAG, '--format=%ae', commit])
-    author_name = git.check_output(['log', '-1', GIT_LOG_DATE_DEFAULT_FLAG, '--format=%an', commit])
-    committer_date = git.check_output(['log', '-1', GIT_LOG_DATE_DEFAULT_FLAG, '--format=%cd', commit])
-    committer_email = git.check_output(['log', '-1', GIT_LOG_DATE_DEFAULT_FLAG, '--format=%ce', commit])
-    committer_name = git.check_output(['log', '-1', GIT_LOG_DATE_DEFAULT_FLAG, '--format=%cn', commit])
-    commit_msg = git.check_output(['log', '-1', GIT_LOG_DATE_DEFAULT_FLAG, '--format=%B', commit])
+    git: GitRunner, commit: str, subdir: Path, prev: str | None, upstream: str | None
+) -> str | None:
+    """Add the nested commit of `commit` on top of `prev`, joined to `upstream` if given.
 
-    # Set author and committer info for deterministic commits
-    env = os.environ.copy()
-    env.update({
-        'GIT_AUTHOR_DATE': author_date,
-        'GIT_AUTHOR_EMAIL': author_email,
-        'GIT_AUTHOR_NAME': author_name,
-        'GIT_COMMITTER_DATE': committer_date,
-        'GIT_COMMITTER_EMAIL': committer_email,
-        'GIT_COMMITTER_NAME': committer_name,
-    })
+    It is subdir's tree in `commit`, with that commit's author, committer and
+    message. A commit without the subdir adds nothing, and `prev` stays the tip.
 
-    tree_cmd = ['commit-tree', '-F', '-', *first_parent, *second_parent, f'{commit}:{subdir.as_posix()}']
-    return git.check_output(tree_cmd, input=commit_msg, env=env)
+    Returns:
+        the new tip of the chain
+    """
+    if git.run(['cat-file', '-e', f'{commit}:{subdir.as_posix()}'], may_fail=True).returncode != 0:
+        return prev
+    # Unstripped, so that even an empty message leaves the six lines before it intact.
+    *identity, message = git.run([
+        'log',
+        '-1',
+        GIT_LOG_DATE_DEFAULT_FLAG,
+        '--format=%ad%n%ae%n%an%n%cd%n%ce%n%cn%n%B',
+        commit,
+    ]).stdout.split('\n', 6)
+    names = ('AUTHOR_DATE', 'AUTHOR_EMAIL', 'AUTHOR_NAME', 'COMMITTER_DATE', 'COMMITTER_EMAIL', 'COMMITTER_NAME')
+    env = {**os.environ, **{f'GIT_{name}': value for name, value in zip(names, identity, strict=True)}}
+    parent_args = [arg for parent in (prev, upstream) if parent for arg in ('-p', parent)]
+    return git.check_output(
+        ['commit-tree', '-F', '-', *parent_args, f'{commit}:{subdir.as_posix()}'], input=message.strip(), env=env
+    )
 
 
-def _process_chain_commit(
-    git: GitRunner,
-    flags: Flags,
-    config: NestedConfig,
-    subdir: Path,
-    subref: str,
-    command: str,
-    commit: str,
-    state: dict,
-) -> None:
-    """Process one commit into the nested commit chain, updating state in place."""
-    gitrepo_commit = _extract_gitrepo_commit(git, commit, subdir)
-    if not gitrepo_commit:
-        return
+def _chain_commits(git: GitRunner, commits: list[str], gitnested: Path) -> list[tuple[str, str]]:
+    """Those of `commits` that record an upstream commit, in the direct line of descent from the first.
 
-    if not _is_direct_child(git, state['ancestor'], commit):
-        return
-    state['ancestor'] = commit
-
-    _check_rebase_safety(git, command, subref, gitrepo_commit)
-
-    first_parent: list[str] = ['-p', state['prev_commit']] if state['prev_commit'] else []
-    second_parent = _compute_second_parent(flags, config, gitrepo_commit, state)
-
-    if _commit_has_subdir_content(git, commit, subdir):
-        state['prev_commit'] = _create_chain_commit(git, commit, subdir, first_parent, second_parent)
+    Returns:
+        list: (commit, the upstream commit it records)
+    """
+    chain: list[tuple[str, str]] = []
+    for commit in commits:
+        upstream = _recorded_commit(git, commit, gitnested)
+        if upstream and (not chain or chain[-1][0] in git.check_output(['show', '-s', '--format=%P', commit])):
+            chain.append((commit, upstream))
+    return chain
 
 
 def _build_nested_commit_chain(
-    git: GitRunner,
-    flags: Flags,
-    config: NestedConfig,
-    commits: list[str],
-    subdir: Path,
-    subref: str,
-    command: str,
+    git: GitRunner, flags: Flags, config: NestedConfig, commits: list[str], subdir: Path, subref: str, command: str
 ) -> tuple[str | None, str | None]:
-    """Walk commits and build the nested commit chain.
+    """Replay each of `commits` that records an upstream commit as a nested commit of subdir's content.
+
+    A recorded upstream commit becomes the second parent of the nested commit
+    that joins it: the first one always, and with the merge method every new
+    one after it, which is what ties the nested history to upstream.
 
     Returns:
-        tuple: (prev_commit, first_gitrepo_commit)
+        tuple: (the last nested commit, the first upstream commit recorded)
     """
-    state = {'ancestor': None, 'first_gitrepo_commit': None, 'last_gitrepo_commit': None, 'prev_commit': None}
-    for commit in commits:
-        _process_chain_commit(git, flags, config, subdir, subref, command, commit, state)
-    return state['prev_commit'], state['first_gitrepo_commit']
+    chain = _chain_commits(git, commits, subdir / GITNESTED_FILENAME)
+    merge = (flags.method or config.method) != 'rebase'
+    prev = joined = None
+    for commit, upstream in chain:
+        _check_rebase_safety(git, command, subref, upstream)
+        second_parent = upstream if upstream != joined and (merge or joined is None) else None
+        joined = second_parent or joined
+        prev = _create_chain_commit(git, commit, subdir, prev, second_parent)
+    return prev, chain[0][1] if chain else None
 
 
 def _create_branch_from_parent(
@@ -211,7 +146,8 @@ def _create_branch_from_parent(
     Returns:
         first_gitrepo_commit (or None), used to scope the later history filtering.
     """
-    _check_parent_is_ancestor(git, config, gitnested, subdir)
+    if not parent_is_ancestor(git, config.parent):
+        raise GitNestedError(messages.sync_point_lost(gitnested, subdir))
 
     commits = git.check_output([
         'rev-list',
@@ -220,12 +156,8 @@ def _create_branch_from_parent(
         '--topo-order',
         f'{config.parent}..HEAD',
     ]).splitlines()
-
     prev_commit, first_gitrepo_commit = _build_nested_commit_chain(git, flags, config, commits, subdir, subref, command)
-
     if prev_commit is None:
-        # No commit in the parent..HEAD range ever touched subdir, so the
-        # chain builder above never had content to build a nested commit from.
         raise GitNestedError(
             f"{subdir.as_posix()}: no commit between {config.parent} and HEAD touches it, so there is no nested history to rebuild"
         )
@@ -233,16 +165,32 @@ def _create_branch_from_parent(
     return first_gitrepo_commit
 
 
-def _create_branch_without_parent(git: GitRunner, subref: str, branch: str) -> None:
-    """Build branch by taking the full HEAD history and filtering it down to subdir/."""
-    git.run(['branch', branch, 'HEAD'])
-    git.run(['filter-branch', '-f', '--subdirectory-filter', subref, branch], may_fail=True)
+def create_branch(
+    git: GitRunner,
+    flags: Flags,
+    config: NestedConfig,
+    subdir: Path,
+    gitnested: Path,
+    subref: str,
+    command: str,
+    branch: str,
+) -> None:
+    """Create `branch` holding the nested history of subdir, without its .gitnested file.
 
+    From the recorded parent on when there is one; else the whole of HEAD's
+    history, filtered down to the subdir.
+    """
+    first_gitrepo_commit = None
+    if config.parent:
+        first_gitrepo_commit = _create_branch_from_parent(
+            git, flags, config, subdir, gitnested, subref, command, branch
+        )
+    else:
+        git.run(['branch', branch, 'HEAD'])
+        git.run(['filter-branch', '-f', '--subdirectory-filter', subref, branch], may_fail=True)
 
-def _filter_branch_history(git: GitRunner, branch: str, first_gitrepo_commit: str | None) -> None:
-    """Strip the .gitnested file from branch's history."""
     filter_range = f'{first_gitrepo_commit}..{branch}' if first_gitrepo_commit else branch
-    git.check_output(
+    git.run(
         [
             'filter-branch',
             '-f',

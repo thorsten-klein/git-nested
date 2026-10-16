@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from . import discovery, filters, gitfile, history, output, refs, worktree
-from .constants import GITNESTED_FILENAME, GITNESTED_LEVEL_PREFIX
+from .constants import GITNESTED_FILENAME
 from .errors import GitNestedError
 from .git import GitRunner
 from .models import Flags, NestedConfig
@@ -33,21 +33,11 @@ def create_nested_branch(
         return worktree.find_worktree(git, branch) or git_tmp / branch
 
     output.verbose(f"nested parent is {config.parent}")
+    history.create_branch(git, flags, config, subdir, gitnested, subref, command, branch)
 
-    if config.parent:
-        first_gitrepo_commit = history._create_branch_from_parent(
-            git, flags, config, subdir, gitnested, subref, command, branch
-        )
-    else:
-        first_gitrepo_commit = None
-        history._create_branch_without_parent(git, subref, branch)
-
-    history._filter_branch_history(git, branch, first_gitrepo_commit)
-
-    subdir_worktree = worktree.create_worktree(git, branch, git_tmp, worktree_dir)
-
+    subdir_worktree = worktree_dir or git_tmp / branch
+    git.run(['worktree', 'add', subdir_worktree, branch])
     refs.create_nested_ref(git, subref, 'branch', branch)
-
     return subdir_worktree
 
 
@@ -63,138 +53,60 @@ def commit_nested_branch(
     subdir_worktree: Path | None,
     command: str,
 ) -> None:
-    """Commit a nested branch."""
-    _verify_commit_ref(git, flags, nested_commit_ref, upstream_head_commit)
-
-    _replace_subdir_content(git, subdir)
-
-    output.verbose(f"placing the upstream content in {subdir.as_posix()}/")
-    if not config.filter:
-        _place_full_content(git, subdir, nested_commit_ref)
-    else:
-        filters._place_filtered_content(git, subdir, config, nested_commit_ref)
-
-    gitfile.create_level_gitnested_files(git, flags, subdir, head_commit)
-
-    _sync_gitnested_files(git, flags, config, gitnested, upstream_head_commit, nested_commit_ref, head_commit, command)
-
-    _finalize_commit(git, flags, config, subdir, nested_commit_ref, upstream_head_commit, subdir_worktree, command)
-
-
-def _verify_commit_ref(git: GitRunner, flags: Flags, nested_commit_ref: str, upstream_head_commit: str) -> None:
-    """Verify the nested commit exists and (unless --force) contains upstream HEAD."""
-    output.verbose("checking that the nested commit exists")
+    """Replace subdir/ with the content of nested_commit_ref, and commit that with the updated .gitnested."""
     if not git.rev_exists(nested_commit_ref):
         raise GitNestedError(f"no such commit: {nested_commit_ref}")
-
-    if flags.force:
-        return
-    output.verbose("checking that the commit contains the upstream HEAD")
-    if not git.commit_in_rev_list(upstream_head_commit, nested_commit_ref):
+    if not flags.force and not git.commit_in_rev_list(upstream_head_commit, nested_commit_ref):
         raise GitNestedError(f"can't commit: {nested_commit_ref} does not contain the upstream HEAD")
 
+    _place_content(git, config, subdir, nested_commit_ref)
+    gitfile.create_level_gitnested_files(git, subdir)
 
-def _replace_subdir_content(git: GitRunner, subdir: Path) -> None:
-    """Remove any existing content of subdir/ before placing fresh upstream content."""
-    has_files = git.check_output(['ls-files', '--', subdir], may_fail=True)
-    if not has_files:
-        return
-    output.verbose("removing the old subdir content")
-    git.run(['rm', '-r', '--', subdir])
+    # A level file has the regular .gitnested next to it, which is kept in
+    # step so that operating on the nested repo directly still sees current info.
+    regular = gitnested.parent / GITNESTED_FILENAME
+    for path in [gitnested] + ([regular] if regular != gitnested and regular.exists() else []):
+        output.verbose(f"writing {path.as_posix()}")
+        gitfile.update_gitrepo_file(
+            git=git,
+            flags=flags,
+            config=config,
+            gitnested=path,
+            upstream_head_commit=upstream_head_commit,
+            nested_commit_ref=nested_commit_ref,
+            head_commit=head_commit,
+            command=command,
+        )
 
+    if git.run(['diff', '--cached', '--quiet'], may_fail=True).returncode == 0:
+        output.verbose("nothing to commit for the .gitnested update")
+    else:
+        msg = flags.message or discovery.build_commit_message(
+            git, config, upstream_head_commit, nested_commit_ref, subdir, command
+        )
+        commit_gitnested_update(git, flags, msg)
 
-def _place_full_content(git: GitRunner, subdir: Path, nested_commit_ref: str) -> None:
-    """Place the full upstream tree into subdir/ (the no-filter case)."""
-    git.run(['read-tree', f'--prefix={subdir.as_posix()}', '-u', nested_commit_ref])
-
-
-def _sync_gitnested_files(
-    git: GitRunner,
-    flags: Flags,
-    config: NestedConfig,
-    gitnested: Path,
-    upstream_head_commit: str,
-    nested_commit_ref: str,
-    head_commit: str,
-    command: str,
-) -> None:
-    """Update .gitnested (and its sibling regular file, if this is a levelN file)."""
-    output.verbose(f"writing {gitnested.as_posix()}")
-    gitfile.update_gitrepo_file(
-        git=git,
-        flags=flags,
-        config=config,
-        gitnested=gitnested,
-        upstream_head_commit=upstream_head_commit,
-        nested_commit_ref=nested_commit_ref,
-        head_commit=head_commit,
-        command=command,
-    )
-    git.run(['add', '-f', '--', gitnested])
-
-    # Keep the regular .gitnested in step too, so that operating on the nested
-    # repo directly (rather than through the outer one) still sees current info.
-    if GITNESTED_LEVEL_PREFIX not in str(gitnested):
-        return
-    regular_gitnested = gitnested.parent / GITNESTED_FILENAME
-    if not regular_gitnested.exists():
-        return
-    output.verbose(f"also updating {regular_gitnested}, to keep the two in step")
-    gitfile.update_gitrepo_file(
-        git=git,
-        flags=flags,
-        config=config,
-        gitnested=regular_gitnested,
-        upstream_head_commit=upstream_head_commit,
-        nested_commit_ref=nested_commit_ref,
-        head_commit=head_commit,
-        command=command,
-    )
-    git.run(['add', '-f', '--', regular_gitnested])
+    worktree.remove_worktree(git, subdir_worktree)
+    refs.create_nested_ref(git, refs.sanitize_subref(git, subdir.as_posix()), 'commit', nested_commit_ref)
 
 
-def _commit_gitnested_update(git: GitRunner, flags: Flags, msg: str) -> None:
-    """Commit the staged .gitnested update directly onto the current branch.
+def _place_content(git: GitRunner, config: NestedConfig, subdir: Path, nested_commit_ref: str) -> None:
+    """Replace whatever subdir/ holds with the (filtered) tree of nested_commit_ref."""
+    if git.check_output(['ls-files', '--', subdir], may_fail=True):
+        output.verbose("removing the old subdir content")
+        git.run(['rm', '-r', '--', subdir])
 
-    By the time this runs, check_repository()/check_worktree_clean() have already
-    guaranteed a non-empty outer repo for every command that reaches here (clone's own
-    do_clone() separately rejects an empty repo before any commit logic runs), so a
-    plain 'git commit' -- which needs no pre-existing HEAD anyway -- always applies.
-    """
+    output.verbose(f"placing the upstream content in {subdir.as_posix()}/")
+    if config.filter:
+        filters.place_filtered_content(git, subdir, config.filter, nested_commit_ref)
+    else:
+        git.run(['read-tree', f'--prefix={subdir.as_posix()}', '-u', nested_commit_ref])
+
+
+def commit_gitnested_update(git: GitRunner, flags: Flags, msg: str) -> None:
+    """Commit what is staged onto the current branch, with --file's message if given, else `msg`."""
     output.verbose("committing the .gitnested update")
     if flags.message_file:
         git.run(['commit', '--file', flags.message_file])
     else:
         git.run(['commit', '-m', msg])
-
-
-def _finalize_commit(
-    git: GitRunner,
-    flags: Flags,
-    config: NestedConfig,
-    subdir: Path,
-    nested_commit_ref: str,
-    upstream_head_commit: str,
-    subdir_worktree: Path | None,
-    command: str,
-) -> None:
-    """Commit the staged .gitnested update (if any), clean up, and record the commit ref."""
-    result = git.run(['diff', '--cached', '--quiet'], may_fail=True)
-    has_changes = result.returncode != 0
-
-    if has_changes:
-        msg = flags.message or discovery.build_commit_message(
-            git=git,
-            config=config,
-            upstream_head_commit=upstream_head_commit,
-            nested_commit_ref=nested_commit_ref,
-            subdir=subdir,
-            command=command,
-        )
-        _commit_gitnested_update(git, flags, msg)
-    else:
-        output.verbose("nothing to commit for the .gitnested update")
-
-    worktree.remove_worktree(git, subdir_worktree)
-
-    refs.create_nested_ref(git, refs.sanitize_subref(git, subdir.as_posix()), 'commit', nested_commit_ref)

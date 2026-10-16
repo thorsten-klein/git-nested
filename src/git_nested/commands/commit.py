@@ -10,16 +10,8 @@ from . import fetch
 
 def cmd_commit(ctx: CommandContext) -> None:
     """Commit a merged nested branch."""
-    git = ctx.git
-    flags, subdir, upstream, nested_commit_ref, git_tmp, head_commit = (
-        ctx.flags,
-        ctx.subdir,
-        ctx.upstream,
-        ctx.nested_commit_ref,
-        ctx.tmp,
-        ctx.head,
-    )
-    subdir, gitnested, subref, config = setup.setup_command(git, 'commit', flags, subdir, upstream)
+    git, flags = ctx.git, ctx.flags
+    subdir, gitnested, subref, config = setup.setup_command(git, 'commit', flags, ctx.subdir, ctx.upstream)
 
     if flags.fetch:
         fetch.do_fetch(git, config, subref)
@@ -28,10 +20,8 @@ def cmd_commit(ctx: CommandContext) -> None:
     if not git.rev_exists(refs_fetch):
         output.error(f"no ref {refs_fetch}; run 'git nested fetch' first, or pass -F")
 
-    upstream_head_commit = git.check_output(['rev-parse', refs_fetch])
     branch = refs.nested_branch(git, subref)
-    nested_commit_ref = nested_commit_ref or branch
-
+    nested_commit_ref = ctx.nested_commit_ref or branch
     content.commit_nested_branch(
         git=git,
         flags=flags,
@@ -39,9 +29,9 @@ def cmd_commit(ctx: CommandContext) -> None:
         subdir=subdir,
         gitnested=gitnested,
         nested_commit_ref=nested_commit_ref,
-        upstream_head_commit=upstream_head_commit,
-        head_commit=head_commit,
-        subdir_worktree=worktree.find_worktree(git, branch) or git_tmp / branch,
+        upstream_head_commit=git.check_output(['rev-parse', refs_fetch]),
+        head_commit=ctx.head,
+        subdir_worktree=worktree.find_worktree(git, branch) or ctx.tmp / branch,
         command='commit',
     )
     output.say(f"{subdir.as_posix()}: committed {nested_commit_ref}")

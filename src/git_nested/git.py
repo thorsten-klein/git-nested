@@ -15,28 +15,8 @@ from .constants import REQUIRED_GIT_VERSION
 from .errors import GitNestedError
 
 
-def _git_env(env: dict[str, str] | None) -> dict[str, str]:
-    """``env`` for a git subprocess, with git's slowest footgun defused.
-
-    `git filter-branch` prints its "glut of gotchas" warning and then sleeps
-    for ten seconds unless FILTER_BRANCH_SQUELCH_WARNING is set. git-nested
-    calls filter-branch on the pull/push/branch/commit paths, so without this
-    every one of those operations costs the user a flat ten seconds waiting
-    out a warning about a command they did not choose to run and cannot act
-    on. setdefault, so an explicit value from the environment still wins.
-    """
-    merged = dict(os.environ if env is None else env)
-    merged.setdefault('FILTER_BRANCH_SQUELCH_WARNING', '1')
-    return merged
-
-
 class GitRunner:
     """Simplified git command execution."""
-
-    def __init__(self) -> None:
-        """Check the environment and record the detected git version."""
-        self.check()
-        self.version = self.get_version()
 
     def run(self, args: Sequence[str | Path], may_fail: bool = False, **kwargs: Any) -> subprocess.CompletedProcess:  # noqa: ANN401
         """Run git command."""
@@ -44,7 +24,15 @@ class GitRunner:
         # Path would otherwise reach it with backslashes
         cmd = ['git'] + [arg.as_posix() if isinstance(arg, PurePath) else str(arg) for arg in args]
         output.trace(' '.join(cmd))
-        kwargs['env'] = _git_env(kwargs.get('env'))
+        # `git filter-branch` prints its "glut of gotchas" warning and then
+        # sleeps for ten seconds unless FILTER_BRANCH_SQUELCH_WARNING is set,
+        # and git-nested calls it on the pull/push/branch/commit paths -- a
+        # flat ten seconds each time, waiting out a warning about a command
+        # the user did not choose to run. setdefault, so an explicit value
+        # from the environment still wins.
+        env = dict(os.environ if kwargs.get('env') is None else kwargs['env'])
+        env.setdefault('FILTER_BRANCH_SQUELCH_WARNING', '1')
+        kwargs['env'] = env
         result = subprocess.run(cmd, capture_output=True, text=True, check=False, **kwargs)
         if result.returncode != 0:
             if not may_fail:

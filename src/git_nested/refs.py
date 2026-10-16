@@ -44,30 +44,12 @@ def guess_subdir(remote: str) -> str:
     """Guess subdirectory name from remote URL."""
     if not remote:
         raise GitNestedError("no subdir given, and no remote to guess one from")
-    name = Path(remote).name
-    if name.endswith('.git'):
-        name = name[:-4]
-    return name
+    return Path(remote).name.removesuffix('.git')
 
 
 def _is_valid_ref(git: GitRunner, ref: str) -> bool:
     """Check whether ref is already a valid git ref name (as a nested/ subref)."""
-    result = git.run(['check-ref-format', f'nested/{ref}'], may_fail=True)
-    return result.returncode == 0
-
-
-def _strip_forbidden_ref_chars(sanitized: str) -> str:
-    """Replace or trim characters that aren't allowed in a git ref name."""
-    for c in ['~', '..', ' ', '/']:
-        sanitized = sanitized.replace(c, '_')
-    if sanitized[:1] in ('.', '-'):
-        sanitized = '_' + sanitized[1:]
-    if sanitized.endswith('.lock'):  # .lock ending is not allowed
-        sanitized = sanitized[:-5] + '_lock'
-    # Ref cannot end with a dot
-    if sanitized.endswith('.'):
-        sanitized = sanitized[:-1]
-    return sanitized
+    return git.run(['check-ref-format', f'nested/{ref}'], may_fail=True).returncode == 0
 
 
 def sanitize_subref(git: GitRunner, ref: str) -> str:
@@ -75,7 +57,15 @@ def sanitize_subref(git: GitRunner, ref: str) -> str:
     if _is_valid_ref(git, ref):
         return ref
 
-    sanitized = _strip_forbidden_ref_chars(quote(ref, safe='/'))
+    sanitized = quote(ref, safe='/')
+    for c in ['~', '..', ' ', '/']:
+        sanitized = sanitized.replace(c, '_')
+    if sanitized[:1] in ('.', '-'):
+        sanitized = '_' + sanitized[1:]
+    # Neither a '.lock' nor a '.' ending is allowed
+    if sanitized.endswith('.lock'):
+        sanitized = sanitized.removesuffix('.lock') + '_lock'
+    sanitized = sanitized.removesuffix('.')
 
     if not _is_valid_ref(git, sanitized):
         raise GitNestedError(f"can't derive a git ref name from {ref}")

@@ -3,37 +3,12 @@
 from __future__ import annotations
 
 import textwrap
-from pathlib import Path
 
-from .. import content, history, output, yamlio
+from .. import content, history, output
 from .._version import VERSION
 from ..cli import setup
-from ..git import GitRunner
 from ..models import CommandContext
-
-
-def _write_parent(git: GitRunner, gitnested: Path, parent: str) -> None:
-    """Set the parent field of gitnested and stage the change."""
-    data = yamlio._read_yaml_config(gitnested)
-    data.setdefault('nested', {})['parent'] = parent
-    yamlio._write_yaml_config(gitnested, data)
-    git.run(['add', '-f', '--', gitnested])
-
-
-def _repair_message(git: GitRunner, subdir: Path, parent: str) -> str:
-    """The default commit message, in the shape the other nested commits use."""
-    short = git.check_output(['rev-parse', '--short', parent])
-    return textwrap.dedent(
-        f"""\
-        git nested repair
-
-        nested:
-          subdir:   "{subdir.as_posix()}"
-          parent:   "{short}"
-        git-nested:
-          version:  "{VERSION}"
-        """
-    )
+from . import config as config_command
 
 
 def cmd_repair(ctx: CommandContext) -> None:
@@ -62,6 +37,17 @@ def cmd_repair(ctx: CommandContext) -> None:
         )
 
     output.verbose(f"the sync point in HEAD's history is {sync_point}")
-    _write_parent(git, gitnested, sync_point)
-    content._commit_gitnested_update(git, ctx.flags, ctx.flags.message or _repair_message(git, subdir, sync_point))
+    config_command.write_field(git, gitnested, 'parent', sync_point)
+    short = git.check_output(['rev-parse', '--short', sync_point])
+    # In the shape of the other nested commits' messages
+    msg = textwrap.dedent(f"""\
+        git nested repair
+
+        nested:
+          subdir:   "{subdir.as_posix()}"
+          parent:   "{short}"
+        git-nested:
+          version:  "{VERSION}"
+        """)
+    content.commit_gitnested_update(git, ctx.flags, ctx.flags.message or msg)
     output.say(f"{subdir.as_posix()}: sync point repaired, parent is now {sync_point}")

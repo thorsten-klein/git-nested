@@ -3,7 +3,6 @@
 from pathlib import Path
 
 import pytest
-import yaml
 from fakes import NO_GIT, FakeGit
 
 from git_nested import (
@@ -14,9 +13,7 @@ from git_nested import (
     content,
     discovery,
     filters,
-    gitfile,
     history,
-    output,
 )
 from git_nested.commands import fetch, push, status
 
@@ -32,61 +29,59 @@ def test_do_fetch_raises_when_remote_is_none():
 
 
 # ============================================================================
-# _check_parent_is_ancestor
+# _recorded_commit
 # ============================================================================
 
 
-def test_check_parent_is_ancestor_noop_when_ancestor():
-    git = FakeGit().respond('merge-base', '--is-ancestor', returncode=0)
-    config = NestedConfig(parent='deadbeef')
-    # Should not raise
-    history._check_parent_is_ancestor(git, config, Path('sub/.gitnested'), Path('sub'))
-
-
-def test_check_parent_is_ancestor_raises_with_recovery_hint():
-    git = FakeGit().respond('merge-base', '--is-ancestor', returncode=1)
-    config = NestedConfig(parent='deadbeef')
-    with pytest.raises(GitNestedError, match=r"(?s)no longer an ancestor of HEAD.*git nested repair sub"):
-        history._check_parent_is_ancestor(git, config, Path('sub/.gitnested'), Path('sub'))
-
-
-# ============================================================================
-# _extract_gitrepo_commit
-# ============================================================================
-
-
-def test_extract_gitrepo_commit_returns_none_when_missing():
+def test_recorded_commit_is_none_when_missing():
     git = FakeGit().respond('cat-file', '-p', stdout='')
-    assert history._extract_gitrepo_commit(git, 'deadbeef', Path('sub')) is None
+    assert history._recorded_commit(git, 'deadbeef', Path('sub/.gitnested')) is None
 
 
-def test_extract_gitrepo_commit_returns_none_on_invalid_yaml():
+def test_recorded_commit_is_none_on_invalid_yaml():
     git = FakeGit().respond('cat-file', '-p', stdout='nested: [unterminated')
-    assert history._extract_gitrepo_commit(git, 'deadbeef', Path('sub')) is None
+    assert history._recorded_commit(git, 'deadbeef', Path('sub/.gitnested')) is None
 
 
-def test_extract_gitrepo_commit_returns_none_when_commit_field_empty():
+def test_recorded_commit_is_none_when_commit_field_empty():
     git = FakeGit().respond('cat-file', '-p', stdout='nested:\n  remote: x\n')
-    assert history._extract_gitrepo_commit(git, 'deadbeef', Path('sub')) is None
+    assert history._recorded_commit(git, 'deadbeef', Path('sub/.gitnested')) is None
 
 
-def test_extract_gitrepo_commit_returns_stripped_commit():
+def test_recorded_commit_is_stripped():
     git = FakeGit().respond('cat-file', '-p', stdout='nested:\n  commit: deadbeef\n')
-    assert history._extract_gitrepo_commit(git, 'somecommit', Path('sub')) == 'deadbeef'
+    assert history._recorded_commit(git, 'somecommit', Path('sub/.gitnested')) == 'deadbeef'
 
 
 # ============================================================================
-# _push_fetch_missing_upstream
+# _fetch_push_target
 # ============================================================================
 
 
-def test_push_fetch_missing_upstream_true_when_ref_not_found():
-    assert push._push_fetch_missing_upstream("fatal: couldn't find remote ref refs/heads/foo\n") is True
+def test_fetch_push_target_is_none_when_the_branch_is_not_upstream_yet():
+    git = FakeGit().respond('fetch', returncode=1, stderr="fatal: couldn't find remote ref refs/heads/foo\n")
+    assert push._fetch_push_target(git, Flags(), NestedConfig(remote='x', branch='main'), 'foo') is None
 
 
-def test_push_fetch_missing_upstream_raises_on_other_errors():
+def test_do_push_refuses_a_branch_without_the_upstream_head(monkeypatch):
+    monkeypatch.setattr(push, '_fetch_push_target', lambda *_args: 'upstream')
+    monkeypatch.setattr(push, '_build_push_branch', lambda *_args: 'nested/sub')
+    git = (
+        FakeGit()
+        .respond('rev-list', 'refs/heads/nested/sub')
+        .respond('rev-parse', 'nested/sub', stdout='new')
+        .respond('merge-base', '--is-ancestor', returncode=1)
+    )
+    args = (git, Flags(), NestedConfig(remote='x', branch='main'), Path('sub'), Path('sub/.gitnested'), Path('tmp'))
+    with pytest.raises(GitNestedError, match="does not contain the upstream HEAD upstream"):
+        push.do_push(*args, 'sub', 'foo', None)
+
+
+def test_fetch_push_target_raises_on_other_errors():
+    git = FakeGit().respond('fetch', returncode=1, stderr="fatal: unable to access remote\n")
+    flags, config = Flags(), NestedConfig(remote='x', branch='main')
     with pytest.raises(GitNestedError, match="the fetch before the push failed"):
-        push._push_fetch_missing_upstream("fatal: unable to access remote\n")
+        push._fetch_push_target(git, flags, config, 'foo')
 
 
 # ============================================================================
@@ -130,27 +125,31 @@ def test_format_refs_formats_known_ref_types():
 
 
 # ============================================================================
-# _status_header / get_status / _status_for_subdir
+# get_status / _status_for_subdir
 # ============================================================================
 
 
-def test_status_header_no_nested_repositories():
-    header, done = status._status_header(Flags(quiet=False), count=0)
-    assert header == "No nested repositories.\n"
-    assert done is True
+def test_get_status_no_nested_repositories():
+    git = FakeGit().respond('ls-files', stdout='')
+    assert status.get_status(git, Flags(quiet=False)) == "No nested repositories.\n"
 
 
-def test_status_header_quiet_is_always_empty():
-    header, done = status._status_header(Flags(quiet=True), count=3)
-    assert header == ""
-    assert done is False
+def test_get_status_quiet_has_no_header():
+    git = FakeGit().respond('ls-files', stdout='')
+    assert status.get_status(git, Flags(quiet=True)) == ""
 
 
-def test_status_header_singular_vs_plural():
-    header, _ = status._status_header(Flags(quiet=False), count=1)
-    assert header == "1 nested repository:\n"
-    header, _ = status._status_header(Flags(quiet=False), count=2)
-    assert header == "2 nested repositories:\n"
+@pytest.mark.parametrize(
+    ('files', 'header'),
+    [
+        ('a/.gitnested\n', "1 nested repository:\n"),
+        ('a/.gitnested\nb/.gitnested\n', "2 nested repositories:\n"),
+    ],
+)
+def test_get_status_header_singular_vs_plural(tmp_path, monkeypatch, files, header):
+    monkeypatch.chdir(tmp_path)
+    git = FakeGit().respond('ls-files', stdout=files).respond('check-ref-format', returncode=0)
+    assert status.get_status(git, Flags()).startswith(header)
 
 
 def test_status_for_subdir_not_a_nested_repository(tmp_path, monkeypatch):
@@ -158,16 +157,7 @@ def test_status_for_subdir_not_a_nested_repository(tmp_path, monkeypatch):
     subdir = Path('plainsub')
     subdir.mkdir()
     git = FakeGit().respond('check-ref-format', returncode=0)
-    lines, entries = status._status_for_subdir(git=git, flags=Flags(), subdir=subdir)
-    assert entries == []
-    assert f"'{subdir}' is not a nested repository" in lines[0]
-
-
-def test_get_status_no_nested_repositories():
-    git = FakeGit().respond('ls-files', stdout='')
-    output, entries = status.get_status(git, Flags(quiet=False))
-    assert output == "No nested repositories.\n"
-    assert entries == []
+    assert status._status_for_subdir(git, Flags(), subdir) == f"'{subdir}' is not a nested repository\n"
 
 
 def test_status_for_subdir_fetches_when_flag_set(tmp_path, monkeypatch):
@@ -183,55 +173,73 @@ def test_status_for_subdir_fetches_when_flag_set(tmp_path, monkeypatch):
         .respond('rev-parse', 'FETCH_HEAD^0', stdout='deadbeef')
         .respond('update-ref', returncode=0)
     )
-    lines, entries = status._status_for_subdir(git=git, flags=Flags(fetch=True, quiet=True), subdir=subdir)
-    assert entries[0][0] == subdir
-    assert lines == [f"{subdir}\n"]
+    assert status._status_for_subdir(git, Flags(fetch=True, quiet=True), subdir) == f"{subdir}\n"
+    assert ('fetch', '--no-tags', '--quiet', 'https://example.com/x.git', 'main') in git.calls
 
 
-def test_status_identity_lines_branch_and_remote_present():
+def test_status_for_subdir_lists_the_refs_when_verbose(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'sub').mkdir()
+    (tmp_path / 'sub' / '.gitnested').write_text("nested:\n  remote: x\n  branch: main\n")
+    git = (
+        FakeGit()
+        .respond('check-ref-format')
+        .respond('rev-parse', '--short', 'refs/nested/sub/fetch', returncode=1)
+        .respond('rev-parse', '--short', 'abc', stdout='abc')
+        .respond('config', returncode=1)
+        .respond('rev-list', returncode=1)
+        .respond('worktree', 'list', stdout='')
+        .respond('show-ref', stdout='abc refs/nested/sub/fetch')
+    )
+    assert "  Refs:\n    Fetch Ref      abc (refs/nested/sub/fetch)\n" in status._status_for_subdir(
+        git, Flags(verbose=1), Path('sub')
+    )
+
+
+def test_status_details_with_branch_and_remote_present():
     git = (
         FakeGit()
         .respond('config', '--get', 'nested.sub.branchname', returncode=1)
         .respond('rev-list', 'refs/heads/nested/sub', returncode=0)
         .respond('config', 'remote.nested/sub.url', stdout='https://example.com/x.git')
-    )
-    config = NestedConfig(remote='https://example.com/x.git', branch='main')
-    output = status._status_identity_lines(git, 'sub', config, upstream_head='abc1234')
-    joined = ''.join(output)
-    assert "Nested Branch:  nested/sub" in joined
-    assert "Remote Name:     nested/sub" in joined
-
-
-def test_status_detail_lines_appends_refs_when_verbose():
-    git = (
-        FakeGit()
-        .respond('rev-list', returncode=1)
-        .respond('config', returncode=1)
         .respond('worktree', 'list', stdout='')
-        .respond('show-ref', stdout='')
     )
     config = NestedConfig(remote='https://example.com/x.git', branch='main')
-    lines = status._status_detail_lines(git, Flags(verbose=1), Path('sub'), 'sub', config, upstream_head='')
-    assert any(line == "" for line in lines) or True  # format_refs("") is appended; just exercising the branch
+    details = status._details(git, Path('sub'), 'sub', config, upstream_head='abc1234')
+    assert "Nested Branch:  nested/sub" in details
+    assert "Remote Name:     nested/sub" in details
 
 
 # ============================================================================
-# _verify_commit_ref
+# commit_nested_branch
 # ============================================================================
 
 
-def test_verify_commit_ref_raises_when_commit_missing():
+def _commit(git):
+    content.commit_nested_branch(
+        git,
+        Flags(),
+        NestedConfig(remote='x', branch='main'),
+        Path('sub'),
+        Path('sub/.gitnested'),
+        'deadbeef',
+        'upstream',
+        'head',
+        None,
+        'pull',
+    )
+
+
+def test_commit_nested_branch_raises_when_commit_missing():
     git = FakeGit().respond('rev-list', returncode=1)
-    flags = Flags()
     with pytest.raises(GitNestedError, match="no such commit"):
-        content._verify_commit_ref(git, flags, 'deadbeef', 'upstream')
+        _commit(git)
 
 
-def test_verify_commit_ref_raises_when_missing_upstream_head():
+def test_commit_nested_branch_raises_when_missing_upstream_head():
     git = FakeGit().respond('rev-list', 'deadbeef', returncode=0).respond('merge-base', '--is-ancestor', returncode=1)
-    flags = Flags(force=False)
     with pytest.raises(GitNestedError, match="does not contain the upstream HEAD"):
-        content._verify_commit_ref(git, flags, 'deadbeef', 'upstream')
+        _commit(git)
 
 
 # ============================================================================
@@ -273,16 +281,18 @@ def test_create_branch_from_parent_raises_when_no_commit_touches_subdir():
 
 
 # ============================================================================
-# _process_chain_commit
+# _chain_commits
 # ============================================================================
 
 
-def test_process_chain_commit_skips_commit_without_gitrepo_data():
+def test_create_chain_commit_skips_a_commit_without_the_subdir():
+    git = FakeGit().respond('cat-file', '-e', returncode=1)
+    assert history._create_chain_commit(git, 'deadbeef', Path('sub'), 'prev', 'upstream') == 'prev'
+
+
+def test_chain_commits_skips_a_commit_without_gitnested_data():
     git = FakeGit().respond('cat-file', '-p', stdout='')
-    state = {'ancestor': None, 'first_gitrepo_commit': None, 'last_gitrepo_commit': None, 'prev_commit': None}
-    config = NestedConfig(remote='x', branch='main')
-    history._process_chain_commit(git, Flags(), config, Path('sub'), 'sub', 'pull', 'deadbeef', state)
-    assert state['prev_commit'] is None
+    assert history._chain_commits(git, ['deadbeef'], Path('sub/.gitnested')) == []
 
 
 # ============================================================================
@@ -302,73 +312,53 @@ def test_check_rebase_safety_raises_when_gitrepo_commit_unreachable_locally():
 
 
 # ============================================================================
-# _push_check_ancestry
+# _classify
 # ============================================================================
 
 
-def test_push_check_ancestry_raises_when_branch_missing_upstream_head():
-    git = FakeGit().respond('merge-base', '--is-ancestor', returncode=1)
-    flags = Flags(force=False)
-    with pytest.raises(GitNestedError, match="does not contain the upstream HEAD"):
-        push._push_check_ancestry(git, flags, new_upstream=False, upstream_head_commit='deadbeef', branch='nested/sub')
-
-
-# ============================================================================
-# _index_literal_filter_entry
-# ============================================================================
-
-
-def test_index_literal_filter_entry_raises_on_invalid_regex():
+def test_classify_raises_on_invalid_regex():
     git = FakeGit().respond('cat-file', '-t', returncode=1)
     with pytest.raises(GitNestedError, match="invalid filter pattern"):
-        filters._index_literal_filter_entry(git, Path('sub'), {}, 'deadbeef', '[', [])
+        filters._classify(git, 'deadbeef', ['['])
 
 
 # ============================================================================
-# _update_parent_field
+# check_repository / check_worktree_clean
 # ============================================================================
 
 
-def test_update_parent_field_sets_parent_when_caught_up():
-    git = FakeGit().respond('rev-parse', 'nested/sub', stdout='deadbeef')
-    nested: dict = {}
-    gitfile._update_parent_field(
-        git, nested, head_commit='cafebabe', nested_commit_ref='nested/sub', upstream_head_commit='deadbeef'
-    )
-    assert nested['parent'] == 'cafebabe'
-
-
-# ============================================================================
-# _check_current_branch
-# ============================================================================
-
-
-def test_check_current_branch_raises_on_nested_branch_checked_out():
-    git = FakeGit().respond('symbolic-ref', stdout='nested/sub')
-    with pytest.raises(GitNestedError, match="while the nested branch"):
-        checks._check_current_branch(git, 'pull')
-
-
-# ============================================================================
-# _check_head_and_index_clean / check_worktree_clean
-# ============================================================================
-
-
-def test_check_head_and_index_clean_raises_when_head_unverifiable():
-    git = FakeGit().respond('rev-parse', '--verify', 'HEAD', returncode=1)
-    with pytest.raises(GitNestedError, match="HEAD cannot be verified"):
-        checks._check_head_and_index_clean(git, 'pull', Path('/repo'))
-
-
-def test_check_head_and_index_clean_raises_when_index_has_changes():
+def test_check_repository_raises_on_nested_branch_checked_out():
     git = (
         FakeGit()
-        .respond('rev-parse', '--verify', 'HEAD', returncode=0)
-        .respond('diff-index', '--quiet', '--ignore-submodules', 'HEAD', returncode=0)
-        .respond('diff-index', '--quiet', '--cached', '--ignore-submodules', 'HEAD', returncode=1)
+        .respond('rev-parse', '--git-dir')
+        .respond('rev-parse', '--git-common-dir', stdout='.git')
+        .respond('symbolic-ref', stdout='nested/sub')
+    )
+    with pytest.raises(GitNestedError, match="while the nested branch"):
+        checks.check_repository(git, 'pull')
+
+
+def _clean_up_to_head(**head_responses):
+    git = FakeGit().respond('update-index').respond('diff-files', '--quiet', '--ignore-submodules')
+    for args, returncode in head_responses.values():
+        git.respond(*args, returncode=returncode)
+    return git
+
+
+def test_check_worktree_clean_raises_when_head_unverifiable():
+    git = _clean_up_to_head(verify=(('rev-parse', '--verify', 'HEAD'), 1))
+    with pytest.raises(GitNestedError, match="HEAD cannot be verified"):
+        checks.check_worktree_clean(git, 'pull')
+
+
+def test_check_worktree_clean_raises_when_index_has_changes():
+    git = _clean_up_to_head(
+        verify=(('rev-parse', '--verify', 'HEAD'), 0),
+        tree=(('diff-index', '--quiet', '--ignore-submodules', 'HEAD'), 0),
+        index=(('diff-index', '--quiet', '--cached', '--ignore-submodules', 'HEAD'), 1),
     )
     with pytest.raises(GitNestedError, match="the index has changes"):
-        checks._check_head_and_index_clean(git, 'pull', Path('/repo'))
+        checks.check_worktree_clean(git, 'pull')
 
 
 def test_check_worktree_clean_raises_on_unstaged_changes():
@@ -391,63 +381,3 @@ def test_get_upstream_branch_raises_when_head_ref_not_found():
     config = NestedConfig(remote='https://example.com/x.git', branch='')
     with pytest.raises(GitNestedError, match="can't determine the default branch"):
         discovery.get_upstream_branch(git, config)
-
-
-# ============================================================================
-# _sync_gitnested_files (levelN -> sibling regular .gitnested)
-# ============================================================================
-
-
-def test_sync_gitnested_files_also_updates_sibling_regular_file(tmp_path):
-    """When operating through a .gitnested.levelN file, its sibling regular .gitnested
-    (if present) is kept in sync too, so operating on the nested repo directly still
-    sees current info"""
-    level_gitnested = tmp_path / '.gitnested.level2'
-    regular_gitnested = tmp_path / '.gitnested'
-    regular_gitnested.write_text("nested:\n  remote: old\n  branch: old\n")
-    git = FakeGit().respond('cat-file', '-e', returncode=1).respond('add', '-f', '--')
-    config = NestedConfig(remote='https://example.com/x.git', branch='main')
-
-    content._sync_gitnested_files(
-        git,
-        Flags(),
-        config,
-        level_gitnested,
-        upstream_head_commit='deadbeef',
-        nested_commit_ref='nested/sub',
-        head_commit='',
-        command='pull',
-    )
-
-    assert level_gitnested.is_file()
-    updated = yaml.safe_load(regular_gitnested.read_text())
-    # 'commit' is always refreshed; 'remote' isn't (no --remote override, not a push/clone)
-    assert updated['nested']['commit'] == 'deadbeef'
-    assert updated['nested']['remote'] == 'old'
-
-
-# ============================================================================
-# _finalize_commit
-# ============================================================================
-
-
-def test_finalize_commit_logs_when_there_is_nothing_to_commit(printing, no_colour, capsys):
-    output.set_level(Flags(verbose=1))
-    git = (
-        FakeGit()
-        .respond('diff', '--cached', '--quiet', returncode=0)
-        .respond('check-ref-format', returncode=0)
-        .respond('update-ref')
-    )
-    config = NestedConfig(remote='x', branch='main')
-    content._finalize_commit(
-        git,
-        Flags(verbose=1),
-        config,
-        Path('sub'),
-        nested_commit_ref='nested_ref',
-        upstream_head_commit='upstream_head',
-        subdir_worktree=None,
-        command='pull',
-    )
-    assert "nothing to commit for the .gitnested update" in capsys.readouterr().err

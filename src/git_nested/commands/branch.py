@@ -7,15 +7,14 @@ from pathlib import Path
 from .. import content, messages, output, refs, worktree
 from ..cli import setup
 from ..git import GitRunner
-from ..models import CommandContext, Flags, NestedConfig
+from ..models import CommandContext, NestedConfig
 from . import fetch
 
 
 def cmd_branch(ctx: CommandContext) -> None:
     """Create a branch containing the local nested repo commits."""
-    git = ctx.git
-    flags, subdir, upstream, git_tmp = ctx.flags, ctx.subdir, ctx.upstream, ctx.tmp
-    subdir, gitnested, subref, config = setup.setup_command(git, 'branch', flags, subdir, upstream)
+    git, flags, git_tmp = ctx.git, ctx.flags, ctx.tmp
+    subdir, gitnested, subref, config = setup.setup_command(git, 'branch', flags, ctx.subdir, ctx.upstream)
 
     if flags.fetch:
         fetch.do_fetch(git, config, subref)
@@ -23,9 +22,17 @@ def cmd_branch(ctx: CommandContext) -> None:
     # `current` is this nested repository's branch as things stand; `branch`
     # the one to build, which differs only when --name renames it.
     current = refs.nested_branch(git, subref)
-    branch = _branch_to_build(git, flags, current, subdir)
+    branch = flags.name or current
+    if branch != current:
+        _check_new_name(git, branch, subdir)
     target = Path(flags.dir) if flags.dir else git_tmp / branch
-    _clear_the_way(git, flags, config, current, subdir, target, git_tmp)
+
+    # Naming a directory that already holds this nested repository's worktree
+    # asks for it to be rebuilt there, so that needs no --force.
+    if (flags.dir and _target_holds_branch(git, target, current, subdir)) or flags.force:
+        worktree.delete_branch(git, current, git_tmp)
+    elif git.branch_exists(current):
+        output.error(_branch_exists_error(git, config, current, subdir))
 
     subdir_worktree = content.create_nested_branch(
         git=git,
@@ -41,25 +48,6 @@ def cmd_branch(ctx: CommandContext) -> None:
     )
     refs.record_nested_branch(git, subref, branch)
     output.say(f"{subdir.as_posix()}: branch {branch} created, worktree at {subdir_worktree.as_posix()}")
-
-
-def _branch_to_build(git: GitRunner, flags: Flags, current: str, subdir: Path) -> str:
-    """The branch to build: --name if given and acceptable, else the `current` one."""
-    if flags.name and flags.name != current:
-        _check_new_name(git, flags.name, subdir)
-    return flags.name or current
-
-
-def _clear_the_way(
-    git: GitRunner, flags: Flags, config: NestedConfig, current: str, subdir: Path, target: Path, git_tmp: Path
-) -> None:
-    """Remove the `current` branch and its worktree where asked to, and abort where not."""
-    # Naming a directory that already holds this nested repository's worktree
-    # asks for it to be rebuilt there, so that needs no --force.
-    if (flags.dir and _target_holds_branch(git, target, current, subdir)) or flags.force:
-        worktree.delete_branch(git, current, git_tmp)
-    elif git.branch_exists(current):
-        output.error(_branch_exists_error(git, config, current, subdir))
 
 
 def _check_new_name(git: GitRunner, branch: str, subdir: Path) -> None:
@@ -85,18 +73,13 @@ def _target_holds_branch(git: GitRunner, target: Path, branch: str, subdir: Path
         return False
     is_worktree, checked_out = worktree.branch_at(git, target)
     if not is_worktree:
-        _check_plain_directory(target, subdir)
+        if not target.is_dir() or any(target.iterdir()):
+            output.error(f"{target.as_posix()}: already exists and is not a worktree of {subdir.as_posix()}")
         return False
     if checked_out != branch:
         what = f"branch {checked_out}" if checked_out else "a detached HEAD"
         output.error(f"{target.as_posix()}: already a worktree, of {what} -- not of {subdir.as_posix()}")
     return True
-
-
-def _check_plain_directory(target: Path, subdir: Path) -> None:
-    """Abort unless `target`, which is no worktree, is an empty directory git can put one in."""
-    if not target.is_dir() or any(target.iterdir()):
-        output.error(f"{target.as_posix()}: already exists and is not a worktree of {subdir.as_posix()}")
 
 
 def _created(git: GitRunner, branch: str) -> str | None:
