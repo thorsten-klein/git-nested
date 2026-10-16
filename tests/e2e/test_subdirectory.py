@@ -36,7 +36,7 @@ def test_subdir_is_relative_to_the_current_directory(foo_bar_cloned):
     assert (foo / 'ext' / 'bar' / '.gitnested').is_file()
 
     result = cmd_git_nested('branch ../ext/lib', cwd=foo / 'ext')
-    assert result.output.strip() == "ext/lib: branch nested/ext/lib created, worktree at .git/tmp/nested/ext/lib"
+    assert result.output.strip() == "ext/lib: branch nested/ext%2Flib created, worktree at .git/tmp/nested/ext%2Flib"
 
 
 def test_the_enclosing_nested_repository_is_the_default_subdir(foo_bar_cloned_and_nested):

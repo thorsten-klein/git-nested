@@ -21,19 +21,28 @@ def _branch_name_key(subref: str) -> str:
     return f'nested.{subref}.branchname'
 
 
+def _default_branch(subref: str) -> str:
+    """'nested/<subref>', with '/' in subref escaped.
+
+    git can't have both nested/lib and nested/lib/inner. So lib/inner gets
+    nested/lib%2Finner.
+    """
+    return 'nested/' + subref.replace('/', '%2F')
+
+
 def nested_branch(git: GitRunner, subref: str) -> str:
     """The local branch holding the nested commits of `subref`.
 
-    'nested/<subref>' unless `git nested branch --name` chose another name,
-    which it records in .git/config so that every other command finds it too.
+    The default one, unless `git nested branch --name` chose another name.
+    That name is kept in .git/config, so every other command finds it too.
     """
     recorded = git.check_output(['config', '--get', _branch_name_key(subref)], may_fail=True)
-    return recorded or f'nested/{subref}'
+    return recorded or _default_branch(subref)
 
 
 def record_nested_branch(git: GitRunner, subref: str, branch: str | None) -> None:
     """Record `branch` as the nested branch of `subref`; None, or the default name, forgets it."""
-    if branch and branch != f'nested/{subref}':
+    if branch and branch != _default_branch(subref):
         git.run(['config', _branch_name_key(subref), branch])
     else:
         # exits 5 when there is nothing to unset, which is just as good
