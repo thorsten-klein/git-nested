@@ -26,13 +26,14 @@ CONFIG_FIELDS: dict[str, str] = {
     'filter': "the paths of the upstream repository that are nested",
     'exclude': "the paths of the upstream repository that are left out",
     'path': "the directory of the upstream repository that is nested, at the root of the subdir",
+    'pin': "a commit or tag of the branch to nest, instead of its newest commit",
     'cmdver': "the git-nested version that last wrote this file",
     'readonly': "'true' makes push refuse, for a repository that is only pulled",
 }
 
 # The rest are written by the nested operations themselves; setting one by
 # hand would describe a state the repository is not in.
-WRITABLE_CONFIG_FIELDS = ('remote', 'branch', 'method', 'squash', 'parent', 'readonly')
+WRITABLE_CONFIG_FIELDS = ('remote', 'branch', 'method', 'squash', 'parent', 'pin', 'readonly')
 
 
 def create_level_gitnested_files(git: GitRunner, subdir: Path, level: int | None = None) -> None:
@@ -82,6 +83,7 @@ def read_config(gitnested: Path, flags: Flags) -> NestedConfig:
     config.remote = flags.remote or config.remote
     config.branch = flags.branch or config.branch
     config.method = flags.method or config.method
+    config.pin = flags.pin or config.pin
     return config
 
 
@@ -109,6 +111,8 @@ def update_gitrepo_file(
         nested['exclude'] = flags.exclude
     if flags.path:
         nested['path'] = flags.path
+    if flags.pin:
+        nested['pin'] = flags.pin
 
     _update_lineage(nested, initial, flags, config, command)
     # The parent only moves once the nested commit has caught up with upstream.

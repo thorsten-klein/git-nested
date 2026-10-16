@@ -32,10 +32,23 @@ def do_fetch(git: GitRunner, config: NestedConfig, subref: str) -> str:
 
     output.verbose("reading the upstream HEAD commit")
     upstream_head_commit = git.check_output(['rev-parse', FETCH_HEAD_REV])
+    if config.pin:
+        upstream_head_commit = _fetch_pin(git, config, upstream_head_commit)
 
-    refs.create_nested_ref(git, subref, 'fetch', FETCH_HEAD_REV)
+    refs.create_nested_ref(git, subref, 'fetch', upstream_head_commit)
 
     return upstream_head_commit
+
+
+def _fetch_pin(git: GitRunner, config: NestedConfig, tip: str) -> str:
+    """The commit config.pin names. It has to be on the branch, whose `tip` is fetched already."""
+    git.network(
+        ['fetch', '--no-tags', '--quiet', config.remote, config.pin], f"fetching {config.remote} ({config.pin})"
+    )
+    pinned = git.check_output(['rev-parse', FETCH_HEAD_REV])
+    if not git.commit_in_rev_list(pinned, tip):
+        raise GitNestedError(f"{config.pin} is not on {config.branch} of {config.remote}")
+    return pinned
 
 
 def cmd_fetch(ctx: CommandContext) -> None:

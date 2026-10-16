@@ -39,7 +39,11 @@ sequenceDiagram
         git-nested->>Git: fetch --no-tags --quiet <remote> <branch>
         Note over git-nested: In a terminal: --progress, not --quiet, and a line naming the remote
         git-nested->>Git: rev-parse FETCH_HEAD^0
-        git-nested->>Git: update-ref refs/nested/<subref>/fetch FETCH_HEAD^0
+        opt pin configured
+            git-nested->>Git: fetch --no-tags --quiet <remote> <pin>
+            git-nested->>Git: merge-base --is-ancestor <pinned> <branch tip>
+        end
+        git-nested->>Git: update-ref refs/nested/<subref>/fetch <branch tip or pinned>
     end
 
     alt --adopt
@@ -168,7 +172,11 @@ sequenceDiagram
         git-nested->>Git: fetch --no-tags --quiet <remote> <branch>
         Note over git-nested: If it fails: ls-remote --exit-code tells a missing branch
         git-nested->>Git: rev-parse FETCH_HEAD^0
-        git-nested->>Git: update-ref refs/nested/<subref>/fetch FETCH_HEAD^0
+        opt pin configured
+            git-nested->>Git: fetch --no-tags --quiet <remote> <pin>
+            git-nested->>Git: merge-base --is-ancestor <pinned> <branch tip>
+        end
+        git-nested->>Git: update-ref refs/nested/<subref>/fetch <branch tip or pinned>
     end
 ```
 
@@ -200,7 +208,11 @@ sequenceDiagram
         Note over git-nested,Git: do_fetch
         git-nested->>Git: fetch --no-tags --quiet <remote> <branch>
         git-nested->>Git: rev-parse FETCH_HEAD^0
-        git-nested->>Git: update-ref refs/nested/<subref>/fetch FETCH_HEAD^0
+        opt pin configured
+            git-nested->>Git: fetch --no-tags --quiet <remote> <pin>
+            git-nested->>Git: merge-base --is-ancestor <pinned> <branch tip>
+        end
+        git-nested->>Git: update-ref refs/nested/<subref>/fetch <branch tip or pinned>
     end
 
     alt Up to date
@@ -446,7 +458,11 @@ sequenceDiagram
             Note over git-nested,Git: do_fetch
             git-nested->>Git: fetch --no-tags --quiet <remote> <branch>
             git-nested->>Git: rev-parse FETCH_HEAD^0
-            git-nested->>Git: update-ref refs/nested/<subref>/fetch FETCH_HEAD^0
+            opt pin configured
+            git-nested->>Git: fetch --no-tags --quiet <remote> <pin>
+            git-nested->>Git: merge-base --is-ancestor <pinned> <branch tip>
+        end
+        git-nested->>Git: update-ref refs/nested/<subref>/fetch <branch tip or pinned>
         end
     end
 
@@ -605,7 +621,11 @@ sequenceDiagram
             Note over git-nested,Git: do_fetch
             git-nested->>Git: fetch --no-tags --quiet <remote> <branch>
             git-nested->>Git: rev-parse FETCH_HEAD^0
-            git-nested->>Git: update-ref refs/nested/<subref>/fetch FETCH_HEAD^0
+            opt pin configured
+            git-nested->>Git: fetch --no-tags --quiet <remote> <pin>
+            git-nested->>Git: merge-base --is-ancestor <pinned> <branch tip>
+        end
+        git-nested->>Git: update-ref refs/nested/<subref>/fetch <branch tip or pinned>
         end
     end
 
@@ -661,7 +681,11 @@ sequenceDiagram
         opt --fetch flag
             git-nested->>Git: fetch --no-tags --quiet <remote> <branch>
             git-nested->>Git: rev-parse FETCH_HEAD^0
-            git-nested->>Git: update-ref refs/nested/<subref>/fetch FETCH_HEAD^0
+            opt pin configured
+            git-nested->>Git: fetch --no-tags --quiet <remote> <pin>
+            git-nested->>Git: merge-base --is-ancestor <pinned> <branch tip>
+        end
+        git-nested->>Git: update-ref refs/nested/<subref>/fetch <branch tip or pinned>
         end
 
         git-nested->>Git: rev-list refs/heads/nested/<subref> -1

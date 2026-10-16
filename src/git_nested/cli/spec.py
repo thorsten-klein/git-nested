@@ -25,6 +25,7 @@ VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
         'message',
         'method',
         'path',
+        'pin',
         'recurse_submodules',
         'signoff',
     ],
@@ -42,6 +43,7 @@ VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
         'message',
         'method',
         'no_squash',
+        'pin',
         'recurse_submodules',
         'remote',
         'signoff',
@@ -164,6 +166,7 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
     ),
     ('message', ('-m', '--message'), {'dest': 'message', 'help': "commit message"}),
     ('path', ('--path',), {'dest': 'path', 'help': "nest only this directory of upstream, at the root of <subdir>"}),
+    ('pin', ('--pin',), {'dest': 'pin', 'help': "nest this commit or tag of the branch, not its newest commit"}),
     ('msg_file', ('--file',), {'dest': 'msg_file', 'help': "file to read the commit message from"}),
     ('remote', ('-r', '--remote'), {'dest': 'remote', 'help': "upstream remote to push/pull/fetch"}),
     (
@@ -194,6 +197,7 @@ SUPPORTED_OPT_ATTRS: list[tuple[str, str]] = [
     ('name', 'name'),
     ('upstream_commit', 'upstream_commit'),
     ('path', 'path'),
+    ('pin', 'pin'),
 ]
 
 # Most commands take the same first positional, so it gets the same text.

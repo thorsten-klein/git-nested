@@ -36,6 +36,8 @@ class Flags:
     message_file: str | None = None
     name: str | None = None
     path: str | None = None
+
+    pin: str | None = None
     method: str | None = None
     remote: str | None = None
     short: bool = False
@@ -59,6 +61,7 @@ class NestedConfig:
     exclude: list[str] | None = None
     path: str = ''
     parent: str = ''
+    pin: str = ''
     method: str = 'merge'
     squash: bool = True
     readonly: bool = False
@@ -78,6 +81,7 @@ class NestedConfig:
             exclude=nested.get('exclude'),
             path=nested.get('path') or '',
             parent=nested.get('parent', ''),
+            pin=nested.get('pin') or '',
             method='rebase' if nested.get('method') == 'rebase' else 'merge',
             squash=str(nested.get('squash', 'true')).lower() != 'false',
             readonly=str(nested.get('readonly')).lower() == 'true',
