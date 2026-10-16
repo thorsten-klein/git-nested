@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from fakes import NO_GIT
+from fakes import NO_GIT, FakeGit
 
 import git_nested
 from git_nested import (
@@ -20,7 +20,9 @@ from git_nested import (
 )
 from git_nested import __main__ as dunder_main
 from git_nested import git as git_module
+from git_nested import worktree as worktree_module
 from git_nested.cli import main as cli_main
+from git_nested.commands import branch as branch_command
 
 # ============================================================================
 # Version detection
@@ -212,3 +214,45 @@ def test_main_exits_130_on_keyboard_interrupt(monkeypatch):
     with pytest.raises(SystemExit) as exc_info:
         git_nested.main()
     assert exc_info.value.code == 130
+
+
+def test_branch_created_is_none_without_a_reflog():
+    git = FakeGit()
+    git.respond('reflog', stdout='', returncode=128)
+    assert branch_command._created(git, 'nested/foo') is None
+
+
+def test_branch_exists_error_reports_a_branch_not_built_on_the_recorded_upstream():
+    git = FakeGit()
+    git.respond('log', '-1', stdout='abc1234 foo: change')
+    git.respond('rev-list', 'deadbeefcafe', '-1', stdout='deadbeefcafe')
+    git.respond('merge-base', '--is-ancestor', returncode=1)
+    git.respond('diff', '--quiet', returncode=1)
+    git.respond('reflog', stdout='nested/foo@{2 days ago}')
+    git.respond('worktree', 'list', stdout='')
+    config = NestedConfig(commit='deadbeefcafe')
+
+    msg = branch_command._branch_exists_error(git, config, 'nested/foo', Path('foo'))
+
+    assert "  upstream:  not based on deadbeefc recorded in .gitnested (outdated)" in msg
+    assert "  content:   differs from foo/ in HEAD" in msg
+    assert "  branch:    nested/foo" in msg
+    assert "  created:   2 days ago" in msg
+    assert "worktree:" not in msg
+
+
+def test_branch_upstream_fact_is_none_without_a_recorded_commit():
+    assert branch_command._upstream_fact(NO_GIT, NestedConfig(commit=''), 'nested/foo') is None
+
+
+def test_branch_content_fact_is_none_when_git_cannot_compare():
+    git = FakeGit()
+    git.respond('diff', '--quiet', returncode=128)
+    assert branch_command._content_fact(git, 'nested/foo', Path('foo')) is None
+
+
+def test_worktree_paths_outside_the_repository_stay_absolute(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    outside = tmp_path.parent / 'elsewhere'
+    assert worktree_module._relative(outside) == outside
+    assert worktree_module._relative(tmp_path / '.git' / 'tmp') == Path('.git/tmp')
