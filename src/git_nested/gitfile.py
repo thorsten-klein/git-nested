@@ -23,6 +23,7 @@ CONFIG_FIELDS: dict[str, str] = {
     'commit': "the upstream commit currently nested",
     'parent': "the commit the nested history hangs off",
     'filter': "the paths of the upstream repository that are nested",
+    'exclude': "the paths of the upstream repository that are left out",
     'cmdver': "the git-nested version that last wrote this file",
     'readonly': "'true' makes push refuse, for a repository that is only pulled",
 }
@@ -102,6 +103,8 @@ def update_gitrepo_file(
     nested['cmdver'] = VERSION
     if flags.filter:
         nested['filter'] = flags.filter
+    if flags.exclude:
+        nested['exclude'] = flags.exclude
 
     _update_lineage(nested, initial, flags, config, command)
     # The parent only moves once the nested commit has caught up with upstream.

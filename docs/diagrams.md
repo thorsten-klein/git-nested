@@ -382,6 +382,12 @@ sequenceDiagram
         git-nested->>Git: commit --no-verify [--signoff] [-S] -m <message>
         Note over git-nested: If it fails: reset -q --hard HEAD
     end
+
+    opt filter or exclude configured
+        Note over git-nested: Each replayed tree gets back the upstream files git-nested does not manage, so the push keeps them
+        git-nested->>Git: ls-tree -r -z <upstream>
+        git-nested->>Git: update-index -z --index-info (temporary index)
+    end
 ```
 
 ---
@@ -688,8 +694,10 @@ sequenceDiagram
     git-nested->>Git: rev-parse HEAD:<subdir>
     Note over git-nested: The tree of the subdir as committed locally
 
-    opt filter configured
+    opt filter or exclude configured
         Note over git-nested: Build a filtered copy of the upstream commit
+        git-nested->>Git: ls-tree -r -z <upstream>
+        git-nested->>Git: update-index -z --index-info (temporary index)
     end
 
     git-nested->>Git: diff <local tree> <upstream> -- ':(exclude,glob)**/.gitnested*'

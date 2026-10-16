@@ -24,6 +24,7 @@ class Flags:
     branch: str | None = None
     commit: bool = False
     dir: str | None = None
+    exclude: list[str] | None = None
     filter: list[str] | None = None
     force: bool = False
     from_submodule: bool = False
@@ -52,6 +53,7 @@ class NestedConfig:
     branch: str = ''
     commit: str = ''
     filter: list[str] | None = None
+    exclude: list[str] | None = None
     parent: str = ''
     method: str = 'merge'
     readonly: bool = False
@@ -68,6 +70,7 @@ class NestedConfig:
             branch=nested.get('branch', ''),
             commit=nested.get('commit', ''),
             filter=nested.get('filter'),
+            exclude=nested.get('exclude'),
             parent=nested.get('parent', ''),
             method='rebase' if nested.get('method') == 'rebase' else 'merge',
             readonly=str(nested.get('readonly')).lower() == 'true',

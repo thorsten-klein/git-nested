@@ -222,6 +222,10 @@ git nested clone --adopt https://github.com/user/lib ext/lib
 This also works in a fresh repository with no commits yet. The clone commit
 becomes the root commit, and the first later sync records the parent.
 
+`--exclude <path>` leaves a path of upstream out, e.g. test data. `pull`
+keeps it out, and `push` never deletes it upstream. `--filter <path>` does
+the opposite: it keeps only that path. Both can be given more than once.
+
 If upstream has submodules, `--recurse-submodules` nests them too. Each one
 stays at the commit upstream pins. Without it they stay empty, and
 git-nested says so.
@@ -417,6 +421,7 @@ git nested config <subdir> <key> <value>    # set one field
 | `parent` | the commit the nested history hangs off | yes |
 | `commit` | the upstream commit currently nested | no |
 | `filter` | the paths of the upstream repository that are nested | no |
+| `exclude` | the paths of the upstream repository that are left out | no |
 | `cmdver` | the git-nested version that last wrote this file | no |
 | `readonly` | `true` makes `push` refuse, for a repository that is only pulled | yes |
 

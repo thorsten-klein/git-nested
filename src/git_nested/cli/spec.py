@@ -15,7 +15,18 @@ from ..constants import COMPLETION_SHELLS
 VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
     'branch': ['all', 'dir', 'fetch', 'force', 'gpg_sign', 'name'],
     'clean': ['ALL', 'all', 'force'],
-    'clone': ['adopt', 'branch', 'filter', 'force', 'gpg_sign', 'message', 'method', 'recurse_submodules', 'signoff'],
+    'clone': [
+        'adopt',
+        'branch',
+        'exclude',
+        'filter',
+        'force',
+        'gpg_sign',
+        'message',
+        'method',
+        'recurse_submodules',
+        'signoff',
+    ],
     'commit': ['fetch', 'force', 'gpg_sign', 'message', 'msg_file', 'signoff'],
     'completion': [],
     'config': [],
@@ -121,6 +132,7 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
         ('--recurse-submodules',),
         {'action': 'store_true', 'help': "nest the submodules of upstream too, at the commits it pins"},
     ),
+    ('exclude', ('--exclude',), {'action': 'append', 'help': "leave this path of the upstream repository out"}),
     (
         'gpg_sign',
         ('-S', '--gpg-sign'),

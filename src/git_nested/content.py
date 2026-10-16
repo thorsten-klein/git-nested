@@ -107,8 +107,8 @@ def _place_content(git: GitRunner, config: NestedConfig, subdir: Path, nested_co
         git.run(['rm', '-r', '--', subdir])
 
     output.verbose(f"placing the upstream content in {subdir.as_posix()}/")
-    if config.filter:
-        filters.place_filtered_content(git, subdir, config.filter, nested_commit_ref)
+    if config.filter or config.exclude:
+        filters.place_filtered_content(git, subdir, config.filter or [], config.exclude or [], nested_commit_ref)
     else:
         git.run(['read-tree', f'--prefix={subdir.as_posix()}', '-u', nested_commit_ref])
 
