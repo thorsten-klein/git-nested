@@ -630,6 +630,14 @@ sequenceDiagram
             git-nested->>Git: update-ref -d refs/original/refs/heads/nested/<subref>/*
         end
     end
+
+    opt --force --all
+        Note over git-nested: Also what former nested repositories left
+        git-nested->>Git: for-each-ref --format=%(refname:short) refs/heads/nested/
+        loop For each such branch
+            Note over git-nested: Remove its worktree and the branch
+        end
+    end
 ```
 
 ---

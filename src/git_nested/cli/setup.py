@@ -67,8 +67,8 @@ def setup_command(
     if not flags.force:
         _check_existing_worktree(git, command, subdir, gitnested, refs.nested_branch(git, subref))
 
-    # clone and init have no .gitnested to read yet; they start from scratch
-    if command in ['clone', 'init']:
+    # clone and init have no .gitnested yet. clean does not need it.
+    if command in ['clone', 'init', 'clean']:
         config = NestedConfig(remote=flags.remote or upstream or '', branch=flags.branch or '')
     else:
         config = gitfile.read_config(gitnested, flags)

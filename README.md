@@ -334,6 +334,8 @@ git nested repair --help
 #### `git nested clean`
 
 Remove temporary branches, refs, and remotes created during nested operations.
+It works without `.gitnested`, e.g. after a reset undid the clone.
+`clean --force --all` also removes every leftover `nested/*` branch.
 
 ```bash
 git nested clean --help
