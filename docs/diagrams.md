@@ -53,7 +53,7 @@ sequenceDiagram
         git-nested->>Git: rev-parse <nested_commit_ref>
         git-nested->>Git: add -f -- <subdir>/.gitnested
         git-nested->>Git: diff --cached --quiet
-        git-nested->>Git: commit --no-verify -m <message>
+        git-nested->>Git: commit --no-verify [--signoff] [-S] -m <message>
         Note over git-nested: If it fails: reset -q --hard HEAD
         git-nested->>Git: update-ref refs/nested/<subref>/commit <nested_commit_ref>
     end
@@ -109,7 +109,7 @@ sequenceDiagram
         git-nested->>Git: add -f -- <subdir>/.gitnested
     end
 
-    git-nested->>Git: commit --no-verify -m <message>
+    git-nested->>Git: commit --no-verify [--signoff] [-S] -m <message>
     Note over git-nested: If it fails: reset -q --hard HEAD
     git-nested->>Git: update-ref refs/nested/<subref>/commit <head_commit>
 
@@ -213,7 +213,7 @@ sequenceDiagram
                     end
                     opt The tree changes
                         git-nested->>Git: log -1 --format=%ad%n%ae%n%an%n%cd%n%ce%n%cn%n%B <commit>
-                        git-nested->>Git: commit-tree -p <parents> <tree>
+                        git-nested->>Git: commit-tree [-S] -p <parents> <tree>
                     end
                 end
                 git-nested->>Git: branch nested/<subref> <tip>
@@ -247,7 +247,7 @@ sequenceDiagram
             Note over git-nested: Write .gitnested YAML
             git-nested->>Git: add -f -- <subdir>/.gitnested
             git-nested->>Git: diff --cached --quiet
-            git-nested->>Git: commit --no-verify -m <message>
+            git-nested->>Git: commit --no-verify [--signoff] [-S] -m <message>
             Note over git-nested: If it fails: reset -q --hard HEAD
             git-nested->>Git: worktree prune
             git-nested->>Git: rev-parse --git-dir
@@ -349,7 +349,7 @@ sequenceDiagram
     opt --commit flag
         Note over git-nested: Update .gitnested YAML
         git-nested->>Git: add -f -- <subdir>/.gitnested
-        git-nested->>Git: commit --no-verify -m <message>
+        git-nested->>Git: commit --no-verify [--signoff] [-S] -m <message>
         Note over git-nested: If it fails: reset -q --hard HEAD
     end
 ```
@@ -428,7 +428,7 @@ sequenceDiagram
                 end
                 opt The tree changes
                     git-nested->>Git: log -1 --format=... <commit>
-                    git-nested->>Git: commit-tree -p <parents> <tree>
+                    git-nested->>Git: commit-tree [-S] -p <parents> <tree>
                 end
             end
             git-nested->>Git: branch nested/<subref> <tip>
@@ -509,7 +509,7 @@ sequenceDiagram
 
     git-nested->>Git: add -f -- <subdir>/.gitnested
     git-nested->>Git: rev-parse --short <sync point>
-    git-nested->>Git: commit --no-verify -m <message>
+    git-nested->>Git: commit --no-verify [--signoff] [-S] -m <message>
     Note over git-nested: If it fails: reset -q --hard HEAD
 ```
 
@@ -560,7 +560,7 @@ sequenceDiagram
         git-nested->>Git: rev-parse <nested_commit_ref>
         git-nested->>Git: add -f -- <subdir>/.gitnested
         git-nested->>Git: diff --cached --quiet
-        git-nested->>Git: commit --no-verify -m <message>
+        git-nested->>Git: commit --no-verify [--signoff] [-S] -m <message>
         Note over git-nested: If it fails: reset -q --hard HEAD
         git-nested->>Git: worktree prune
         git-nested->>Git: rev-parse --git-dir

@@ -124,7 +124,8 @@ def commit_gitnested_update(git: GitRunner, flags: Flags, subdir: Path, msg: str
     # The parent's hooks are for its own changes. `git config nested.verify true` runs them.
     verify = git.check_output(['config', '--type=bool', '--get', 'nested.verify'], may_fail=True) == 'true'
     try:
-        git.run(['commit', *([] if verify else ['--no-verify']), *message])
+        signing = [*(['--signoff'] if flags.signoff else []), *(['-S'] if flags.gpg_sign else [])]
+        git.run(['commit', *([] if verify else ['--no-verify']), *signing, *message])
     except GitNestedError as e:
         git.run(['reset', '-q', '--hard', 'HEAD'])
         raise GitNestedError(f"{subdir.as_posix()}: the commit failed, so nothing was changed:\n{e.message}") from None

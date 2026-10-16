@@ -69,7 +69,7 @@ def _check_rebase_safety(git: GitRunner, command: str, subdir: Path, subref: str
     )
 
 
-def _create_chain_commit(git: GitRunner, commit: str, tree: str, parents: list[str]) -> str:
+def _create_chain_commit(git: GitRunner, commit: str, tree: str, parents: list[str], sign: bool) -> str:
     """A nested commit of `tree`, with the author, committer and message of `commit`."""
     # Unstripped, so that even an empty message leaves the six lines before it intact.
     *identity, message = git.run([
@@ -82,7 +82,8 @@ def _create_chain_commit(git: GitRunner, commit: str, tree: str, parents: list[s
     names = ('AUTHOR_DATE', 'AUTHOR_EMAIL', 'AUTHOR_NAME', 'COMMITTER_DATE', 'COMMITTER_EMAIL', 'COMMITTER_NAME')
     env = {**os.environ, **{f'GIT_{name}': value for name, value in zip(names, identity, strict=True)}}
     parent_args = [arg for parent in parents for arg in ('-p', parent)]
-    return git.check_output(['commit-tree', '-F', '-', *parent_args, tree], input=message.strip(), env=env)
+    sign_args = ['-S'] if sign else []
+    return git.check_output(['commit-tree', *sign_args, '-F', '-', *parent_args, tree], input=message.strip(), env=env)
 
 
 @dataclass
@@ -100,6 +101,7 @@ class _Replay:
     merge: bool
     index_env: dict[str, str]
     removed: list[str]
+    sign: bool = False
     nested: dict[str, str] = field(default_factory=dict)
     joined: dict[str, str | None] = field(default_factory=dict)
     trees: dict[str, str] = field(default_factory=dict)
@@ -126,7 +128,7 @@ class _Replay:
         tree = self._subdir_tree(commit)
         if len(parents) == 1 and tree == self._tree_of(parents[0]):
             return parents[0]
-        nested = _create_chain_commit(self.git, commit, tree, parents)
+        nested = _create_chain_commit(self.git, commit, tree, parents, self.sign)
         self.trees[nested] = tree
         return nested
 
@@ -195,7 +197,7 @@ def _create_branch_from_parent(
     with tempfile.TemporaryDirectory() as tmp:
         merge = (flags.method or config.method) != 'rebase'
         index_env = {**os.environ, 'GIT_INDEX_FILE': str(Path(tmp) / 'index')}
-        replay = _Replay(git, subdir, subref, command, merge, index_env, removed)
+        replay = _Replay(git, subdir, subref, command, merge, index_env, removed, sign=flags.gpg_sign)
         for line in lines:
             commit, *parents = line.split()
             replay.add(commit, parents)

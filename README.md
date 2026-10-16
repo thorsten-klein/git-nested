@@ -485,6 +485,12 @@ changes, not for the content of an upstream. To run `pre-commit` and
 git config nested.verify true
 ```
 
+### Signing
+
+`--signoff` adds a `Signed-off-by:` trailer to the commit git-nested makes.
+`-S` signs it with GPG. For `branch`, `pull` and `push`, `-S` also signs the
+nested commits git-nested rebuilds. git's `user.signingKey` picks the key.
+
 ### Conflict Resolution
 
 If a pull or push operation encounters merge conflicts, git-nested will guide you through manual resolution:
