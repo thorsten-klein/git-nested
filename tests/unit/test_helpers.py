@@ -1,5 +1,6 @@
 """Unit tests for small, git-repo-independent (or nearly so) git_nested helpers"""
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -12,6 +13,7 @@ from git_nested import (
     GitNestedError,
     GitRunner,
     NestedConfig,
+    _compat,
     _version,
     gitfile,
     refs,
@@ -262,3 +264,13 @@ def test_gitnested_is_written_with_lf(tmp_path):
 )
 def test_a_relative_submodule_url_is_resolved_like_git_does(url, base, resolved):
     assert submodules.resolve(url, base) == resolved
+
+
+def test_rmtree_clears_a_read_only_flag(tmp_path):
+    """git keeps its objects read-only on Windows; they must still go."""
+    stuck = tmp_path / 'object'
+    stuck.write_text('x')
+    stuck.chmod(0o444)
+    _compat._make_writable_and_retry(os.remove, str(stuck), None)
+    assert not stuck.exists()
+    _compat.rmtree(tmp_path / 'not-there')

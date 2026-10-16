@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 from .. import content, discovery, gitfile, output, refs, submodules
+from .._compat import rmtree
 from ..cli import setup
 from ..errors import GitNestedError
 from ..git import GitRunner
@@ -33,7 +33,7 @@ def _init_from_submodule(git: GitRunner, flags: Flags, subdir: Path) -> None:
     git.run(['rm', '-q', '-f', '--', path])
     if not _GITMODULES.read_text().strip():
         git.run(['rm', '-q', '-f', '--', _GITMODULES])
-    shutil.rmtree(Path(git.check_output(['rev-parse', '--git-common-dir'])) / 'modules' / name, ignore_errors=True)
+    rmtree(Path(git.check_output(['rev-parse', '--git-common-dir'])) / 'modules' / name)
 
     clone.clone_at(git, flags, subdir, url, pinned)
 
