@@ -92,7 +92,11 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
     ('message', ('-m', '--message'), {'dest': 'message', 'help': "commit message"}),
     ('msg_file', ('--file',), {'dest': 'msg_file', 'help': "file to read the commit message from"}),
     ('remote', ('-r', '--remote'), {'dest': 'remote', 'help': "upstream remote to push/pull/fetch"}),
-    ('squash', ('-s', '--squash'), {'action': 'store_true', 'help': "squash the pushed commits into one"}),
+    (
+        'squash',
+        ('-s', '--squash'),
+        {'action': 'store_true', 'help': "squash the pushed commits into one, with -m/--file as its message"},
+    ),
     (
         'update',
         ('-u', '--update'),

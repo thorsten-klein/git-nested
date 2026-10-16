@@ -297,6 +297,13 @@ sequenceDiagram
         Note over git-nested: (in worktree)
     end
 
+    opt --squash
+        git-nested->>Git: merge-base nested/<subref> <upstream>
+        git-nested->>Git: log --reverse --format=%s <base>..nested/<subref>
+        git-nested->>Git: commit-tree -p <base> -F <-m, --file or the list> nested/<subref>^{tree}
+        git-nested->>Git: update-ref refs/heads/nested/<subref> <squashed>
+    end
+
     git-nested->>Git: rev-parse nested/<subref>
     Note over git-nested: Verify new commits exist
 

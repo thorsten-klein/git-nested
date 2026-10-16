@@ -625,3 +625,62 @@ def test_push_keeps_the_message_of_a_merged_commit(foo_bar_cloned_and_nested):
 
     log = env.run(['git', 'log', '--format=%s', 'master'], cwd=env.upstream / 'bar').output.splitlines()
     assert log == ['modified file: bar/Bar', 'bard/Bard', 'Bar']
+
+
+def _three_bar_commits_then_another(env):
+    foo = env.workspace / 'foo'
+    for name in ('s1', 's2', 's3'):
+        env.add_new_files(f'bar/{name}', cwd=foo)
+    env.add_new_files('other', cwd=foo)
+    return foo
+
+
+def _upstream_message(env):
+    return env.run(['git', 'log', '-1', '--format=%B', 'master'], cwd=env.upstream / 'bar').output.strip()
+
+
+def test_push_squash_takes_the_message(foo_bar_cloned_and_nested):
+    """-m is the message of the one commit upstream gets."""
+    env = foo_bar_cloned_and_nested
+    foo = _three_bar_commits_then_another(env)
+
+    cmd_git_nested(['push', '--squash', '-m', 'one commit upstream', '-b', 'master', 'bar'], foo)
+
+    assert _upstream_message(env) == 'one commit upstream'
+
+
+def test_push_squash_lists_the_squashed_commits(foo_bar_cloned_and_nested):
+    """Without -m the message lists the squashed commits, not a commit that did not touch the subdir."""
+    env = foo_bar_cloned_and_nested
+    foo = _three_bar_commits_then_another(env)
+
+    cmd_git_nested('push --squash -b master bar', cwd=foo)
+
+    assert _upstream_message(env) == (
+        "Squash 3 commits\n\n- add new file: bar/s1\n- add new file: bar/s2\n- add new file: bar/s3"
+    )
+    assert env.run(['git', 'rev-list', '--count', 'master'], cwd=env.upstream / 'bar').output.strip() == '3'
+
+
+def test_push_squash_takes_the_message_file(foo_bar_cloned_and_nested, tmp_path):
+    """--file is the message of the one commit upstream gets."""
+    env = foo_bar_cloned_and_nested
+    foo = _three_bar_commits_then_another(env)
+    message = tmp_path / 'msg.txt'
+    message.write_text('from a file\n')
+
+    cmd_git_nested(['push', '--squash', '--file', message.as_posix(), '-b', 'master', 'bar'], foo)
+
+    assert _upstream_message(env) == 'from a file'
+
+
+def test_push_squash_of_one_commit_keeps_its_message(foo_bar_cloned_and_nested):
+    """One squashed commit needs no list."""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    env.add_new_files('bar/s1', cwd=foo)
+    env.add_new_files('other', cwd=foo)
+
+    cmd_git_nested('push --squash -b master bar', cwd=foo)
+
+    assert _upstream_message(env) == 'add new file: bar/s1'
