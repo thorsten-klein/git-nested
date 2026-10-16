@@ -302,7 +302,7 @@ sequenceDiagram
     git-nested->>Git: update-ref refs/nested/<subref>/push nested/<subref>
 
     rect rgb(255, 245, 230)
-        Note over git-nested,Git: Cleanup
+        Note over git-nested,Git: Cleanup, also when the push fails
         git-nested->>Git: worktree prune
         git-nested->>Git: rev-parse --git-common-dir
         Note over git-nested: Remove empty parent dirs up to .git/tmp

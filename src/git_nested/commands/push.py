@@ -53,6 +53,7 @@ def _build_push_branch(
         try:
             git.run(['rebase', f'refs/nested/{subref}/fetch', branch], cwd=subdir_worktree)
         except GitNestedError:
+            worktree.delete_branch(git, branch, git_tmp)
             output.error(f"{subdir.as_posix()}: git rebase failed, so nothing was pushed")
     return branch
 
@@ -70,16 +71,35 @@ def do_push(
 ) -> str | None:
     """Push `branch`, or else a nested branch built for the purpose, to branch_name upstream.
 
+    A branch built here is removed afterwards, also when the push fails.
+
     Returns:
         the pushed commit, or None if upstream already has it.
     """
-    # Only a branch built here is known to sit on upstream, so only then is
-    # there an upstream commit to compare against.
-    upstream_head = None
-    if branch is None:
-        upstream_head = _fetch_push_target(git, flags, config, branch_name)
-        branch = _build_push_branch(git, flags, config, subdir, gitnested, git_tmp, subref)
+    if branch is not None:
+        return _push(git, flags, config, subref, branch, branch_name, None)
+    upstream_head = _fetch_push_target(git, flags, config, branch_name)
+    built = _build_push_branch(git, flags, config, subdir, gitnested, git_tmp, subref)
+    try:
+        return _push(git, flags, config, subref, built, branch_name, upstream_head)
+    finally:
+        worktree.delete_branch(git, built, git_tmp)
 
+
+def _push(
+    git: GitRunner,
+    flags: Flags,
+    config: NestedConfig,
+    subref: str,
+    branch: str,
+    branch_name: str,
+    upstream_head: str | None,
+) -> str | None:
+    """Push `branch` to branch_name upstream, unless upstream_head already is its tip.
+
+    Only a branch built for the push is known to sit on upstream, so only
+    then is there an upstream_head to compare against.
+    """
     if not git.branch_exists(branch):
         raise GitNestedError(f"no nested branch {branch} to push")
     new_commit = git.check_output(['rev-parse', branch])
@@ -144,9 +164,6 @@ def cmd_push(ctx: CommandContext) -> None:
         _check_commit_target(flags, subdir, gitnested, config, branch_name)
     new_commit = do_push(git, flags, config, subdir, gitnested, ctx.tmp, subref, branch_name, branch)
 
-    if branch is None:
-        # The branch was built for this push alone.
-        worktree.delete_branch(git, refs.nested_branch(git, subref), ctx.tmp)
     if new_commit is None:
         output.say(f"{subdir.as_posix()}: nothing to push")
         return
