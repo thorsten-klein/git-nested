@@ -387,6 +387,12 @@ sequenceDiagram
         Note over git-nested: Each replayed tree gets back the upstream files git-nested does not manage, so the push keeps them
         git-nested->>Git: ls-tree -r -z <upstream>
         git-nested->>Git: update-index -z --index-info (temporary index)
+
+    opt path configured
+        Note over git-nested: Each replayed tree is the recorded upstream tree, with <path> taken from the subdir
+        git-nested->>Git: read-tree <upstream> (temporary index)
+        git-nested->>Git: rm --cached -r -q -f --ignore-unmatch -- <path>
+        git-nested->>Git: read-tree --prefix=<path>/ <commit>:<subdir>
     end
 ```
 

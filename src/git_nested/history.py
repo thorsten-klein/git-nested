@@ -109,6 +109,7 @@ class _Replay:
     sign: bool = False
     gitlinked: tuple[str, ...] = ()
     keep: tuple[list[str], list[str]] | None = None
+    path: str = ''
     nested: dict[str, str] = field(default_factory=dict)
     joined: dict[str, str | None] = field(default_factory=dict)
     trees: dict[str, str] = field(default_factory=dict)
@@ -140,6 +141,12 @@ class _Replay:
             return
         self.nested[commit] = self._commit(commit, nested_parents)
 
+    def _upstream_with_room(self, commit: str) -> None:
+        """Load the upstream tree `commit` records, without the directory subdir stands for."""
+        upstream = _recorded_commit(self.git, commit, self.subdir / GITNESTED_FILENAME)
+        self.git.run(['read-tree', upstream or '--empty'], env=self.index_env)
+        self.git.run(['rm', '--cached', '-r', '-q', '-f', '--ignore-unmatch', '--', self.path], env=self.index_env)
+
     def _commit(self, commit: str, parents: list[str]) -> str:
         """The nested commit of `commit` on `parents`; the one parent itself if nothing changes."""
         tree = self._subdir_tree(commit)
@@ -162,25 +169,37 @@ class _Replay:
         return self.trees[commit]
 
     def _subdir_tree(self, commit: str) -> str:
-        """The tree of subdir in `commit`, without the `removed` paths."""
-        self.git.run(['read-tree', f'{commit}:{self.subdir.as_posix()}'], env=self.index_env)
+        """The tree of subdir in `commit`, without the `removed` paths.
+
+        With a path, it is upstream's tree with that directory taken from subdir.
+        """
+        prefix = f'{self.path}/' if self.path else ''
+        local = f'{commit}:{self.subdir.as_posix()}'
+        if self.path:
+            self._upstream_with_room(commit)
+            self.git.run(['read-tree', f'--prefix={prefix}', local], env=self.index_env)
+        else:
+            self.git.run(['read-tree', local], env=self.index_env)
+        removed = [f'{prefix}{path}' for path in self.removed]
         # -f: this index has nothing to do with the working tree
-        self.git.run(['rm', '--cached', '-r', '-q', '-f', '--ignore-unmatch', '--', *self.removed], env=self.index_env)
+        self.git.run(['rm', '--cached', '-r', '-q', '-f', '--ignore-unmatch', '--', *removed], env=self.index_env)
         for path in self.gitlinked:
-            self._as_gitlink(commit, path)
+            self._as_gitlink(commit, path, prefix)
         if self.keep:
             self._keep_unmanaged(commit, *self.keep)
         return self.git.check_output(['write-tree'], env=self.index_env)
 
-    def _as_gitlink(self, commit: str, path: str) -> None:
+    def _as_gitlink(self, commit: str, path: str, prefix: str) -> None:
         """Put the inner nested repository at `path` back as the submodule it came from.
 
-        Its gitlink pins the commit its .gitnested records in `commit`.
+        Its gitlink pins the commit its .gitnested records in `commit`. In
+        the index it sits under `prefix`.
         """
         pinned = _recorded_commit(self.git, commit, self.subdir / path / GITNESTED_FILENAME)
         if pinned:
-            self.git.run(['rm', '--cached', '-r', '-q', '-f', '--ignore-unmatch', '--', path], env=self.index_env)
-            self.git.run(['update-index', '--add', '--cacheinfo', f'160000,{pinned},{path}'], env=self.index_env)
+            entry = f'{prefix}{path}'
+            self.git.run(['rm', '--cached', '-r', '-q', '-f', '--ignore-unmatch', '--', entry], env=self.index_env)
+            self.git.run(['update-index', '--add', '--cacheinfo', f'160000,{pinned},{entry}'], env=self.index_env)
 
     def _keep_unmanaged(self, commit: str, entries: list[str], exclude: list[str]) -> None:
         """Put back the upstream files git-nested does not manage, so a push does not delete them.
@@ -263,7 +282,19 @@ def create_branch(
     with tempfile.TemporaryDirectory() as tmp:
         index_env = {**os.environ, 'GIT_INDEX_FILE': str(Path(tmp) / 'index')}
         keep = _unmanaged_to_keep(config, command)
-        replay = _Replay(git, subdir, subref, command, merge, index_env, removed, flags.gpg_sign, gitlinked, keep)
+        replay = _Replay(
+            git,
+            subdir,
+            subref,
+            command,
+            merge,
+            index_env,
+            removed,
+            flags.gpg_sign,
+            gitlinked,
+            keep=keep,
+            path=config.path,
+        )
         if parent:
             built = _replay_into_branch(replay, ['--ancestry-path', f'{parent}..HEAD'], branch, plain=False)
         else:

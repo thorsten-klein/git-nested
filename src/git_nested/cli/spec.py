@@ -24,6 +24,7 @@ VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
         'gpg_sign',
         'message',
         'method',
+        'path',
         'recurse_submodules',
         'signoff',
     ],
@@ -156,6 +157,7 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
         {'dest': 'name', 'help': "name of the nested branch; defaults to nested/<subdir>"},
     ),
     ('message', ('-m', '--message'), {'dest': 'message', 'help': "commit message"}),
+    ('path', ('--path',), {'dest': 'path', 'help': "nest only this directory of upstream, at the root of <subdir>"}),
     ('msg_file', ('--file',), {'dest': 'msg_file', 'help': "file to read the commit message from"}),
     ('remote', ('-r', '--remote'), {'dest': 'remote', 'help': "upstream remote to push/pull/fetch"}),
     (
@@ -185,6 +187,7 @@ SUPPORTED_OPT_ATTRS: list[tuple[str, str]] = [
     ('dir', 'dir'),
     ('name', 'name'),
     ('upstream_commit', 'upstream_commit'),
+    ('path', 'path'),
 ]
 
 # Most commands take the same first positional, so it gets the same text.

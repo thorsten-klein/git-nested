@@ -35,6 +35,7 @@ class Flags:
     message: str | None = None
     message_file: str | None = None
     name: str | None = None
+    path: str | None = None
     method: str | None = None
     remote: str | None = None
     short: bool = False
@@ -54,6 +55,7 @@ class NestedConfig:
     commit: str = ''
     filter: list[str] | None = None
     exclude: list[str] | None = None
+    path: str = ''
     parent: str = ''
     method: str = 'merge'
     readonly: bool = False
@@ -71,6 +73,7 @@ class NestedConfig:
             commit=nested.get('commit', ''),
             filter=nested.get('filter'),
             exclude=nested.get('exclude'),
+            path=nested.get('path') or '',
             parent=nested.get('parent', ''),
             method='rebase' if nested.get('method') == 'rebase' else 'merge',
             readonly=str(nested.get('readonly')).lower() == 'true',
