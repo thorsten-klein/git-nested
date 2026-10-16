@@ -106,7 +106,7 @@ narrate the steps being taken; twice to log every git command
 YAML, one per nested subdirectory, committed to your repository and never
 pushed upstream. It records the upstream remote and branch, the last upstream
 commit taken, the commit of yours the two were last equal at, and whether
-pulls merge or rebase. Read and write it with
+pulls merge or rebase and whether they squash. Read and write it with
 .BR "git nested config" .
 .SH EXAMPLES
 .PP
@@ -125,6 +125,8 @@ Bring in what upstream has done since:
 .RS
 .nf
 git nested pull ext/lib
+.br
+git nested pull --no-squash ext/lib
 .fi
 .RE
 .PP

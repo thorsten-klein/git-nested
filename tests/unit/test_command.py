@@ -29,6 +29,11 @@ def test_parse_args_missing_command_is_a_usage_error(cmd):
         cmd.parse_args([])
 
 
+def test_parse_args_pull_no_squash_sets_the_flag(cmd):
+    _, ctx = cmd.parse_args(['pull', '--no-squash', 'sub'])
+    assert ctx.flags.no_squash is True
+
+
 # ============================================================================
 # main
 # ============================================================================

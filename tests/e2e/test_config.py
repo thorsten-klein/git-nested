@@ -59,6 +59,15 @@ def test_config_writes_a_field(foo_bar_cloned_and_nested):
     assert 'bar/.gitnested' in staged.stdout
 
 
+def test_config_writes_pull_squash_mode(foo_bar_cloned_and_nested):
+    """The squash field stores whether pull keeps the upstream commits."""
+    env = foo_bar_cloned_and_nested
+    result = cmd_git_nested('config bar squash false', cwd=env.workspace / 'foo')
+
+    assert result.output.strip() == "bar: squash set to false"
+    assert_gitnested_field(env.workspace / 'foo' / 'bar' / '.gitnested', squash='false')
+
+
 def test_config_leaves_the_other_fields_alone(foo_bar_cloned_and_nested):
     """Writing one field must not rewrite commit/parent/cmdver as a side effect."""
     env = foo_bar_cloned_and_nested
@@ -79,7 +88,7 @@ def test_config_rejects_a_read_only_field(foo_bar_cloned_and_nested):
 
     assert result.returncode != 0
     assert "commit is written by git-nested itself" in result.output
-    assert "the settable fields are remote, branch, method, parent" in result.output
+    assert "the settable fields are remote, branch, method, squash, parent, readonly" in result.output
 
 
 def test_config_rejects_an_unknown_field(foo_bar_cloned_and_nested):
@@ -98,6 +107,15 @@ def test_config_rejects_an_invalid_method(foo_bar_cloned_and_nested):
 
     assert result.returncode != 0
     assert "squash is not a valid method; use one of merge, rebase" in result.output
+
+
+def test_config_rejects_an_invalid_squash_value(foo_bar_cloned_and_nested):
+    """The squash field is a true/false switch."""
+    env = foo_bar_cloned_and_nested
+    result = cmd_git_nested('config bar squash maybe', cwd=env.workspace / 'foo', check=False)
+
+    assert result.returncode != 0
+    assert "maybe is not a valid squash; use one of true, false" in result.output
 
 
 def test_config_without_a_subdir_fails(foo_bar_cloned_and_nested):
