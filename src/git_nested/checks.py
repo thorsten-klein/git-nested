@@ -47,10 +47,6 @@ def check_repository(git: GitRunner, command: str) -> tuple[Path | None, str | N
 
     check_worktree_clean(git, command)
 
-    parents = git.check_output(['rev-parse', '--show-prefix'], may_fail=True)
-    if parents:
-        raise GitNestedError("run git-nested from the top level of the repository")
-
     # Store the current HEAD (may fail in case of an empty repository)
     head_commit = git.check_output(['rev-parse', 'HEAD'], may_fail=True)
 

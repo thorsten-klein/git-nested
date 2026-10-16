@@ -14,7 +14,7 @@ from ..errors import GitNestedError
 from ..git import GitRunner
 from ..models import CommandContext, Flags, NestedConfig
 from ..repo import GitNestedRepo
-from . import parser, setup
+from . import location, parser, setup
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -75,12 +75,13 @@ class GitNestedCommand:
         command, ctx = self.parse_args(args)
         output.set_level(ctx.flags)
         self.git.check()
-        ctx.git_tmp, ctx.head_commit = checks.check_repository(self.git, command)
+        with location.at_top_level(self.git, command, ctx):
+            ctx.git_tmp, ctx.head_commit = checks.check_repository(self.git, command)
 
-        if ctx.flags.all and command not in ['status']:
-            self._dispatch_all(command, ctx)
-        else:
-            self.dispatch_command(command, ctx)
+            if ctx.flags.all and command not in ['status']:
+                self._dispatch_all(command, ctx)
+            else:
+                self.dispatch_command(command, ctx)
 
     def parse_args(self, args_list: list[str]) -> tuple[str, CommandContext]:
         """Parse command line arguments.

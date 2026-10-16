@@ -170,6 +170,15 @@ git nested push path/to/nested
 git nested status
 ```
 
+git-nested works from any directory of the repository. Like git's own
+pathspecs, a `<subdir>` is relative to where you are, and inside a nested
+repository it can be left out:
+
+```bash
+cd path/to/nested
+git nested push        # same as 'git nested push path/to/nested' from the top
+```
+
 ## Commands
 
 #### Getting help

@@ -153,14 +153,6 @@ def test_error_working_tree_has_changes(foo_bar_cloned):
     )
 
 
-def test_error_not_at_top_level(foo_bar_cloned):
-    """Test error when command is run from subdirectory"""
-    env = foo_bar_cloned
-    (env.workspace / 'foo' / 'subdir').mkdir()
-    cp = cmd_git_nested('status', check=False, cwd=env.workspace / 'foo' / 'subdir')
-    assert_error(cp, "git-nested: run git-nested from the top level of the repository", returncode=1)
-
-
 def test_error_clone_non_empty_subdir(foo_bar_cloned):
     """Test error when trying to clone into non-empty directory"""
     env = foo_bar_cloned
