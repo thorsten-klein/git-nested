@@ -16,7 +16,7 @@ sequenceDiagram
     git-nested->>Git: rev-parse --show-prefix
     Note over git-nested: Below the top level: rev-parse --show-toplevel,<br/>paths rebased, then run from there
     git-nested->>Git: rev-parse --git-dir
-    git-nested->>Git: rev-parse --git-common-dir
+    git-nested->>Git: rev-parse --git-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
     git-nested->>Git: update-index -q --ignore-submodules --refresh
@@ -72,7 +72,7 @@ sequenceDiagram
     git-nested->>Git: rev-parse --show-prefix
     Note over git-nested: Below the top level: rev-parse --show-toplevel,<br/>paths rebased, then run from there
     git-nested->>Git: rev-parse --git-dir
-    git-nested->>Git: rev-parse --git-common-dir
+    git-nested->>Git: rev-parse --git-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
     git-nested->>Git: update-index -q --ignore-submodules --refresh
@@ -114,7 +114,7 @@ sequenceDiagram
     git-nested->>Git: rev-parse --show-prefix
     Note over git-nested: Below the top level: rev-parse --show-toplevel,<br/>paths rebased, then run from there
     git-nested->>Git: rev-parse --git-dir
-    git-nested->>Git: rev-parse --git-common-dir
+    git-nested->>Git: rev-parse --git-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
     git-nested->>Git: rev-parse HEAD
@@ -142,7 +142,7 @@ sequenceDiagram
     git-nested->>Git: rev-parse --show-prefix
     Note over git-nested: Below the top level: rev-parse --show-toplevel,<br/>paths rebased, then run from there
     git-nested->>Git: rev-parse --git-dir
-    git-nested->>Git: rev-parse --git-common-dir
+    git-nested->>Git: rev-parse --git-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
     git-nested->>Git: update-index -q --ignore-submodules --refresh
@@ -165,7 +165,7 @@ sequenceDiagram
         rect rgb(255, 245, 230)
             Note over git-nested,Git: delete_branch (cleanup old)
             git-nested->>Git: worktree prune
-            git-nested->>Git: rev-parse --git-common-dir
+            git-nested->>Git: rev-parse --git-dir
             Note over git-nested: Remove empty parent dirs up to .git/tmp
             git-nested->>Git: branch -D nested/<subref>
         end
@@ -222,7 +222,7 @@ sequenceDiagram
             git-nested->>Git: commit -m <message>
             Note over git-nested: If it fails: reset -q --hard HEAD
             git-nested->>Git: worktree prune
-            git-nested->>Git: rev-parse --git-common-dir
+            git-nested->>Git: rev-parse --git-dir
             Note over git-nested: Remove empty parent dirs up to .git/tmp
             git-nested->>Git: update-ref refs/nested/<subref>/commit <nested_commit_ref>
         end
@@ -243,7 +243,7 @@ sequenceDiagram
     git-nested->>Git: rev-parse --show-prefix
     Note over git-nested: Below the top level: rev-parse --show-toplevel,<br/>paths rebased, then run from there
     git-nested->>Git: rev-parse --git-dir
-    git-nested->>Git: rev-parse --git-common-dir
+    git-nested->>Git: rev-parse --git-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
     git-nested->>Git: update-index -q --ignore-submodules --refresh
@@ -271,7 +271,7 @@ sequenceDiagram
     rect rgb(255, 245, 230)
         Note over git-nested,Git: delete_branch (cleanup)
         git-nested->>Git: worktree prune
-        git-nested->>Git: rev-parse --git-common-dir
+        git-nested->>Git: rev-parse --git-dir
         Note over git-nested: Remove empty parent dirs up to .git/tmp
         git-nested->>Git: branch -D nested/<subref>
     end
@@ -306,7 +306,7 @@ sequenceDiagram
     rect rgb(255, 245, 230)
         Note over git-nested,Git: Cleanup, also when the push fails
         git-nested->>Git: worktree prune
-        git-nested->>Git: rev-parse --git-common-dir
+        git-nested->>Git: rev-parse --git-dir
         Note over git-nested: Remove empty parent dirs up to .git/tmp
         git-nested->>Git: branch -D nested/<subref>
     end
@@ -333,7 +333,7 @@ sequenceDiagram
     git-nested->>Git: rev-parse --show-prefix
     Note over git-nested: Below the top level: rev-parse --show-toplevel,<br/>paths rebased, then run from there
     git-nested->>Git: rev-parse --git-dir
-    git-nested->>Git: rev-parse --git-common-dir
+    git-nested->>Git: rev-parse --git-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
     git-nested->>Git: update-index -q --ignore-submodules --refresh
@@ -369,7 +369,7 @@ sequenceDiagram
     opt --force flag, or --dir holding nested/<subref>
         git-nested->>Git: worktree list --porcelain
         git-nested->>Git: worktree prune
-        git-nested->>Git: rev-parse --git-common-dir
+        git-nested->>Git: rev-parse --git-dir
         Note over git-nested: Remove empty parent dirs up to .git/tmp
         git-nested->>Git: branch -D nested/<subref>
     end
@@ -420,7 +420,7 @@ sequenceDiagram
     git-nested->>Git: rev-parse --show-prefix
     Note over git-nested: Below the top level: rev-parse --show-toplevel,<br/>paths rebased, then run from there
     git-nested->>Git: rev-parse --git-dir
-    git-nested->>Git: rev-parse --git-common-dir
+    git-nested->>Git: rev-parse --git-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
     git-nested->>Git: rev-parse HEAD
@@ -445,7 +445,7 @@ sequenceDiagram
     git-nested->>Git: rev-parse --show-prefix
     Note over git-nested: Below the top level: rev-parse --show-toplevel,<br/>paths rebased, then run from there
     git-nested->>Git: rev-parse --git-dir
-    git-nested->>Git: rev-parse --git-common-dir
+    git-nested->>Git: rev-parse --git-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
     git-nested->>Git: update-index -q --ignore-submodules --refresh
@@ -486,7 +486,7 @@ sequenceDiagram
     git-nested->>Git: rev-parse --show-prefix
     Note over git-nested: Below the top level: rev-parse --show-toplevel,<br/>paths rebased, then run from there
     git-nested->>Git: rev-parse --git-dir
-    git-nested->>Git: rev-parse --git-common-dir
+    git-nested->>Git: rev-parse --git-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
     git-nested->>Git: update-index -q --ignore-submodules --refresh
@@ -522,7 +522,7 @@ sequenceDiagram
         git-nested->>Git: commit -m <message>
         Note over git-nested: If it fails: reset -q --hard HEAD
         git-nested->>Git: worktree prune
-        git-nested->>Git: rev-parse --git-common-dir
+        git-nested->>Git: rev-parse --git-dir
         Note over git-nested: Remove empty parent dirs up to .git/tmp
         git-nested->>Git: update-ref refs/nested/<subref>/commit <nested_commit_ref>
     end
@@ -542,7 +542,7 @@ sequenceDiagram
     git-nested->>Git: rev-parse --show-prefix
     Note over git-nested: Below the top level: rev-parse --show-toplevel,<br/>paths rebased, then run from there
     git-nested->>Git: rev-parse --git-dir
-    git-nested->>Git: rev-parse --git-common-dir
+    git-nested->>Git: rev-parse --git-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
     git-nested->>Git: rev-parse HEAD
@@ -592,7 +592,7 @@ sequenceDiagram
     git-nested->>Git: rev-parse --show-prefix
     Note over git-nested: Below the top level: rev-parse --show-toplevel,<br/>paths rebased, then run from there
     git-nested->>Git: rev-parse --git-dir
-    git-nested->>Git: rev-parse --git-common-dir
+    git-nested->>Git: rev-parse --git-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
     git-nested->>Git: update-index -q --ignore-submodules --refresh
@@ -632,14 +632,14 @@ sequenceDiagram
     git-nested->>Git: rev-parse --show-prefix
     Note over git-nested: Below the top level: rev-parse --show-toplevel,<br/>paths rebased, then run from there
     git-nested->>Git: rev-parse --git-dir
-    git-nested->>Git: rev-parse --git-common-dir
+    git-nested->>Git: rev-parse --git-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
     git-nested->>Git: rev-parse HEAD
 
     Note over git-nested: Remove worktree (if exists)
     git-nested->>Git: worktree prune
-    git-nested->>Git: rev-parse --git-common-dir
+    git-nested->>Git: rev-parse --git-dir
     Note over git-nested: Remove empty parent dirs up to .git/tmp
 
     git-nested->>Git: rev-list refs/heads/nested/<subref> -1
@@ -678,7 +678,7 @@ sequenceDiagram
     git-nested->>Git: rev-parse --show-prefix
     Note over git-nested: Below the top level: rev-parse --show-toplevel,<br/>paths rebased, then run from there
     git-nested->>Git: rev-parse --git-dir
-    git-nested->>Git: rev-parse --git-common-dir
+    git-nested->>Git: rev-parse --git-dir
     git-nested->>Git: symbolic-ref --short --quiet HEAD
     git-nested->>Git: rev-parse --is-inside-work-tree
     git-nested->>Git: rev-parse HEAD

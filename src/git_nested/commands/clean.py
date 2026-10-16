@@ -47,10 +47,26 @@ def _clean_all(git: GitRunner, flags: Flags, git_tmp: Path) -> list[str]:
     ]
     if flags.force:
         # Their .gitnested may be gone, so they are found by branch name.
-        leftover = git.check_output(['for-each-ref', '--format=%(refname:short)', 'refs/heads/nested/'])
-        items += [item for branch in leftover.splitlines() for item in _delete_branch(git, branch, git_tmp)]
+        items += _delete_leftover_branches(git, git_tmp)
         _delete_refs(git, '')
     return items
+
+
+def _delete_leftover_branches(git: GitRunner, git_tmp: Path) -> list[str]:
+    """Remove every nested/* branch of this worktree, with its worktree."""
+    leftover = git.check_output(['for-each-ref', '--format=%(refname:short)', 'refs/heads/nested/'])
+    mine = [branch for branch in leftover.splitlines() if _of_this_worktree(git, branch)]
+    return [item for branch in mine for item in _delete_branch(git, branch, git_tmp)]
+
+
+def _of_this_worktree(git: GitRunner, branch: str) -> bool:
+    """Whether `branch` is a nested branch of this worktree, not of another one."""
+    suffix = refs.worktree_suffix(git)
+    if suffix:
+        return branch.endswith(suffix)
+    worktrees = Path(git.check_output(['rev-parse', '--git-common-dir'])) / 'worktrees'
+    others = [entry.name for entry in worktrees.iterdir()] if worktrees.is_dir() else []
+    return not any(branch.endswith(f'@{name}') for name in others)
 
 
 def cmd_clean(ctx: CommandContext) -> None:
