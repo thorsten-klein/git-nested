@@ -272,6 +272,8 @@ git nested pull --all  # Pull all nested repos
 ### `git nested push`
 
 Push local changes back to the upstream repository.
+Without `--commit`, other dirty paths in the parent repo do not block it.
+Dirty tracked changes in the nested subdir are warned about and ignored.
 
 ```bash
 git nested push --help
@@ -310,9 +312,10 @@ git nested fetch --help
 
 ### `git nested diff`
 
-Show the local diff of a nested repo compared to upstream. Fetches the latest upstream
-content first, so it always compares against the freshest available state. Requires that
-there are no uncommitted changes in the outer repository.
+Show the local diff of a nested repo compared to upstream. It fetches the latest upstream
+content first, so it always compares against the freshest available state. Other dirty
+paths in the parent repo do not block it. Dirty tracked changes in the nested subdir are
+warned about and ignored.
 
 ```bash
 git nested diff --help
@@ -339,6 +342,8 @@ A branch named `nested` blocks the `nested/<subdir>` branches. Rename it, or
 use `--name`.
 In a linked worktree of the repository, the branch gets the worktree's name:
 `nested/lib@wt`. So worktrees do not block each other.
+Other dirty paths in the parent repo do not block `branch`. Dirty tracked
+changes in `<subdir>` are warned about and ignored.
 
 ```bash
 git nested branch --help

@@ -51,7 +51,7 @@ class GitNestedCommand:
         output.set_level(ctx.flags)
         self.git.check()
         with location.at_top_level(self.git, command, ctx):
-            ctx.git_tmp, ctx.head_commit = checks.check_repository(self.git, command)
+            ctx.git_tmp, ctx.head_commit = checks.check_repository(self.git, command, ctx.flags)
 
             # status and clean find all repositories themselves
             if not ctx.flags.all or command in ('status', 'clean'):

@@ -169,6 +169,44 @@ def test_nested_push(foo_bar_cloned_and_nested):
     assert result.output.strip() == "git-nested: upstream master has commits you do not have; pull first"
 
 
+def test_push_without_commit_allows_changes_outside_subdir(foo_bar_cloned_and_nested):
+    """push without --commit reads committed content, so other dirty paths do not block it"""
+    env = foo_bar_cloned_and_nested
+
+    (env.workspace / 'foo' / 'outer').write_text('uncommitted\n')
+    env.run(['git', 'add', 'outer'], cwd=env.workspace / 'foo')
+
+    result = cmd_git_nested('push bar --branch master', cwd=env.workspace / 'foo')
+    assert result.output.strip() == "bar: nothing to push"
+
+
+def test_push_without_commit_warns_when_subdir_has_uncommitted_changes(foo_bar_cloned_and_nested):
+    """push without --commit warns when the nested subdir is dirty, then ignores that dirt"""
+    env = foo_bar_cloned_and_nested
+
+    target = env.workspace / 'foo' / 'bar' / 'Bar'
+    target.write_text(target.read_text() + 'local only\n')
+    env.run(['git', 'add', 'bar/Bar'], cwd=env.workspace / 'foo')
+
+    result = cmd_git_nested('push bar --branch master', cwd=env.workspace / 'foo')
+    assert "git-nested: bar: has uncommitted changes; push uses only committed content" in result.output
+    assert "bar: nothing to push" in result.output
+
+
+def test_push_commit_still_requires_a_clean_worktree(foo_bar_cloned_and_nested):
+    """push --commit still updates the parent repo, so it keeps the clean-tree check"""
+    env = foo_bar_cloned_and_nested
+
+    (env.workspace / 'foo' / 'outer').write_text('uncommitted\n')
+    env.run(['git', 'add', 'outer'], cwd=env.workspace / 'foo')
+
+    result = cmd_git_nested('push bar --branch master --commit', cwd=env.workspace / 'foo', check=False)
+    assert result.returncode == 1
+    assert (
+        result.output.strip() == f"git-nested: {env.workspace.as_posix()}/foo: can't push, the working tree has changes"
+    )
+
+
 def test_push_pull_multiple_nested(foo_bar_cloned_and_nested):
     """Test multiple repos pushing and pulling to same nested repository"""
     env = foo_bar_cloned_and_nested

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .. import gitfile, messages, output, refs
+from .. import checks, gitfile, messages, output, refs
 from ..constants import GITNESTED_FILENAME, GITNESTED_LEVEL_PREFIX
 from ..git import GitRunner
 from ..models import Flags, NestedConfig
@@ -73,4 +73,5 @@ def setup_command(
     else:
         config = gitfile.read_config(gitnested, flags)
 
+    checks.warn_uncommitted_subdir_changes(git, command, flags, subdir)
     return subdir, gitnested, subref, config
