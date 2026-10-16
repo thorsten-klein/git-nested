@@ -13,18 +13,13 @@ from .git import GitRunner
 from .models import Flags, NestedConfig
 
 
-def _outermost_paths(paths: list[Path]) -> list[Path]:
-    """Keep only the paths that are not nested inside another path in the list."""
-    return [p for p in paths if not any(p.is_relative_to(other) for other in paths if p != other)]
-
-
 def find_all_nested_repositories(git: GitRunner, flags: Flags) -> list[Path]:
-    """Find all nested repositories in repository."""
+    """Find all nested repositories in repository; only the outermost ones unless --ALL."""
     tracked_files = git.check_output(['ls-files'])
-    gitnesteds = sorted(Path(line).parent for line in tracked_files.splitlines() if line.endswith(GITNESTED_FILENAME))
-    if not flags.all_deep:
-        gitnesteds = _outermost_paths(gitnesteds)
-    return gitnesteds
+    paths = sorted(Path(line).parent for line in tracked_files.splitlines() if line.endswith(GITNESTED_FILENAME))
+    if flags.all_deep:
+        return paths
+    return [p for p in paths if not any(p.is_relative_to(other) for other in paths if p != other)]
 
 
 def get_upstream_branch(git: GitRunner, config: NestedConfig) -> str:
@@ -36,14 +31,6 @@ def get_upstream_branch(git: GitRunner, config: NestedConfig) -> str:
     if not upstream_branch:
         raise GitNestedError(f"can't determine the default branch of {config.remote}")
     return upstream_branch.group(1)
-
-
-def get_default_branch(git: GitRunner) -> str:
-    """Get git's default branch name."""
-    default_branch = git.check_output(['config', '--get', 'init.defaultbranch'], may_fail=True)
-    if default_branch:
-        return default_branch
-    return "main"
 
 
 def build_commit_message(

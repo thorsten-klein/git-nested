@@ -10,7 +10,6 @@ from pathlib import Path
 from . import output, yamlio
 from ._version import VERSION
 from .constants import GITNESTED_FILENAME, GITNESTED_LEVEL_PREFIX
-from .errors import GitNestedError
 from .git import GitRunner
 from .models import Flags, NestedConfig
 
@@ -32,60 +31,34 @@ CONFIG_FIELDS: dict[str, str] = {
 WRITABLE_CONFIG_FIELDS = ('remote', 'branch', 'method', 'parent')
 
 
-def create_level_gitnested_files(
-    git: GitRunner, flags: Flags, subdir: Path, head_commit: str, level: int | None = None
-) -> None:
+def create_level_gitnested_files(git: GitRunner, subdir: Path, level: int | None = None) -> None:
     """Create .gitnested.levelN files for nested-in-nested repositories.
 
     This allows sub-nested repositories to be pulled/pushed independently
     even when they are nested within another nested repository. `level` is
     auto-detected from existing level files when not given.
     """
-    if level is None:
-        level = _detect_next_level(git, subdir)
-
-    all_files = git.check_output(['ls-files', '--', subdir], may_fail=True) or ''
-
-    gitnested_files = [line for line in all_files.splitlines() if _is_nested_gitnested_file(line, subdir)]
-
-    for gitnested_path in gitnested_files:
-        _create_one_level_file(git, flags, gitnested_path, level, head_commit)
+    tracked = git.check_output(['ls-files', '--', subdir], may_fail=True).splitlines()
+    level = level or _next_level(subdir, tracked)
+    own = f'{subdir.as_posix()}/{GITNESTED_FILENAME}'
+    for path in tracked:
+        if path.endswith(GITNESTED_FILENAME) and path != own:
+            _create_one_level_file(git, Path(path), level)
 
 
-def _is_nested_gitnested_file(line: str, subdir: Path) -> bool:
-    """Check whether line is a tracked .gitnested file other than subdir's own."""
-    return line.endswith(GITNESTED_FILENAME) and line != f'{subdir.as_posix()}/{GITNESTED_FILENAME}'
-
-
-def _detect_next_level(git: GitRunner, subdir: Path) -> int:
-    """Auto-detect the next .gitnested.levelN number for subdir from existing level files."""
-    all_files = git.check_output(['ls-files', '--', subdir], may_fail=True) or ''
-    existing_levels = [
-        lvl for lvl in (_extract_level_number(line, subdir) for line in all_files.splitlines()) if lvl is not None
-    ]
-
+def _next_level(subdir: Path, tracked: list[str]) -> int:
+    """The level after the highest .gitnested.levelN file among subdir's `tracked` files."""
+    prefix = f'{subdir.as_posix()}/{GITNESTED_LEVEL_PREFIX}'
+    levels = [int(p.removeprefix(prefix)) for p in tracked if p.startswith(prefix) and p.removeprefix(prefix).isdigit()]
     # Level 1 is the plain .gitnested of the outer nested repo, so the first
     # sub-nested repo inside it starts numbering at 2.
-    return max(existing_levels) + 1 if existing_levels else 2
+    return max(levels, default=1) + 1
 
 
-def _extract_level_number(line: str, subdir: Path) -> int | None:
-    """Extract the N from a `.gitnested.levelN` git-tracked path, or None if line isn't one."""
-    if not (GITNESTED_LEVEL_PREFIX in line and line.startswith(f'{subdir.as_posix()}/{GITNESTED_LEVEL_PREFIX}')):
-        return None
-    parts = line.split(GITNESTED_LEVEL_PREFIX)
-    if len(parts) != 2 or not parts[1].isdigit():
-        return None
-    return int(parts[1])
-
-
-def _create_one_level_file(git: GitRunner, flags: Flags, gitnested_path: str, level: int, head_commit: str) -> None:
+def _create_one_level_file(git: GitRunner, gitnested_file: Path, level: int) -> None:
     """Write one .gitnested.levelN file (parent field cleared) and recurse into it."""
-    gitnested_file = Path(gitnested_path)
     level_file = gitnested_file.parent / f'{GITNESTED_LEVEL_PREFIX}{level}'
-
     output.verbose(f"creating {level_file.as_posix()} for the sub-nested repository")
-
     if not gitnested_file.exists():
         return
     data = yamlio._read_yaml_config(gitnested_file)
@@ -94,28 +67,17 @@ def _create_one_level_file(git: GitRunner, flags: Flags, gitnested_path: str, le
     # repo's own first pull/push.
     if 'nested' in data:
         data['nested']['parent'] = ''
-
     yamlio._write_yaml_config(level_file, data)
     git.run(['add', '-f', '--', str(level_file)])
-
-    sub_subdir = gitnested_file.parent
-    create_level_gitnested_files(git, flags, sub_subdir, head_commit, level + 1)
+    create_level_gitnested_files(git, gitnested_file.parent, level + 1)
 
 
 def read_config(gitnested: Path, flags: Flags) -> NestedConfig:
-    """Read .gitnested file."""
-    if not gitnested.is_file():
-        raise GitNestedError(f"{gitnested.as_posix()} does not exist")
-
+    """Read .gitnested file, with the --remote/--branch/--method overrides applied."""
     config = NestedConfig.from_file(gitnested)
-
-    if flags.remote:
-        config.remote = flags.remote
-    if flags.branch:
-        config.branch = flags.branch
-    if flags.method:
-        config.method = flags.method
-
+    config.remote = flags.remote or config.remote
+    config.branch = flags.branch or config.branch
+    config.method = flags.method or config.method
     return config
 
 
@@ -129,26 +91,38 @@ def update_gitrepo_file(
     head_commit: str,
     command: str,
 ) -> None:
-    """Update .gitnested YAML file."""
-    initial = not gitnested.exists()
-    if initial and _recreate_gitnested_from_parent(git, gitnested, head_commit):
-        initial = False
+    """Update .gitnested YAML file, and stage it."""
+    initial = not gitnested.exists() and not _recreate_gitnested_from_parent(git, gitnested, head_commit)
 
     data = yamlio._read_yaml_config(gitnested) if gitnested.exists() else {}
     nested = data.setdefault('nested', {})
-
     nested['commit'] = upstream_head_commit
     nested['method'] = flags.method or config.method or 'merge'
     nested['cmdver'] = VERSION
     if flags.filter:
         nested['filter'] = flags.filter
 
-    _update_remote_field(nested, initial, flags, config, command)
-    _update_branch_field(nested, initial, flags, config, command)
-    _update_parent_field(git, nested, head_commit, nested_commit_ref, upstream_head_commit)
+    _update_lineage(nested, initial, flags, config, command)
+    # The parent only moves once the nested commit has caught up with upstream.
+    if head_commit and nested_commit_ref and git.check_output(['rev-parse', nested_commit_ref]) == upstream_head_commit:
+        nested['parent'] = head_commit
 
     yamlio._write_yaml_config(gitnested, data)
     git.run(['add', '-f', '--', gitnested])
+
+
+def _update_lineage(nested: dict, initial: bool, flags: Flags, config: NestedConfig, command: str) -> None:
+    """Write remote and branch where this is a new file, or the command line overrides them.
+
+    An override is written when --update asks for it, and always by push
+    and clone; a clone, even a forced reclone onto another branch, always
+    records its branch.
+    """
+    overriding = flags.update or command in ('push', 'clone')
+    if initial or (overriding and flags.remote):
+        nested['remote'] = config.remote
+    if initial or command == 'clone' or (overriding and flags.branch):
+        nested['branch'] = config.branch
 
 
 def _recreate_gitnested_from_parent(git: GitRunner, gitnested: Path, head_commit: str) -> bool:
@@ -157,38 +131,8 @@ def _recreate_gitnested_from_parent(git: GitRunner, gitnested: Path, head_commit
     Returns:
         True if the file was recreated from head_commit.
     """
-    result = git.run(['cat-file', '-e', f'{head_commit}:{gitnested.as_posix()}'], may_fail=True)
-    if result.returncode != 0:
+    content = git.run(['cat-file', '-p', f'{head_commit}:{gitnested.as_posix()}'], may_fail=True)
+    if content.returncode != 0:
         return False
-    content = git.check_output(['cat-file', '-p', f'{head_commit}:{gitnested.as_posix()}'])
-    gitnested.write_text(content)
+    gitnested.write_text(content.stdout.strip())
     return True
-
-
-def _should_update_field(flags_update: bool, command: str, override_value: object) -> bool:
-    """Check if a config field should be overwritten, given --update and the command."""
-    return bool(override_value) and (flags_update or command in ['push', 'clone'])
-
-
-def _update_remote_field(nested: dict, initial: bool, flags: Flags, config: NestedConfig, command: str) -> None:
-    """Set nested['remote'] when it is initial or an override applies."""
-    if initial or _should_update_field(flags.update, command, flags.remote):
-        nested['remote'] = config.remote
-
-
-def _update_branch_field(nested: dict, initial: bool, flags: Flags, config: NestedConfig, command: str) -> None:
-    """Set nested['branch'] when it is initial, a clone, or an override applies."""
-    # For clone command, always update branch (including force reclone to different branch)
-    if initial or command == 'clone' or _should_update_field(flags.update, command, flags.branch):
-        nested['branch'] = config.branch
-
-
-def _update_parent_field(
-    git: GitRunner, nested: dict, head_commit: str, nested_commit_ref: str, upstream_head_commit: str
-) -> None:
-    """Set nested['parent'] once the nested commit has caught up with upstream."""
-    if not (head_commit and nested_commit_ref):
-        return
-    nested_commit = git.check_output(['rev-parse', nested_commit_ref])
-    if upstream_head_commit == nested_commit:
-        nested['parent'] = head_commit

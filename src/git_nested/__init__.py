@@ -17,10 +17,6 @@ from .cli.main import main
 from .errors import GitNestedError
 from .git import GitRunner
 from .models import Flags, NestedConfig
-from .repo import GitNestedRepo
-
-# Backward compatibility alias
-GitNested = GitNestedCommand
 
 # The package's public surface. Names are re-exported here so that
 # `from git_nested import X` keeps working as the internals are split up --
@@ -29,10 +25,8 @@ GitNested = GitNestedCommand
 __all__ = [
     'VERSION',
     'Flags',
-    'GitNested',
     'GitNestedCommand',
     'GitNestedError',
-    'GitNestedRepo',
     'GitRunner',
     'NestedConfig',
     'chdir',

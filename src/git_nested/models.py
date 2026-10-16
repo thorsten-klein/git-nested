@@ -53,25 +53,20 @@ class NestedConfig:
         """Read config from .gitnested YAML file."""
         path = Path(filepath)
         if not path.is_file():
-            raise GitNestedError(f"{filepath} does not exist")
-        with path.open('r') as f:
-            data = yaml.safe_load(f) or {}
-        nested_data = data.get('nested', {})
-
-        config = cls()
-        config.remote = nested_data.get('remote', '')
-        config.branch = nested_data.get('branch', '')
-        config.commit = nested_data.get('commit', '')
-        config.filter = nested_data.get('filter', None)
-        config.parent = nested_data.get('parent', '')
-        method = nested_data.get('method', 'merge')
-        config.method = 'rebase' if method == 'rebase' else 'merge'
-
+            raise GitNestedError(f"{path.as_posix()} does not exist")
+        nested = (yaml.safe_load(path.read_text()) or {}).get('nested', {})
+        config = cls(
+            remote=nested.get('remote', ''),
+            branch=nested.get('branch', ''),
+            commit=nested.get('commit', ''),
+            filter=nested.get('filter'),
+            parent=nested.get('parent', ''),
+            method='rebase' if nested.get('method') == 'rebase' else 'merge',
+        )
         if not config.remote:
-            raise GitNestedError(f"{filepath} has no 'remote'")
+            raise GitNestedError(f"{path.as_posix()} has no 'remote'")
         if not config.branch:
-            raise GitNestedError(f"{filepath} has no 'branch'")
-
+            raise GitNestedError(f"{path.as_posix()} has no 'branch'")
         return config
 
 

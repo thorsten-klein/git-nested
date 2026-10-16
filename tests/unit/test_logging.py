@@ -4,7 +4,7 @@ import logging
 
 import pytest
 
-from git_nested import Flags, GitNested, GitNestedError, GitRunner, output
+from git_nested import Flags, GitNestedCommand, GitNestedError, GitRunner, output
 
 
 def test_a_library_import_prints_nothing():
@@ -54,16 +54,16 @@ def test_trace_needs_two_vs(printing, no_colour, capsys):
 
 def test_a_git_command_is_traced(printing, no_colour, capsys):
     """GitRunner announces every invocation it makes, for -vv to pick up."""
-    git = GitRunner()  # constructed first: its own probing would be traced too
+    git = GitRunner()
     output.set_level(Flags(verbose=2))
     git.check_output(['--version'])
     assert capsys.readouterr().err == "$ git --version\n"
 
 
-def test_warn_survives_quiet(printing, no_colour, capsys):
-    """A warning is worth hearing even when the user asked for -q."""
+def test_an_error_survives_quiet(printing, no_colour, capsys):
+    """A failure is worth hearing even when the user asked for -q."""
     output.set_level(Flags(quiet=True))
-    output.warn("no remote")
+    output.report(GitNestedError("no remote"))
     assert capsys.readouterr().err == "git-nested: no remote\n"
 
 
@@ -118,15 +118,15 @@ def test_a_tty_gets_colour(printing, monkeypatch, capsys):
     monkeypatch.delenv('NO_COLOR', raising=False)
     monkeypatch.setenv('FORCE_COLOR', '1')
     output.say("plain")
-    output.warn("marked")
-    assert capsys.readouterr().err == "plain\n\033[33mgit-nested: marked\033[0m\n"
+    output.report(GitNestedError("marked"))
+    assert capsys.readouterr().err == "plain\n\033[31mgit-nested: marked\033[0m\n"
 
 
 def test_no_color_beats_force_color(printing, monkeypatch, capsys):
     """NO_COLOR is checked first, so setting both means no colour."""
     monkeypatch.setenv('NO_COLOR', '1')
     monkeypatch.setenv('FORCE_COLOR', '1')
-    output.warn("marked")
+    output.report(GitNestedError("marked"))
     assert capsys.readouterr().err == "git-nested: marked\n"
 
 
@@ -134,7 +134,7 @@ def test_colour_follows_the_stream_when_nothing_is_forced(printing, monkeypatch,
     """With neither variable set, it comes down to whether stderr is a tty."""
     monkeypatch.delenv('NO_COLOR', raising=False)
     monkeypatch.delenv('FORCE_COLOR', raising=False)
-    output.warn("marked")
+    output.report(GitNestedError("marked"))
     assert capsys.readouterr().err == "git-nested: marked\n"
 
 
@@ -148,15 +148,14 @@ def test_the_error_level_is_red(printing, monkeypatch, capsys):
 
 def test_error_prints_nothing_by_itself(printing, no_colour, capsys):
     """Raising is not reporting: the message waits for report()."""
-    cmd = GitNested()
     with pytest.raises(GitNestedError):
-        cmd.error("error message")
+        output.error("error message")
     assert capsys.readouterr().err == ""
 
 
 def test_an_unhandled_error_is_reported_once(printing, no_colour, capsys):
     """What prints an error in practice is it reaching the end of main()."""
-    cmd = GitNested()
+    cmd = GitNestedCommand()
     with pytest.raises(GitNestedError):
         cmd.main([])
     assert capsys.readouterr().err == "git-nested: no command given; 'git nested --help' lists them\n"
@@ -164,25 +163,22 @@ def test_an_unhandled_error_is_reported_once(printing, no_colour, capsys):
 
 def test_error_raises_exception():
     """error() raises GitNestedError carrying the bare message."""
-    cmd = GitNested()
     with pytest.raises(GitNestedError) as exc_info:
-        cmd.error("test error")
+        output.error("test error")
     assert str(exc_info.value) == "test error"
 
 
 def test_error_exception_message():
     """The exception keeps the message on .message too."""
-    cmd = GitNested()
     with pytest.raises(GitNestedError) as exc_info:
-        cmd.error("Something went wrong")
+        output.error("Something went wrong")
     assert exc_info.value.message == "Something went wrong"
 
 
 def test_usage_error_raises_like_error(printing, no_colour, capsys):
     """A malformed command line aborts the same way anything else does."""
-    cmd = GitNested()
     with pytest.raises(GitNestedError) as exc_info:
-        cmd.usage_error("usage error message")
+        output.usage_error("usage error message")
     assert exc_info.value.message == "usage error message"
     assert capsys.readouterr().err == ""
 

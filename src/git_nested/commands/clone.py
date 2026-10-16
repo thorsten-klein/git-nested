@@ -19,141 +19,72 @@ def do_clone(
     subdir: Path,
     gitnested: Path,
     subref: str,
-) -> tuple[bool, NestedConfig, str | None, str]:
-    """Clone implementation.
+    head_commit: str,
+) -> tuple[NestedConfig, bool]:
+    """Clone upstream into subdir and commit it; with --force over an existing clone, reclone it.
 
     Returns:
-        tuple: (up_to_date, updated_config, nested_commit_ref, upstream_head_commit)
+        tuple: (config, up_to_date). up_to_date means a reclone found nothing new, and did nothing.
     """
     if not git.rev_exists('HEAD'):
         raise GitNestedError("can't clone into a repository that has no commits yet")
 
-    force = _effective_force(flags, gitnested)
-
-    up_to_date, config, upstream_head_commit = _do_clone_dispatch(git, flags, config, subdir, gitnested, subref, force)
-    if up_to_date:
-        return True, config, None, upstream_head_commit
-
-    if flags.filter:
-        config.filter = flags.filter
-
-    output.verbose(f"creating {subdir.as_posix()}/")
-    subdir.mkdir(parents=True, exist_ok=True)
-
-    nested_commit_ref = upstream_head_commit
-    return False, config, nested_commit_ref, upstream_head_commit
-
-
-def _effective_force(flags: Flags, gitnested: Path) -> bool:
-    """Force only applies to an actual reclone (there must be an existing .gitnested)."""
-    return flags.force and gitnested.is_file()
-
-
-def _do_clone_dispatch(
-    git: GitRunner,
-    flags: Flags,
-    config: NestedConfig,
-    subdir: Path,
-    gitnested: Path,
-    subref: str,
-    force: bool,
-) -> tuple[bool, NestedConfig, str]:
-    """Route to the force-reclone or fresh-clone path.
-
-    Returns:
-        tuple: (up_to_date, updated_config, upstream_head_commit)
-    """
-    if force:
-        return _do_clone_forced(git, flags, config, subdir, gitnested, subref, flags.branch)
-    config, upstream_head_commit = _do_clone_fresh(git, config, subdir, subref)
-    return False, config, upstream_head_commit
-
-
-def _do_clone_forced(
-    git: GitRunner,
-    flags: Flags,
-    config: NestedConfig,
-    subdir: Path,
-    gitnested: Path,
-    subref: str,
-    branch: str | None,
-) -> tuple[bool, NestedConfig, str]:
-    """Handle the force-reclone branch of do_clone.
-
-    Returns:
-        tuple: (up_to_date, updated_config, upstream_head_commit). When
-        up_to_date is True the caller should return immediately.
-    """
-    upstream_head_commit = fetch.do_fetch(git, config, subref)
-    config = gitfile.read_config(gitnested, flags)
-
-    output.verbose("checking whether it is already up to date")
-    if upstream_head_commit == config.commit:
-        return True, config, upstream_head_commit
-
-    output.verbose("removing the existing subdir")
-    git.run(['rm', '-r', '--', subdir])
-
-    if not branch:
-        output.verbose("determining the upstream default branch")
-        config.branch = discovery.get_upstream_branch(git, config)
-        upstream_head_commit = fetch.do_fetch(git, config, subref)
-
-    return False, config, upstream_head_commit
-
-
-def _do_clone_fresh(git: GitRunner, config: NestedConfig, subdir: Path, subref: str) -> tuple[NestedConfig, str]:
-    """Handle the non-force branch of do_clone.
-
-    Returns:
-        tuple: (updated_config, upstream_head_commit)
-    """
-    if subdir.exists() and any(subdir.iterdir()):
+    fetched = None
+    if flags.force and gitnested.is_file():
+        fetched = fetch.do_fetch(git, config, subref)
+        config = gitfile.read_config(gitnested, flags)
+        output.verbose("checking whether it is already up to date")
+        if fetched == config.commit:
+            return config, True
+        output.verbose("removing the existing subdir")
+        git.run(['rm', '-r', '--', subdir])
+    elif subdir.exists() and any(subdir.iterdir()):
         raise GitNestedError(f"{subdir.as_posix()}: exists and is not empty")
 
-    if not config.branch:
+    _clone_into(git, flags, config, subdir, gitnested, subref, head_commit, fetched)
+    return config, False
+
+
+def _clone_into(
+    git: GitRunner,
+    flags: Flags,
+    config: NestedConfig,
+    subdir: Path,
+    gitnested: Path,
+    subref: str,
+    head_commit: str,
+    fetched: str | None,
+) -> None:
+    """Commit the upstream branch's content into subdir, fetching it unless `fetched` already is it."""
+    if not flags.branch:
         output.verbose("determining the upstream default branch")
         config.branch = discovery.get_upstream_branch(git, config)
+        fetched = None  # whatever was fetched before was not that branch
+    upstream_head_commit = fetched or fetch.do_fetch(git, config, subref)
 
-    upstream_head_commit = fetch.do_fetch(git, config, subref)
-    return config, upstream_head_commit
-
-
-def cmd_clone(ctx: CommandContext) -> None:
-    """Clone a remote repository into a local subdirectory."""
-    git = ctx.git
-    flags, subdir, upstream, head_commit = ctx.flags, ctx.subdir, ctx.upstream, ctx.head
-    subdir, gitnested, subref, config = setup.setup_command(git, 'clone', flags, subdir, upstream)
-
-    up_to_date, config, nested_commit_ref, upstream_head_commit = do_clone(
+    config.filter = flags.filter or config.filter
+    output.verbose(f"creating {subdir.as_posix()}/")
+    subdir.mkdir(parents=True, exist_ok=True)
+    output.verbose(f"committing the new {subdir.as_posix()}/ content")
+    content.commit_nested_branch(
         git=git,
         flags=flags,
         config=config,
         subdir=subdir,
         gitnested=gitnested,
-        subref=subref,
+        nested_commit_ref=upstream_head_commit,
+        upstream_head_commit=upstream_head_commit,
+        head_commit=head_commit,
+        subdir_worktree=None,
+        command='clone',
     )
 
-    if not up_to_date:
-        # do_clone only returns a None nested_commit_ref together with up_to_date=True.
-        if nested_commit_ref is None:
-            raise AssertionError(
-                'do_clone returned nested_commit_ref=None with up_to_date=False'
-            )  # pragma: no cover -- invariant guard, unreachable via the public API
-        output.verbose(f"committing the new {subdir.as_posix()}/ content")
-        content.commit_nested_branch(
-            git=git,
-            flags=flags,
-            config=config,
-            subdir=subdir,
-            gitnested=gitnested,
-            nested_commit_ref=nested_commit_ref,
-            upstream_head_commit=upstream_head_commit,
-            head_commit=head_commit,
-            subdir_worktree=None,
-            command='clone',
-        )
 
+def cmd_clone(ctx: CommandContext) -> None:
+    """Clone a remote repository into a local subdirectory."""
+    git = ctx.git
+    subdir, gitnested, subref, config = setup.setup_command(git, 'clone', ctx.flags, ctx.subdir, ctx.upstream)
+    config, up_to_date = do_clone(git, ctx.flags, config, subdir, gitnested, subref, ctx.head)
     if up_to_date:
         output.say(f"{subdir.as_posix()}: already up to date with {config.remote} ({config.branch})")
     else:

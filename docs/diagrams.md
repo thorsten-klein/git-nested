@@ -94,7 +94,6 @@ sequenceDiagram
         git-nested->>Git: add -f -- <subdir>/.gitnested
     end
 
-    git-nested->>Git: add -f -- <subdir>/.gitnested
     git-nested->>Git: commit -m <message>
     git-nested->>Git: update-ref refs/nested/<subref>/commit <head_commit>
 ```
@@ -175,11 +174,13 @@ sequenceDiagram
             alt Has parent commit (incremental)
                 git-nested->>Git: merge-base --is-ancestor <parent> HEAD
                 git-nested->>Git: rev-list --reverse --ancestry-path --topo-order <parent>..HEAD
-                loop For each commit touching subdir
+                loop For each commit, keeping those in direct descent that record an upstream commit
                     git-nested->>Git: cat-file -p <commit>:<subdir>/.gitnested
-                    git-nested->>Git: show -s --pretty=format:%P <commit>
+                    git-nested->>Git: show -s --format=%P <commit>
+                end
+                loop For each commit kept
                     git-nested->>Git: cat-file -e <commit>:<subdir>
-                    git-nested->>Git: log -1 --format=%ad,%ae,%an,%cd,%ce,%cn,%B <commit>
+                    git-nested->>Git: log -1 --format=%ad%n%ae%n%an%n%cd%n%ce%n%cn%n%B <commit>
                     git-nested->>Git: commit-tree -p <parents> <commit>:<subdir>
                 end
                 git-nested->>Git: branch nested/<subref> <last_commit>
@@ -362,9 +363,11 @@ sequenceDiagram
         alt Has parent commit
             git-nested->>Git: merge-base --is-ancestor <parent> HEAD
             git-nested->>Git: rev-list --reverse --ancestry-path --topo-order <parent>..HEAD
-            loop For each commit touching subdir
+            loop For each commit, keeping those in direct descent that record an upstream commit
                 git-nested->>Git: cat-file -p <commit>:<subdir>/.gitnested
-                git-nested->>Git: show -s --pretty=format:%P <commit>
+                git-nested->>Git: show -s --format=%P <commit>
+            end
+            loop For each commit kept
                 git-nested->>Git: cat-file -e <commit>:<subdir>
                 git-nested->>Git: log -1 --format=... <commit>
                 git-nested->>Git: commit-tree -p <parents> <commit>:<subdir>

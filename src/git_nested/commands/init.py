@@ -2,30 +2,28 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
-from .. import checks, discovery, gitfile, output, refs
+from .. import discovery, gitfile, output, refs
 from ..cli import setup
-from ..git import GitRunner
-from ..models import CommandContext, Flags, NestedConfig
+from ..errors import GitNestedError
+from ..models import CommandContext
 
 
-def do_init(
-    git: GitRunner,
-    flags: Flags,
-    config: NestedConfig,
-    subdir: Path,
-    gitnested: Path,
-    head_commit: str,
-    subref: str,
-) -> str:
-    """Initialize a nested repository.
+def cmd_init(ctx: CommandContext) -> None:
+    """Initialize a subdirectory as a nested repo."""
+    git, flags, head_commit = ctx.git, ctx.flags, ctx.head
+    subdir, gitnested, subref, config = setup.setup_command(git, 'init', flags, ctx.subdir, ctx.upstream)
 
-    Returns:
-        nested_commit_ref
-    """
-    checks.check_subdir_for_init(git, subdir, gitnested)
-    nested_commit_ref = head_commit
+    if not subdir.exists():
+        raise GitNestedError(f"{subdir.as_posix()}: does not exist")
+    if gitnested.exists():
+        raise GitNestedError(f"{subdir.as_posix()}: is already a nested repository")
+    if not git.is_tracked(subdir):
+        raise GitNestedError(f"{subdir.as_posix()}: exists, but git tracks nothing in it")
+
+    config.remote = config.remote or 'none'
+    config.branch = (
+        config.branch or git.check_output(['config', '--get', 'init.defaultbranch'], may_fail=True) or 'main'
+    )
 
     output.verbose(f"writing {subdir.as_posix()}/.gitnested")
     gitfile.update_gitrepo_file(
@@ -34,48 +32,13 @@ def do_init(
         config=config,
         gitnested=gitnested,
         upstream_head_commit='',  # No upstream for init
-        nested_commit_ref=nested_commit_ref,
+        nested_commit_ref=head_commit,
         head_commit=head_commit,
         command='init',
     )
-
-    output.verbose(f"staging {subdir.as_posix()}/.gitnested")
-    git.run(['add', '-f', '--', gitnested])
-
     output.verbose("committing")
-    msg = discovery.build_commit_message(
-        git=git,
-        config=config,
-        upstream_head_commit=head_commit,
-        nested_commit_ref=nested_commit_ref,
-        subdir=subdir,
-        command='init',
-    )
-    git.run(['commit', '-m', msg])
-
-    refs.create_nested_ref(git, subref, 'commit', nested_commit_ref)
-
-    return nested_commit_ref
-
-
-def cmd_init(ctx: CommandContext) -> None:
-    """Initialize a subdirectory as a nested repo."""
-    git = ctx.git
-    flags, subdir, upstream, head_commit = ctx.flags, ctx.subdir, ctx.upstream, ctx.head
-    subdir, gitnested, subref, config = setup.setup_command(git, 'init', flags, subdir, upstream)
-
-    config.remote = config.remote or 'none'
-    config.branch = config.branch or discovery.get_default_branch(git)
-
-    do_init(
-        git=git,
-        flags=flags,
-        config=config,
-        subdir=subdir,
-        gitnested=gitnested,
-        head_commit=head_commit,
-        subref=subref,
-    )
+    git.run(['commit', '-m', discovery.build_commit_message(git, config, head_commit, head_commit, subdir, 'init')])
+    refs.create_nested_ref(git, subref, 'commit', head_commit)
 
     remote = "no remote" if config.remote == 'none' else f"{config.remote} ({config.branch})"
     output.say(f"{subdir.as_posix()}: initialised as a nested repository with {remote}")

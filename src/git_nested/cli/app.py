@@ -1,52 +1,26 @@
 """The GitNestedCommand application object.
 
-It owns the two things a running command needs -- a GitRunner and the
-current Flags -- and dispatches argv to the right handler in `commands`.
+It owns the GitRunner a running command needs, and dispatches argv to the
+right handler in `commands`.
 """
 
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import TYPE_CHECKING, NoReturn, cast
 
 from .. import checks, commands, completion, discovery, output
 from ..errors import GitNestedError
 from ..git import GitRunner
-from ..models import CommandContext, Flags, NestedConfig
-from ..repo import GitNestedRepo
-from . import location, parser, setup
-
-if TYPE_CHECKING:
-    from pathlib import Path
+from ..models import CommandContext
+from . import location, parser
 
 
 class GitNestedCommand:
     """Handles command-line interface and user I/O."""
 
     def __init__(self) -> None:
-        """Wire up the git runner and repo/business-logic layer."""
+        """Wire up the git runner."""
         self.git = GitRunner()
-        # Kept for callers that reach for the business-logic layer through
-        # the command object; nothing in here needs it any more.
-        self.repo = GitNestedRepo()
-        self.flags = Flags()
-
-    def error(self, msg: str) -> NoReturn:
-        """Report a failure and abort the command."""
-        output.error(msg)
-
-    def usage_error(self, msg: str) -> NoReturn:
-        """Report a malformed command line and exit."""
-        output.usage_error(msg)
-
-    def _dispatch_all(self, command: str, ctx: CommandContext) -> None:
-        """Dispatch command across every nested repository (the --all flag)."""
-        if ctx.flags.branch:
-            self.error("--branch and --all can't be used together")
-
-        for subdir_path in discovery.find_all_nested_repositories(self.git, ctx.flags):
-            subdir_ctx = cast(CommandContext, replace(ctx, subdir=subdir_path))
-            self.dispatch_command(command, subdir_ctx)
 
     def main(self, args: list[str]) -> None:
         """Main entry point."""
@@ -78,10 +52,13 @@ class GitNestedCommand:
         with location.at_top_level(self.git, command, ctx):
             ctx.git_tmp, ctx.head_commit = checks.check_repository(self.git, command)
 
-            if ctx.flags.all and command not in ['status']:
-                self._dispatch_all(command, ctx)
-            else:
+            if not ctx.flags.all or command == 'status':
                 self.dispatch_command(command, ctx)
+                return
+            if ctx.flags.branch:
+                output.error("--branch and --all can't be used together")
+            for subdir in discovery.find_all_nested_repositories(self.git, ctx.flags):
+                self.dispatch_command(command, replace(ctx, subdir=subdir))
 
     def parse_args(self, args_list: list[str]) -> tuple[str, CommandContext]:
         """Parse command line arguments.
@@ -95,16 +72,5 @@ class GitNestedCommand:
         """Run the handler registered for `command`."""
         handler = commands.REGISTRY.get(command)
         if handler is None:
-            self.usage_error(f"unknown command {command}; 'git nested --help' lists them")
-
+            output.usage_error(f"unknown command {command}; 'git nested --help' lists them")
         handler(ctx)
-
-    def setup_command(
-        self, command: str, flags: Flags, subdir: str | Path | None, upstream: str | None
-    ) -> tuple[Path, Path, str, NestedConfig]:
-        """Setup command with parameters.
-
-        Returns:
-            tuple: (subdir, gitnested, subref, config)
-        """
-        return setup.setup_command(self.git, command, flags, subdir, upstream)

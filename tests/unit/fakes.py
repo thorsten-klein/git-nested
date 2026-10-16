@@ -46,15 +46,11 @@ class FakeGit(GitRunner):
     drifted: is_tracked answered on the exit code, but `git ls-files` exits 0
     whether or not it matched anything, so the double called every path
     tracked while the real one asks whether there was any output.
-
-    GitRunner.__init__ is deliberately not called -- it shells out to
-    `git --version` -- so `version` is set here instead.
     """
 
     def __init__(self):
         self._responses: list[tuple[tuple[str, ...], FakeResult]] = []
         self.calls: list[tuple[str, ...]] = []
-        self.version = '99.0.0'
 
     def respond(self, *prefix, stdout='', stderr='', returncode=0):
         self._responses.append((tuple(str(p) for p in prefix), FakeResult(returncode, stdout, stderr)))

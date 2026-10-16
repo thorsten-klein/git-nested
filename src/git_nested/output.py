@@ -104,16 +104,12 @@ def configure() -> Callable[[], None]:
     return lambda: LOGGER.removeHandler(_HANDLER)
 
 
-def _level(flags: Flags) -> int:
-    """The level `flags` asks for: `-q` quieter, `-v`/`-vv` louder."""
-    if flags.quiet:
-        return logging.WARNING
-    return {0: logging.INFO, 1: logging.DEBUG}.get(flags.verbose, TRACE)
-
-
 def set_level(flags: Flags) -> None:
-    """Raise or lower the level, once the command line has been parsed."""
-    LOGGER.setLevel(_level(flags))
+    """Raise or lower the level, once the command line has been parsed: `-q` quieter, `-v`/`-vv` louder."""
+    if flags.quiet:
+        LOGGER.setLevel(logging.WARNING)
+    else:
+        LOGGER.setLevel({0: logging.INFO, 1: logging.DEBUG}.get(flags.verbose, TRACE))
 
 
 def payload(text: str) -> None:
@@ -140,11 +136,6 @@ def verbose(msg: str) -> None:
 def say(msg: str) -> None:
     """Report what a command did."""
     LOGGER.info(msg)
-
-
-def warn(msg: str) -> None:
-    """Report something worth knowing that did not stop the command."""
-    LOGGER.warning(msg)
 
 
 def error(msg: str) -> NoReturn:

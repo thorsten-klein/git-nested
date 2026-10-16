@@ -16,91 +16,51 @@ _VALID_VALUES: dict[str, tuple[str, ...]] = {
 }
 
 
-def _format_value(value: object) -> str:
-    """One field's value as a single line: a filter is a list, everything else a scalar."""
-    if isinstance(value, list):
-        return ' '.join(str(item) for item in value)
-    return str(value)
-
-
 def read_fields(gitnested: Path) -> dict[str, str]:
-    """The fields the .gitnested file actually sets, in the documented order."""
+    """The fields the .gitnested file actually sets, in the documented order, each as one line."""
     if not gitnested.is_file():
         raise GitNestedError(f"{gitnested.as_posix()} does not exist")
     nested = yamlio._read_yaml_config(gitnested).get('nested') or {}
     return {
-        field: _format_value(nested[field])
+        # A filter is a list; it prints as one space-separated line.
+        field: ' '.join(map(str, value)) if isinstance(value, list) else str(value)
         for field in gitfile.CONFIG_FIELDS
-        if nested.get(field) not in (None, '', [])
+        if (value := nested.get(field)) not in (None, '', [])
     }
 
 
-def _check_writable(key: str, value: str) -> None:
-    """Reject a field git-nested owns, or a value it would not accept."""
+def write_field(git: GitRunner, gitnested: Path, key: str, value: str) -> None:
+    """Set one field of the .gitnested file and stage the change; only the fields a user may set."""
     if key not in gitfile.WRITABLE_CONFIG_FIELDS:
         writable = ', '.join(gitfile.WRITABLE_CONFIG_FIELDS)
         raise GitNestedError(f"{key} is written by git-nested itself; the settable fields are {writable}")
     valid = _VALID_VALUES.get(key)
     if valid and value not in valid:
         raise GitNestedError(f"{value} is not a valid {key}; use one of {', '.join(valid)}")
-
-
-def write_field(git: GitRunner, gitnested: Path, key: str, value: str) -> None:
-    """Set one field of the .gitnested file and stage the change."""
-    _check_writable(key, value)
     data = yamlio._read_yaml_config(gitnested)
     data.setdefault('nested', {})[key] = value
     yamlio._write_yaml_config(gitnested, data)
     git.run(['add', '-f', '--', gitnested])
 
 
-def _check_known(key: str) -> None:
-    """Reject a field that is not part of a .gitnested file at all."""
-    if key not in gitfile.CONFIG_FIELDS:
-        raise GitNestedError(f"unknown config key {key}; the known keys are {', '.join(gitfile.CONFIG_FIELDS)}")
-
-
-def _print_all(gitnested: Path) -> None:
-    """Print every field the file sets, one 'key value' line each."""
-    for field, value in read_fields(gitnested).items():
-        output.payload(f"{field} {value}")
-
-
-def _print_one(gitnested: Path, key: str) -> None:
-    """Print one field's value, or nothing at all if the file does not set it."""
-    value = read_fields(gitnested).get(key)
-    if value is not None:
-        output.payload(value)
-
-
-def _resolve_gitnested(subdir: str | Path | None) -> tuple[Path, Path]:
-    """The subdir and the .gitnested file to read or write.
-
-    Returns:
-        tuple: (subdir, gitnested)
-    """
-    if not subdir:
-        output.error("no subdir given")
-    subdir = Path(subdir)
-    # anchor, not is_absolute(): on Windows a rooted path such as /x has no drive
-    # and so is not absolute, yet it still points outside the repository
-    if subdir.anchor:
-        output.usage_error(f"{subdir.as_posix()}: subdir must be a relative path")
-    return subdir, setup.resolve_gitnested_file(subdir)
-
-
 def cmd_config(ctx: CommandContext) -> None:
     """Read or write one field of a nested repository's .gitnested file."""
-    subdir, gitnested = _resolve_gitnested(ctx.subdir)
+    subdir = setup.resolve_subdir(ctx.subdir)
+    gitnested = setup.resolve_gitnested_file(subdir)
+    key, value = ctx.config_key, ctx.config_value
 
-    if ctx.config_key is None:
-        _print_all(gitnested)
+    if key is None:
+        for field, field_value in read_fields(gitnested).items():
+            output.payload(f"{field} {field_value}")
         return
 
-    _check_known(ctx.config_key)
-    if ctx.config_value is None:
-        _print_one(gitnested, ctx.config_key)
+    if key not in gitfile.CONFIG_FIELDS:
+        raise GitNestedError(f"unknown config key {key}; the known keys are {', '.join(gitfile.CONFIG_FIELDS)}")
+    if value is None:
+        # A field the file does not set prints nothing at all
+        if (current := read_fields(gitnested).get(key)) is not None:
+            output.payload(current)
         return
 
-    write_field(ctx.git, gitnested, ctx.config_key, ctx.config_value)
-    output.say(f"{subdir.as_posix()}: {ctx.config_key} set to {ctx.config_value}")
+    write_field(ctx.git, gitnested, key, value)
+    output.say(f"{subdir.as_posix()}: {key} set to {value}")

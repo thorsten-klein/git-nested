@@ -9,6 +9,7 @@ moment it is added there.
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
@@ -69,29 +70,14 @@ def _shells(_git: GitRunner, _cur: str) -> list[Candidate]:
     return [(shell, f"print the {shell} completion script") for shell in COMPLETION_SHELLS]
 
 
-def _is_offerable_dir(entry: Path) -> bool:
-    """Whether a directory entry is worth offering as a subdir candidate."""
-    return entry.is_dir() and not entry.name.startswith('.')
-
-
-def _directory_prefix(cur: str) -> Path:
-    """The directory to list for a partly typed path.
-
-    The prefix is taken off the string rather than via Path.parent, which
-    normalises a trailing slash away: `ext/<TAB>` asks for what is inside
-    `ext`, not for `ext` itself all over again.
-    """
-    if '/' not in cur:
-        return Path()
-    head = cur.rsplit('/', 1)[0]
-    return Path(head or '/')
-
-
 def _directories(_git: GitRunner, cur: str) -> list[Candidate]:
-    """The directories under whatever path prefix has been typed so far."""
-    base = _directory_prefix(cur)
+    """The directories under whatever path prefix has been typed so far, hidden ones aside."""
+    # The prefix is taken off the string rather than via Path.parent, which
+    # normalises a trailing slash away: `ext/<TAB>` asks for what is inside
+    # `ext`, not for `ext` itself all over again.
+    base = Path(cur.rsplit('/', 1)[0] or '/') if '/' in cur else Path()
     try:
-        entries = sorted(entry for entry in base.iterdir() if _is_offerable_dir(entry))
+        entries = sorted(entry for entry in base.iterdir() if entry.is_dir() and not entry.name.startswith('.'))
     except OSError:
         return []
     return [(f"{entry.as_posix()}/", '') for entry in entries]
@@ -150,11 +136,6 @@ def _value_flags() -> dict[str, str]:
     }
 
 
-def _is_command_word(word: str) -> bool:
-    """Whether `word` is part of the `git nested` / `git-nested` prefix."""
-    return PurePosixPath(word).name in _COMMAND_WORDS
-
-
 def _strip_command_words(words: list[str]) -> list[str]:
     """Drop the invocation prefix a shell passes through ahead of the arguments.
 
@@ -164,7 +145,7 @@ def _strip_command_words(words: list[str]) -> list[str]:
     launcher.
     """
     index = 0
-    while index < len(words) and _is_command_word(words[index]):
+    while index < len(words) and PurePosixPath(words[index]).name in _COMMAND_WORDS:
         index += 1
     return words[index:]
 
@@ -243,21 +224,6 @@ def candidates(git: GitRunner, words: list[str]) -> list[Candidate]:
     return [candidate for candidate in _all_candidates(git, cur, prev) if candidate[0].startswith(cur)]
 
 
-def _candidate_line(candidate: Candidate, describe: bool) -> str:
-    """One output line: the word alone, or word and description separated by a tab."""
-    word, description = candidate
-    if describe and description:
-        return f"{word}\t{description}"
-    return word
-
-
-def _print_candidates(git: GitRunner, words: list[str]) -> None:
-    """Print one line per candidate, honouring a leading --describe."""
-    describe = bool(words) and words[0] == '--describe'
-    for candidate in candidates(git, words[1:] if describe else words):
-        output.payload(_candidate_line(candidate, describe))
-
-
 def handle_dunder_complete(git: GitRunner, argv: list[str]) -> bool:
     """Serve the hidden `__complete` subcommand, if that is what `argv` asks for.
 
@@ -265,15 +231,15 @@ def handle_dunder_complete(git: GitRunner, argv: list[str]) -> bool:
         True if `argv` was a completion request and has been answered.
 
     Anything at all going wrong while computing candidates is swallowed: this
-    runs on every <TAB> the user presses, and a traceback (or a SystemExit --
-    output.error() calls sys.exit(1) when a candidate needs a git command
-    that fails, e.g. outside a repository) landing on their prompt is far
-    worse than an empty candidate list.
+    runs on every <TAB> the user presses, and a traceback (say, when a
+    candidate needs a git command that fails outside a repository) landing
+    on their prompt is far worse than an empty candidate list.
     """
     if not argv or argv[0] != '__complete':
         return False
-    try:
-        _print_candidates(git, argv[1:])
-    except (Exception, SystemExit):  # NOSONAR(S5754) deliberate, see docstring above
-        return True
+    # A leading --describe asks for 'word<TAB>description' lines.
+    describe = argv[1:2] == ['--describe']
+    with contextlib.suppress(Exception, SystemExit):  # NOSONAR(S5754) deliberate, see docstring above
+        for word, description in candidates(git, argv[2:] if describe else argv[1:]):
+            output.payload(f"{word}\t{description}" if describe and description else word)
     return True

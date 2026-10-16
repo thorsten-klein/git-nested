@@ -6,48 +6,26 @@ from pathlib import Path
 
 from .. import filters, output
 from ..cli import setup
-from ..git import GitRunner
-from ..models import CommandContext, NestedConfig
+from ..models import CommandContext
 from . import fetch
 
 
-def get_diff(git: GitRunner, config: NestedConfig, subdir: Path, subref: str) -> str:
-    """Compute the diff between the local nested repository content and the freshly fetched upstream content.
-
-    Returns:
-        diff text (empty string if there are no differences)
-    """
-    upstream_head_commit = fetch.do_fetch(git, config, subref)
-
-    local_tree = git.check_output(['rev-parse', f'HEAD:{subdir.as_posix()}'])
-
-    if config.filter:
-        upstream_target = filters.build_filtered_commit(git, Path.cwd(), config, upstream_head_commit)
-    else:
-        upstream_target = upstream_head_commit
-
-    return git.check_output([
-        'diff',
-        local_tree,
-        upstream_target,
-        '--',
-        ':(exclude,glob)**/.gitnested*',
-    ])
-
-
 def cmd_diff(ctx: CommandContext) -> None:
-    """Show the local diff of a nested repo compared to upstream."""
+    """Show the local diff of a nested repo compared to the freshly fetched upstream."""
     git = ctx.git
-    flags, subdir, upstream = ctx.flags, ctx.subdir, ctx.upstream
-    subdir, _gitnested, subref, config = setup.setup_command(git, 'diff', flags, subdir, upstream)
+    subdir, _, subref, config = setup.setup_command(git, 'diff', ctx.flags, ctx.subdir, ctx.upstream)
 
     if config.remote == 'none':
         output.say(f"{subdir.as_posix()}: skipped, it has no remote")
         return
 
-    diff_output = get_diff(git, config, subdir, subref)
+    upstream = fetch.do_fetch(git, config, subref)
+    if config.filter:
+        upstream = filters.build_filtered_commit(git, Path.cwd(), config.filter, upstream)
+    local_tree = git.check_output(['rev-parse', f'HEAD:{subdir.as_posix()}'])
+    diff = git.check_output(['diff', local_tree, upstream, '--', ':(exclude,glob)**/.gitnested*'])
 
-    if not diff_output:
-        output.say(f"{subdir.as_posix()}: no differences from {config.remote} ({config.branch})")
+    if diff:
+        output.payload(diff)
     else:
-        output.payload(diff_output)
+        output.say(f"{subdir.as_posix()}: no differences from {config.remote} ({config.branch})")

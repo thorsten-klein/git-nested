@@ -107,8 +107,6 @@ def test_clone_with_quiet_verbose(foo_bar_cloned):
         * reading the upstream HEAD commit
         * creating bar2/
         * committing the new bar2/ content
-        * checking that the nested commit exists
-        * checking that the commit contains the upstream HEAD
         * placing the upstream content in bar2/
         * writing bar2/.gitnested
         * committing the .gitnested update

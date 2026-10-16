@@ -11,173 +11,83 @@ from ..git import GitRunner
 from ..models import CommandContext, Flags, NestedConfig
 from . import fetch
 
+# How `-v` labels each of a nested repository's refs.
+_REF_LABELS = {
+    'branch': 'Branch Ref',
+    'commit': 'Commit Ref',
+    'fetch': 'Fetch Ref',
+    'pull': 'Pull Ref',
+    'push': 'Push Ref',
+}
 
-def get_status(git: GitRunner, flags: Flags) -> tuple[str, list[tuple[Path, NestedConfig]]]:
-    """Get nested repository status.
 
-    Returns:
-        tuple: (output_text, list of (subdir, config) tuples)
-    """
+def get_status(git: GitRunner, flags: Flags) -> str:
+    """The status report of every nested repository; with --quiet, just their paths."""
     nesteds = discovery.find_all_nested_repositories(git, flags)
     count = len(nesteds)
-    header, done = _status_header(flags, count)
-    if done:
-        return header, []
-    report = [header] if header else []
-
-    status_list = []
-    for subdir in nesteds:
-        lines, status_entries = _status_for_subdir(git, flags, subdir)
-        report.extend(lines)
-        status_list.extend(status_entries)
-
-    return ''.join(report), status_list
-
-
-def _status_header(flags: Flags, count: int) -> tuple[str, bool]:
-    """Build the status output header.
-
-    Returns:
-        tuple: (header_text, done). done=True means the whole status is just header_text
-        (the "No nested repositories." early-exit case).
-    """
     if flags.quiet:
-        return "", False
-    if count == 0:
-        return "No nested repositories.\n", True
-    ies = 'ies' if count != 1 else 'y'
-    return f"{count} nested repositor{ies}:\n", False
+        header = ""
+    elif count == 0:
+        return "No nested repositories.\n"
+    else:
+        header = f"{count} nested repositor{'y' if count == 1 else 'ies'}:\n"
+    return header + ''.join(_status_for_subdir(git, flags, subdir) for subdir in nesteds)
 
 
-def _status_for_subdir(git: GitRunner, flags: Flags, subdir: Path) -> tuple[list[str], list[tuple[Path, NestedConfig]]]:
-    """Build the status output lines for one nested subdir.
-
-    Returns:
-        tuple: (output_lines, status_entries). status_entries is empty when
-        subdir isn't a nested repository, else a single (subdir, config) entry.
-    """
-    subdir = subdir if isinstance(subdir, Path) else Path(subdir)
+def _status_for_subdir(git: GitRunner, flags: Flags, subdir: Path) -> str:
+    """The status report of one nested subdir."""
     subref = refs.sanitize_subref(git, subdir.as_posix())
+    gitnested = subdir / GITNESTED_FILENAME
+    if not gitnested.is_file():
+        return f"'{subdir.as_posix()}' is not a nested repository\n"
 
-    gitrepo = subdir / GITNESTED_FILENAME
-    if not gitrepo.is_file():
-        return [f"'{subdir.as_posix()}' is not a nested repository\n"], []
-
-    refs_fetch = f'refs/nested/{subref}/fetch'
-    upstream_head = git.check_output(['rev-parse', '--short', refs_fetch], may_fail=True)
-
-    config = gitfile.read_config(gitrepo, flags)
-
+    upstream_head = git.check_output(['rev-parse', '--short', f'refs/nested/{subref}/fetch'], may_fail=True)
+    config = gitfile.read_config(gitnested, flags)
     if flags.fetch:
         fetch.do_fetch(git, config, subref)
-
     if flags.quiet:
-        return [f"{subdir.as_posix()}\n"], [(subdir, config)]
+        return f"{subdir.as_posix()}\n"
 
-    lines = _status_detail_lines(git, flags, subdir, subref, config, upstream_head)
-    return lines, [(subdir, config)]
-
-
-def _status_detail_lines(
-    git: GitRunner,
-    flags: Flags,
-    subdir: Path,
-    subref: str,
-    config: NestedConfig,
-    upstream_head: str,
-) -> list[str]:
-    """Build the verbose per-subdir status lines shown when --quiet is not set."""
-    lines = [f"Git nested repository '{subdir.as_posix()}':\n"]
-    lines.extend(_status_identity_lines(git, subref, config, upstream_head))
-    lines.extend(_status_commit_lines(git, config))
-    lines.extend(_status_worktree_lines(git, subref))
-
+    report = _details(git, subdir, subref, config, upstream_head)
     if flags.verbose:
-        lines.append(format_refs(git, subref))
-
-    lines.append("\n")
-    return lines
+        report += format_refs(git, subref)
+    return report + "\n"
 
 
-def _status_identity_lines(git: GitRunner, subref: str, config: NestedConfig, upstream_head: str) -> list[str]:
-    """Build the branch/remote/tracking status lines for one nested subdir."""
-    lines = []
+def _details(git: GitRunner, subdir: Path, subref: str, config: NestedConfig, upstream_head: str) -> str:
+    """Where one nested repository comes from, what it has pulled, and its branch and worktree."""
     branch = refs.nested_branch(git, subref)
+    lines = [f"Git nested repository '{subdir.as_posix()}':"]
     if git.branch_exists(branch):
-        lines.append(f"  Nested Branch:  {branch}\n")
-
-    remote = f'nested/{subref}'
-    url = git.check_output(['config', f'remote.{remote}.url'], may_fail=True)
-    if url:
-        lines.append(f"  Remote Name:     nested/{subref}\n")
-
-    lines.append(f"  Remote URL:      {config.remote}\n")
+        lines.append(f"  Nested Branch:  {branch}")
+    if git.check_output(['config', f'remote.nested/{subref}.url'], may_fail=True):
+        lines.append(f"  Remote Name:     nested/{subref}")
+    lines.append(f"  Remote URL:      {config.remote}")
     if upstream_head:
-        lines.append(f"  Upstream Ref:    {upstream_head}\n")
-    lines.append(f"  Tracking Branch: {config.branch}\n")
-    return lines
-
-
-def _status_commit_lines(git: GitRunner, config: NestedConfig) -> list[str]:
-    """Build the pulled-commit/pull-parent status lines for one nested subdir."""
-    lines = []
+        lines.append(f"  Upstream Ref:    {upstream_head}")
+    lines.append(f"  Tracking Branch: {config.branch}")
     if config.commit:
-        short = git.check_output(['rev-parse', '--short', config.commit])
-        lines.append(f"  Pulled Commit:   {short}\n")
-
+        lines.append(f"  Pulled Commit:   {git.check_output(['rev-parse', '--short', config.commit])}")
     if config.parent:
-        short = git.check_output(['rev-parse', '--short', config.parent])
-        lines.append(f"  Pull Parent:     {short}\n")
-    return lines
-
-
-def _status_worktree_lines(git: GitRunner, subref: str) -> list[str]:
-    """Build the worktree status line(s) for one nested subdir, if any exist."""
-    # By branch, not by path: `git nested worktree -d` puts it anywhere.
-    worktree_list = git.check_output(['worktree', 'list'], may_fail=True) or ''
-    branch = refs.nested_branch(git, subref)
-    return [f"  Worktree: {line}\n" for line in worktree_list.splitlines() if line.endswith(f'[{branch}]')]
-
-
-def _format_ref_line(git: GitRunner, subref: str, line: str) -> str | None:
-    """Format one `git show-ref` line into a status display line, or None if not applicable."""
-    m = re.match(rf'^([0-9a-f]+)\s+refs/nested/{subref}/([a-z]+)', line)
-    if not m:
-        return None
-
-    sha = git.check_output(['rev-parse', '--short', m.group(1)])
-    ref_type = m.group(2)
-    ref = f'refs/nested/{subref}/{ref_type}'
-
-    labels = {
-        'branch': 'Branch Ref',
-        'commit': 'Commit Ref',
-        'fetch': 'Fetch Ref',
-        'pull': 'Pull Ref',
-        'push': 'Push Ref',
-    }
-    if ref_type not in labels:
-        return None
-    return f"    {labels[ref_type]:14} {sha} ({ref})\n"
+        lines.append(f"  Pull Parent:     {git.check_output(['rev-parse', '--short', config.parent])}")
+    # By branch, not by path: `git nested branch -d` puts it anywhere.
+    worktree_list = git.check_output(['worktree', 'list'], may_fail=True)
+    lines += [f"  Worktree: {line}" for line in worktree_list.splitlines() if line.endswith(f'[{branch}]')]
+    return ''.join(f"{line}\n" for line in lines)
 
 
 def format_refs(git: GitRunner, subref: str) -> str:
-    """Format refs for status."""
-    show_ref = git.check_output(['show-ref'], may_fail=True) or ''
-
+    """The refs of a nested repository, one line each."""
     lines = []
-    for line in show_ref.splitlines():
-        formatted = _format_ref_line(git, subref, line)
-        if formatted:
-            lines.append(formatted)
-
-    if lines:
-        return "  Refs:\n" + ''.join(lines)
-    return ""
+    for line in git.check_output(['show-ref'], may_fail=True).splitlines():
+        m = re.match(rf'^([0-9a-f]+)\s+refs/nested/{subref}/([a-z]+)', line)
+        if m and m.group(2) in _REF_LABELS:
+            ref_type = m.group(2)
+            sha = git.check_output(['rev-parse', '--short', m.group(1)])
+            lines.append(f"    {_REF_LABELS[ref_type]:14} {sha} (refs/nested/{subref}/{ref_type})\n")
+    return "  Refs:\n" + ''.join(lines) if lines else ""
 
 
 def cmd_status(ctx: CommandContext) -> None:
     """Get status of a nested repo (or all of them)."""
-    git = ctx.git
-    report, _ = get_status(git, ctx.flags)
-    output.payload(report)
+    output.payload(get_status(ctx.git, ctx.flags))

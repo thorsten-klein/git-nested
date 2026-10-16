@@ -15,42 +15,29 @@ def do_clean(git: GitRunner, flags: Flags, subdir: Path, git_tmp: Path) -> list[
     items = []
     subref = refs.sanitize_subref(git, subdir.as_posix())
     branch = refs.nested_branch(git, subref)
-    ref = f'refs/heads/{branch}'
-    subdir_worktree = worktree.find_worktree(git, branch) or git_tmp / branch
-
-    worktree.remove_worktree(git, subdir_worktree)
+    worktree.remove_worktree(git, worktree.find_worktree(git, branch) or git_tmp / branch)
 
     if git.branch_exists(branch):
-        git.run(['update-ref', '-d', ref])
+        git.run(['update-ref', '-d', f'refs/heads/{branch}'])
         items.append(f"branch '{branch}'")
     refs.record_nested_branch(git, subref, None)
 
     if flags.force:
-        suffix = '' if flags.all else f'{subref}/'
-        _force_clean_refs(git, suffix)
-
+        _delete_refs(git, '' if flags.all else f'{subref}/')
     return items
 
 
-def _ref_matches_clean_target(ref: str, suffix: str) -> bool:
-    """Check whether a ref name is one a force-clean of `suffix` should delete."""
-    return ref.startswith((f'refs/nested/{suffix}', f'refs/original/refs/heads/nested/{suffix}'))
-
-
-def _force_clean_refs(git: GitRunner, suffix: str) -> None:
-    """Delete every ref matching the nested/<suffix> prefix (the --force sweep)."""
-    show_ref = git.check_output(['show-ref'], may_fail=True) or ''
-    for line in show_ref.splitlines():
+def _delete_refs(git: GitRunner, suffix: str) -> None:
+    """Delete every ref under refs/nested/<suffix>, and filter-branch's backups of nested/<suffix>."""
+    prefixes = (f'refs/nested/{suffix}', f'refs/original/refs/heads/nested/{suffix}')
+    for line in git.check_output(['show-ref'], may_fail=True).splitlines():
         parts = line.split()
-        if len(parts) >= 2 and _ref_matches_clean_target(parts[1], suffix):
+        if len(parts) >= 2 and parts[1].startswith(prefixes):
             git.run(['update-ref', '-d', parts[1]])
 
 
 def cmd_clean(ctx: CommandContext) -> None:
     """Remove branches, remotes and refs for a nested repo."""
-    git = ctx.git
-    flags, subdir, upstream, git_tmp = ctx.flags, ctx.subdir, ctx.upstream, ctx.tmp
-    subdir, _, _, _ = setup.setup_command(git, 'clean', flags, subdir, upstream)
-
-    for item in do_clean(git, flags, subdir, git_tmp):
+    subdir, _, _, _ = setup.setup_command(ctx.git, 'clean', ctx.flags, ctx.subdir, ctx.upstream)
+    for item in do_clean(ctx.git, ctx.flags, subdir, ctx.tmp):
         output.say(f"removed {item}")

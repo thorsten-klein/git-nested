@@ -1,6 +1,6 @@
 """Tests for git nested commit command"""
 
-from conftest import cmd_git_nested
+from conftest import cmd_git_nested, git_rev_parse
 
 
 def test_commit_missing_fetch_ref_error(env):
@@ -48,3 +48,21 @@ def test_commit_with_message_file(env):
 
     last_msg = env.run(['git', 'log', '-1', '--format=%B'], cwd=init_dir).stdout
     assert last_msg.strip() == 'Custom commit message'
+
+
+def test_commit_without_changes_makes_no_commit(foo_bar_cloned_and_nested):
+    """A nested branch with nothing new on it leaves the history as it is.
+
+    With a local change on the branch it is not upstream as it is, so the
+    sync point stays, and so does every other field of .gitnested.
+    """
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    env.add_new_files('bar/local', cwd=foo)
+    head = git_rev_parse(['HEAD'], cwd=foo)
+
+    cmd_git_nested('branch bar', cwd=foo)
+    result = cmd_git_nested('-v commit bar', cwd=foo)
+
+    assert "nothing to commit for the .gitnested update" in result.output
+    assert git_rev_parse(['HEAD'], cwd=foo) == head

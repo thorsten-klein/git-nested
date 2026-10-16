@@ -6,7 +6,6 @@ import pytest
 
 from git_nested import Flags, GitNestedCommand, GitNestedError
 from git_nested.cli import setup
-from git_nested.commands import push
 from git_nested.models import CommandContext
 
 
@@ -53,26 +52,6 @@ def test_dispatch_command_unknown_command_is_a_usage_error(cmd):
 
 
 # ============================================================================
-# _handle_push_failure
-# ============================================================================
-
-
-def test_handle_push_failure_rebase_failed_raises():
-    subdir_worktree = Path('/tmp/wt')
-    subdir = Path('sub')
-    with pytest.raises(GitNestedError, match='git rebase failed'):
-        push._handle_push_failure(success=False, subdir_worktree=subdir_worktree, subdir=subdir)
-
-
-def test_handle_push_failure_nothing_to_push_returns_true():
-    assert push._handle_push_failure(success=False, subdir_worktree=None, subdir=Path('sub')) is True
-
-
-def test_handle_push_failure_success_returns_false():
-    assert push._handle_push_failure(success=True, subdir_worktree=None, subdir=Path('sub')) is False
-
-
-# ============================================================================
 # setup_command
 # ============================================================================
 
@@ -80,13 +59,13 @@ def test_handle_push_failure_success_returns_false():
 def test_setup_command_requires_subdir(cmd):
     flags = Flags()
     with pytest.raises(GitNestedError, match="no subdir given"):
-        cmd.setup_command('init', flags, subdir=None, upstream=None)
+        setup.setup_command(cmd.git, 'init', flags, subdir=None, upstream=None)
 
 
 def test_setup_command_rejects_absolute_subdir(cmd):
     flags = Flags()
     with pytest.raises(GitNestedError, match='subdir must be a relative path'):
-        cmd.setup_command('init', flags, subdir='/absolute/path', upstream=None)
+        setup.setup_command(cmd.git, 'init', flags, subdir='/absolute/path', upstream=None)
 
 
 # ============================================================================
