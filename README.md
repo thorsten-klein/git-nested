@@ -321,6 +321,16 @@ Add a nested branch to current history as a single commit.
 git nested commit --help
 ```
 
+#### `git nested repair`
+
+Fix the `parent` in `.gitnested` after the branch a pull or clone was made on
+was squash-merged or rebased (see
+[Squash merges and rebases](#squash-merges-and-rebases)).
+
+```bash
+git nested repair --help
+```
+
 #### `git nested clean`
 
 Remove temporary branches, refs, and remotes created during nested operations.
@@ -455,6 +465,21 @@ git nested branch <subdir>  # Create a branch for manual resolution
 # Resolve conflicts manually in your editor
 git nested commit <subdir>  # Commit the resolved changes
 git nested clean <subdir>   # Clean up temporary branches
+```
+
+### Squash merges and rebases
+
+`parent` names the commit of your repository at which the nested repository
+and its upstream were last equal; `branch`, `pull` and `push` rebuild the
+nested history from there. A pull or clone made on a branch that is then
+squash-merged or rebased records a `parent` only that branch had, and those
+commands then stop with "the recorded sync point is no longer an ancestor of
+HEAD". `git nested repair` finds the counterpart on the current history -- the
+commit before the one that last changed `commit` in `.gitnested` -- and
+commits it as the new `parent`:
+
+```bash
+git nested repair <subdir>   # or --all
 ```
 
 ## Development

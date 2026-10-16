@@ -39,11 +39,10 @@ def test_rebase(foo_bar_cloned):
     cmd_git_nested('clean --force --all', cwd=env.workspace / 'foo')
     cp = env.run('git nested branch bar', check=False, cwd=env.workspace / 'foo')
     assert cp.output.strip() == textwrap.dedent("""\
-        git-nested: the recorded sync point is no longer an ancestor of HEAD
+        git-nested: the sync point recorded in bar/.gitnested is no longer an ancestor of HEAD
 
         The sync point is the commit at which bar and its upstream were last
-        equal. A rebase usually rewrites it. To recover, set
+        equal. A rebase or a squash merge leaves it behind on another history.
+        To recover, point it at its counterpart in this one:
 
-            parent:
-
-        in bar/.gitnested, then check the result with 'git nested branch bar'.""")
+            git nested repair bar""")

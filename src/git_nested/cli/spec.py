@@ -23,6 +23,7 @@ VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
     'fetch': ['all', 'branch', 'force', 'remote'],
     'init': ['branch', 'remote', 'method'],
     'pull': ['all', 'branch', 'force', 'message', 'method', 'remote', 'update'],
+    'repair': ['all', 'message', 'msg_file'],
     'run': [],
     'push': ['all', 'branch', 'commit', 'force', 'message', 'method', 'msg_file', 'remote', 'squash', 'update'],
     'status': ['ALL', 'all', 'fetch'],
@@ -43,6 +44,7 @@ COMMAND_HELP: dict[str, str] = {
     'init': "turn an existing subdirectory into a nested repository",
     'pull': "update a nested repository from its upstream",
     'push': "push a nested repository's local changes upstream",
+    'repair': "point a nested repository's sync point back into the current history",
     'run': "run a git command in the worktree of a nested repository",
     'status': "report on the nested repositories of this repository",
     'version': "print version information",
@@ -137,6 +139,7 @@ POSITIONALS: dict[str, list[tuple[str, dict]]] = {
         ('subdir', {'nargs': '?', 'help': _SUBDIR_HELP}),
         ('nested_branch', {'nargs': '?', 'help': "branch to push; defaults to nested/<subdir>"}),
     ],
+    'repair': [('subdir', {'nargs': '?', 'help': _SUBDIR_HELP})],
     'run': [
         ('subdir', {'help': _SUBDIR_HELP}),
         # argparse.REMAINDER, spelled out to keep this module free of argparse:
@@ -200,6 +203,13 @@ COMMAND_DESCRIPTION: dict[str, str] = {
         "Send the commits you made in <subdir> to its upstream. "
         "Only the changes inside the subdirectory go; the rest of the parent repository is not part of it."
     ),
+    'repair': (
+        "Fix the parent recorded in <subdir>/.gitnested when it is no longer part of the current history, "
+        "as happens when a branch with a pull or clone on it is squash-merged or rebased. "
+        "The new parent is the commit before the one that last changed the upstream commit, "
+        "which is what that pull would have recorded had it been made here; the change is committed. "
+        "A parent that is still part of the history is left alone."
+    ),
     'run': (
         "Run 'git -C <worktree> <git command>' in the worktree of <subdir>, wherever 'git nested branch' "
         "put it. git's output and exit code are passed through unchanged. "
@@ -262,6 +272,10 @@ COMMAND_EXAMPLES: dict[str, list[str]] = {
     'push': [
         "git nested push ext/lib",
         "git nested push --squash -m 'one commit upstream' ext/lib",
+    ],
+    'repair': [
+        "git nested repair ext/lib",
+        "git nested repair --all",
     ],
     'run': [
         "git nested run ext/lib log --oneline",

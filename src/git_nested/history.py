@@ -14,20 +14,20 @@ from .git import GitRunner
 from .models import Flags, NestedConfig
 
 
+def parent_is_ancestor(git: GitRunner, parent: str) -> bool:
+    """Check whether the recorded parent is still part of HEAD's history."""
+    return git.run(['merge-base', '--is-ancestor', parent, 'HEAD'], may_fail=True).returncode == 0
+
+
 def _check_parent_is_ancestor(git: GitRunner, config: NestedConfig, gitnested: Path, subdir: Path) -> None:
     """Raise a recovery-hint error unless config.parent is an ancestor of HEAD."""
-    result = git.run(['merge-base', '--is-ancestor', config.parent, 'HEAD'], may_fail=True)
-    if result.returncode == 0:
-        return
-    prev = git.check_output(['log', '-1', '-G', 'commit =', '--format=%H', gitnested], may_fail=True)
-    if prev:
-        prev = git.check_output(['log', '-1', '--format=%H', f'{prev.strip()}^'])
-    raise GitNestedError(messages.sync_point_lost(gitnested, subdir, prev))
+    if not parent_is_ancestor(git, config.parent):
+        raise GitNestedError(messages.sync_point_lost(gitnested, subdir))
 
 
-def _extract_gitrepo_commit(git: GitRunner, commit: str, subdir: Path) -> str | None:
-    """Extract the recorded nested commit from commit's .gitnested file, or None."""
-    gitrepo_content = git.check_output(['cat-file', '-p', f'{commit}:{subdir.as_posix()}/.gitnested'], may_fail=True)
+def _recorded_commit(git: GitRunner, rev: str, gitnested: Path) -> str | None:
+    """The upstream commit gitnested records as of rev, or None if it records none there."""
+    gitrepo_content = git.check_output(['cat-file', '-p', f'{rev}:{gitnested.as_posix()}'], may_fail=True)
     if not gitrepo_content:
         return None
     try:
@@ -38,6 +38,39 @@ def _extract_gitrepo_commit(git: GitRunner, commit: str, subdir: Path) -> str | 
     if not gitrepo_commit:
         return None
     return gitrepo_commit.strip()
+
+
+def find_sync_point(git: GitRunner, gitnested: Path) -> str | None:
+    """The sync point HEAD's own history has for gitnested, or None if it has none.
+
+    The newest commit that changed the recorded upstream commit is the one
+    that brought the subdir in step with upstream: a pull or clone, or the
+    rebased or squash-merged copy of one. The commit before it is what that
+    pull would have written as the parent, had it been made on this history.
+    """
+    for rev in git.check_output(['log', '--format=%H', '--', gitnested]).splitlines():
+        parent = _first_parent(git, rev)
+        if _changes_recorded_commit(git, rev, parent, gitnested):
+            # None for a root commit: it has nothing before it to hang off.
+            return parent
+    return None
+
+
+def _first_parent(git: GitRunner, rev: str) -> str | None:
+    """The first parent of rev, or None for a root commit."""
+    parents = git.check_output(['show', '-s', '--format=%P', rev]).split()
+    return parents[0] if parents else None
+
+
+def _changes_recorded_commit(git: GitRunner, rev: str, parent: str | None, gitnested: Path) -> bool:
+    """Check whether rev records an upstream commit in gitnested that its parent does not."""
+    before = _recorded_commit(git, parent, gitnested) if parent else None
+    return _recorded_commit(git, rev, gitnested) not in (None, before)
+
+
+def _extract_gitrepo_commit(git: GitRunner, commit: str, subdir: Path) -> str | None:
+    """Extract the recorded nested commit from commit's .gitnested file, or None."""
+    return _recorded_commit(git, commit, subdir / '.gitnested')
 
 
 def _is_direct_child(git: GitRunner, ancestor: str | None, commit: str) -> bool:
