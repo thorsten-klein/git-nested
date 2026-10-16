@@ -195,7 +195,7 @@ sequenceDiagram
         end
 
         alt method = merge
-            git-nested->>Git: merge refs/nested/<subref>/fetch
+            git-nested->>Git: merge --ff --no-edit refs/nested/<subref>/fetch
             Note over git-nested: (in worktree)
         else method = rebase
             git-nested->>Git: rebase refs/nested/<subref>/fetch nested/<subref>

@@ -53,12 +53,14 @@ def do_pull(
     if config.filter:
         merge_target = filters.build_filtered_commit(git, subdir_worktree, config.filter, upstream_head_commit)
 
+    # Without a parent the histories are unrelated (nested-in-nested repos).
+    unrelated = [] if config.parent else ['--allow-unrelated-histories']
     method = flags.method or config.method
     if method == 'rebase':
         cmd = ['rebase', merge_target, branch]
     else:
-        # Without a parent the histories are unrelated (nested-in-nested repos)
-        cmd = ['merge', merge_target, *([] if config.parent else ['--allow-unrelated-histories'])]
+        # --ff and --no-edit: the user's merge.ff must not apply here.
+        cmd = ['merge', '--ff', '--no-edit', merge_target, *unrelated]
     try:
         git.run(cmd, cwd=subdir_worktree)
     except GitNestedError as e:
