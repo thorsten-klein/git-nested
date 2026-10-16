@@ -59,7 +59,7 @@ def commit_nested_branch(
     gitnested: Path,
     nested_commit_ref: str,
     upstream_head_commit: str,
-    head_commit: str,
+    head_commit: str | None,
     subdir_worktree: Path | None,
     command: str,
 ) -> None:

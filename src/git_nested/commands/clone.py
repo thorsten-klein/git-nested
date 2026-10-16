@@ -20,16 +20,13 @@ def do_clone(
     subdir: Path,
     gitnested: Path,
     subref: str,
-    head_commit: str,
+    head_commit: str | None,
 ) -> tuple[NestedConfig, bool]:
     """Clone upstream into subdir and commit it; with --force over an existing clone, reclone it.
 
     Returns:
         tuple: (config, up_to_date). up_to_date means a reclone found nothing new, and did nothing.
     """
-    if not git.rev_exists('HEAD'):
-        raise GitNestedError("can't clone into a repository that has no commits yet")
-
     fetched = None
     if flags.force and gitnested.is_file():
         fetched = fetch.do_fetch(git, config, subref)
@@ -71,7 +68,7 @@ def _clone_into(
     subdir: Path,
     gitnested: Path,
     subref: str,
-    head_commit: str,
+    head_commit: str | None,
     fetched: str | None,
 ) -> None:
     """Commit the upstream branch's content into subdir, fetching it unless `fetched` already is it."""

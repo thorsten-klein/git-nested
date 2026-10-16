@@ -208,7 +208,7 @@ COMMAND_DESCRIPTION: dict[str, str] = {
     'clone': (
         "Copy an upstream repository into <subdir> and commit it, with a .gitnested file recording where it came from. "
         "The result is ordinary files in ordinary commits: everyone who clones the parent repository gets them, "
-        "with no extra command to run."
+        "with no extra command to run. In a repository with no commits yet, that clone commit becomes the root commit."
     ),
     'commit': (
         "Take a 'nested/<subdir>' branch and add it to the current history as a single commit. "
