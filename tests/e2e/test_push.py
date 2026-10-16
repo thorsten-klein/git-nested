@@ -288,8 +288,8 @@ def test_push_after_init(env):
     env.run(['git', 'init', '--bare'], cwd=upstream_dir)
 
     # Push
-    result = cmd_git_nested('push doc --remote=../upstream --commit', cwd=init_dir)
-    assert result.output.strip() == "doc: pushed to ../upstream (init-master)"
+    result = cmd_git_nested('push doc --remote=../upstream -b master --commit', cwd=init_dir)
+    assert result.output.strip() == "doc: pushed to ../upstream (master)"
 
     # Test init/doc/.gitnested file contents
     gitnested = init_dir / 'doc' / '.gitnested'
@@ -548,3 +548,19 @@ def test_push_commit_with_message_file(foo_bar_cloned_and_nested):
 
     last_msg = env.run(['git', 'log', '-1', '--format=%B'], cwd=env.workspace / 'foo').stdout
     assert last_msg.strip() == 'Custom push commit message'
+
+
+def test_push_commit_refuses_a_branch_it_does_not_track(foo_bar_cloned_and_nested):
+    """--commit records the push; on another branch than the tracked one the next pull would break."""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    env.add_new_files('bar/from-foo', cwd=foo)
+
+    result = cmd_git_nested('push --commit bar', cwd=foo, check=False)
+
+    assert result.returncode == 1
+    assert result.output.strip() == (
+        "git-nested: bar: --commit records the push in .gitnested, but it goes to foo-master, "
+        "not to the tracked branch master; push there with -b master"
+    )
+    assert env.run(['git', 'branch', '--list', 'foo-master'], cwd=env.upstream / 'bar').output == ''

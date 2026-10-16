@@ -121,6 +121,12 @@ def cmd_push(ctx: CommandContext) -> None:
 
     output.verbose(f"pushing {subdir.as_posix()} upstream")
     branch_name = flags.branch or f"{Path(git.check_output(['rev-parse', '--show-toplevel'])).name}-{config.branch}"
+    # A commit recorded on another branch than the tracked one breaks the next pull.
+    if flags.commit and branch_name != config.branch:
+        raise GitNestedError(
+            f"{subdir.as_posix()}: --commit records the push in .gitnested, but it goes to {branch_name}, "
+            f"not to the tracked branch {config.branch}; push there with -b {config.branch}"
+        )
     new_commit = do_push(git, flags, config, subdir, gitnested, ctx.tmp, subref, branch_name, branch)
 
     if branch is None:
