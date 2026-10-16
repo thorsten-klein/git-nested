@@ -62,7 +62,10 @@ def test_pull(prepare_pull_test):
           branch:   "master"
           commit:   "{bar_head_commit_short}"
         git-nested:
-          version:  "{VERSION}"''')
+          version:  "{VERSION}"
+
+        Upstream commits:
+        - {bar_head_commit_short} add new file: Bar2''')
 
     # Check that we detect that we don't need to pull
     result = cmd_git_nested('pull bar', cwd=env.workspace / 'foo')
@@ -555,7 +558,10 @@ def test_pull_rebase(prepare_pull_test):
           branch:   "master"
           commit:   "{bar_head_commit_short}"
         git-nested:
-          version:  "{VERSION}"''')
+          version:  "{VERSION}"
+
+        Upstream commits:
+        - {bar_head_commit_short} add new file: Bar2''')
 
     # Check that we detect that we don't need to pull again
     result = cmd_git_nested('pull -M rebase bar', cwd=env.workspace / 'foo')
@@ -675,3 +681,17 @@ def test_pull_without_squash_refuses_a_part_of_upstream(foo_bar_cloned):
 
     assert result.returncode != 0
     assert "--no-squash can't keep the history of a part of upstream" in result.output
+
+
+def test_pull_message_lists_at_most_twenty_upstream_commits(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    bar = env.workspace / 'bar'
+    for number in range(22):
+        env.add_new_files(f'many{number}', cwd=bar)
+    env.run(['git', 'push', '-q'], cwd=bar)
+
+    cmd_git_nested('pull bar', cwd=env.workspace / 'foo')
+
+    message = git_get_commit_msg(env.workspace / 'foo').strip().splitlines()
+    assert message[-21].endswith("add new file: many21")
+    assert message[-1] == "- and 2 more"

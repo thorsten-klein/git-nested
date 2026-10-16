@@ -314,6 +314,9 @@ sequenceDiagram
     opt Submodules of upstream that were nested, or --recurse-submodules
         Note over git-nested: Nest each at the commit upstream pins now (as in clone)
     end
+
+    Note over git-nested: The commit message lists the new upstream commits
+    git-nested->>Git: log --format=%h %s <old commit>..<new commit>
 ```
 
 ---

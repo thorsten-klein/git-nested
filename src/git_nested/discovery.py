@@ -60,12 +60,12 @@ def build_commit_message(
     subdir: Path,
     command: str,
 ) -> str:
-    """Generate commit message."""
+    """Generate commit message. A pull's lists the upstream commits it brings in."""
     upstream_commit = 'none'
     if upstream_head_commit:
         upstream_commit = git.check_output(['rev-parse', '--short', upstream_head_commit])
     commit = git.check_output(['rev-parse', '--short', nested_commit_ref])
-    return textwrap.dedent(
+    message = textwrap.dedent(
         f"""\
         git nested {command}
 
@@ -80,3 +80,23 @@ def build_commit_message(
           version:  "{VERSION}"
         """
     )
+    if command == 'pull' and config.commit and upstream_head_commit:
+        message += _upstream_log(git, config, upstream_head_commit)
+    return message
+
+
+# A pull lists at most this many upstream commits in its message.
+_LOG_LIMIT = 20
+
+
+def _upstream_log(git: GitRunner, config: NestedConfig, upstream_head_commit: str) -> str:
+    """The upstream commits a pull brings in, newest first, for its commit message."""
+    lines = git.check_output(
+        ['log', '--format=%h %s', f'{config.commit}..{upstream_head_commit}'], may_fail=True
+    ).splitlines()
+    if not lines:
+        return ''
+    listed = [f"- {line}" for line in lines[:_LOG_LIMIT]]
+    if len(lines) > _LOG_LIMIT:
+        listed.append(f"- and {len(lines) - _LOG_LIMIT} more")
+    return "\nUpstream commits:\n" + "\n".join(listed) + "\n"
