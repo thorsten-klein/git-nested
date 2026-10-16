@@ -112,6 +112,25 @@ def _record_push_commit(
     content.commit_gitnested_update(git, flags, msg)
 
 
+def _check_commit_target(flags: Flags, subdir: Path, gitnested: Path, config: NestedConfig, branch_name: str) -> None:
+    """Refuse --commit unless the push goes to what .gitnested tracks.
+
+    A recorded commit from elsewhere would break the next pull.
+    """
+    # Without -u, -r and -b do not change what .gitnested tracks.
+    recorded = NestedConfig.from_file(gitnested)
+    if not flags.update and (config.remote, config.branch) != (recorded.remote, recorded.branch):
+        raise GitNestedError(
+            f"{subdir.as_posix()}: --commit records the push in .gitnested, but -r and -b only change this push; "
+            "add -u to track them"
+        )
+    if branch_name != config.branch:
+        raise GitNestedError(
+            f"{subdir.as_posix()}: --commit records the push in .gitnested, but it goes to {branch_name}, "
+            f"not to the tracked branch {config.branch}; push there with -b {config.branch}"
+        )
+
+
 def cmd_push(ctx: CommandContext) -> None:
     """Push local nested repo changes upstream."""
     git, flags, branch = ctx.git, ctx.flags, ctx.nested_commit_ref
@@ -121,12 +140,8 @@ def cmd_push(ctx: CommandContext) -> None:
 
     output.verbose(f"pushing {subdir.as_posix()} upstream")
     branch_name = flags.branch or f"{Path(git.check_output(['rev-parse', '--show-toplevel'])).name}-{config.branch}"
-    # A commit recorded on another branch than the tracked one breaks the next pull.
-    if flags.commit and branch_name != config.branch:
-        raise GitNestedError(
-            f"{subdir.as_posix()}: --commit records the push in .gitnested, but it goes to {branch_name}, "
-            f"not to the tracked branch {config.branch}; push there with -b {config.branch}"
-        )
+    if flags.commit:
+        _check_commit_target(flags, subdir, gitnested, config, branch_name)
     new_commit = do_push(git, flags, config, subdir, gitnested, ctx.tmp, subref, branch_name, branch)
 
     if branch is None:
