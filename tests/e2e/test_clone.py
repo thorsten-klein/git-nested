@@ -112,3 +112,20 @@ def test_clone_with_quiet_verbose(foo_bar_cloned):
         * committing the .gitnested update
         bar2: cloned from {env.upstream.as_posix()}/bar (master)""")
     assert (env.workspace / 'foo' / 'bar2').is_dir()
+
+
+def test_a_failed_commit_leaves_nothing_behind(foo_bar_cloned):
+    """A hook that rejects the commit must not leave the repository half staged."""
+    env = foo_bar_cloned
+    foo = env.workspace / 'foo'
+    hook = foo / '.git' / 'hooks' / 'pre-commit'
+    hook.write_text('#!/bin/sh\nexit 1\n')
+    hook.chmod(0o755)
+
+    result = cmd_git_nested(['clone', (env.upstream / 'bar').as_posix()], foo, check=False)
+
+    assert result.returncode == 1
+    assert result.output.startswith("git-nested: bar: the commit failed, so nothing was changed:\n")
+    assert env.run(['git', 'status', '--porcelain'], cwd=foo).output == ''
+    hook.unlink()
+    cmd_git_nested(['clone', (env.upstream / 'bar').as_posix()], foo)

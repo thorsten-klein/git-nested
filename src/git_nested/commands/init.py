@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .. import discovery, gitfile, output, refs
+from .. import content, discovery, gitfile, output, refs
 from ..cli import setup
 from ..errors import GitNestedError
 from ..models import CommandContext
@@ -36,8 +36,8 @@ def cmd_init(ctx: CommandContext) -> None:
         head_commit=head_commit,
         command='init',
     )
-    output.verbose("committing")
-    git.run(['commit', '-m', discovery.build_commit_message(git, config, head_commit, head_commit, subdir, 'init')])
+    msg = discovery.build_commit_message(git, config, head_commit, head_commit, subdir, 'init')
+    content.commit_gitnested_update(git, flags, subdir, msg)
     refs.create_nested_ref(git, subref, 'commit', head_commit)
 
     remote = "no remote" if config.remote == 'none' else f"{config.remote} ({config.branch})"
