@@ -608,3 +608,20 @@ def test_a_failed_push_leaves_no_branch_behind(foo_bar_cloned_and_nested):
     assert result.returncode == 1
     assert env.run(['git', 'branch', '--list', 'nested/*'], cwd=foo).output == ''
     cmd_git_nested('pull bar', cwd=foo)
+
+
+def test_push_keeps_the_message_of_a_merged_commit(foo_bar_cloned_and_nested):
+    """A change that came in through a merge reaches upstream under its own message."""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    env.run(['git', 'switch', '-q', '-c', 'feat'], cwd=foo)
+    env.modify_files('bar/Bar', cwd=foo)  # 'modified file: bar/Bar'
+    env.add_new_files('feat-other', cwd=foo)
+    env.run(['git', 'switch', '-q', 'master'], cwd=foo)
+    env.add_new_files('main-other', cwd=foo)
+    env.run(['git', 'merge', '-q', '--no-ff', 'feat', '-m', 'Merge unrelated PR'], cwd=foo)
+
+    cmd_git_nested('push -b master bar', cwd=foo)
+
+    log = env.run(['git', 'log', '--format=%s', 'master'], cwd=env.upstream / 'bar').output.splitlines()
+    assert log == ['modified file: bar/Bar', 'bard/Bard', 'Bar']

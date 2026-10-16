@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import re
 import shlex
+import tempfile
+from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
 import yaml
@@ -67,19 +69,8 @@ def _check_rebase_safety(git: GitRunner, command: str, subdir: Path, subref: str
     )
 
 
-def _create_chain_commit(
-    git: GitRunner, commit: str, subdir: Path, prev: str | None, upstream: str | None
-) -> str | None:
-    """Add the nested commit of `commit` on top of `prev`, joined to `upstream` if given.
-
-    It is subdir's tree in `commit`, with that commit's author, committer and
-    message. A commit without the subdir adds nothing, and `prev` stays the tip.
-
-    Returns:
-        the new tip of the chain
-    """
-    if git.run(['cat-file', '-e', f'{commit}:{subdir.as_posix()}'], may_fail=True).returncode != 0:
-        return prev
+def _create_chain_commit(git: GitRunner, commit: str, tree: str, parents: list[str]) -> str:
+    """A nested commit of `tree`, with the author, committer and message of `commit`."""
     # Unstripped, so that even an empty message leaves the six lines before it intact.
     *identity, message = git.run([
         'log',
@@ -90,47 +81,73 @@ def _create_chain_commit(
     ]).stdout.split('\n', 6)
     names = ('AUTHOR_DATE', 'AUTHOR_EMAIL', 'AUTHOR_NAME', 'COMMITTER_DATE', 'COMMITTER_EMAIL', 'COMMITTER_NAME')
     env = {**os.environ, **{f'GIT_{name}': value for name, value in zip(names, identity, strict=True)}}
-    parent_args = [arg for parent in (prev, upstream) if parent for arg in ('-p', parent)]
-    return git.check_output(
-        ['commit-tree', '-F', '-', *parent_args, f'{commit}:{subdir.as_posix()}'], input=message.strip(), env=env
-    )
+    parent_args = [arg for parent in parents for arg in ('-p', parent)]
+    return git.check_output(['commit-tree', '-F', '-', *parent_args, tree], input=message.strip(), env=env)
 
 
-def _chain_commits(git: GitRunner, commits: list[str], gitnested: Path) -> list[tuple[str, str]]:
-    """Those of `commits` that record an upstream commit, in the direct line of descent from the first.
+@dataclass
+class _Replay:
+    """Replays commits of this repository as nested commits of one subdir.
 
-    Returns:
-        list: (commit, the upstream commit it records)
+    `nested` maps each commit to its nested commit. A commit that adds
+    nothing maps to the nested commit it would sit on.
     """
-    chain: list[tuple[str, str]] = []
-    for commit in commits:
-        upstream = _recorded_commit(git, commit, gitnested)
-        if upstream and (not chain or chain[-1][0] in git.check_output(['show', '-s', '--format=%P', commit])):
-            chain.append((commit, upstream))
-    return chain
 
+    git: GitRunner
+    subdir: Path
+    subref: str
+    command: str
+    merge: bool
+    index_env: dict[str, str]
+    removed: list[str]
+    nested: dict[str, str] = field(default_factory=dict)
+    joined: dict[str, str | None] = field(default_factory=dict)
+    trees: dict[str, str] = field(default_factory=dict)
 
-def _build_nested_commit_chain(
-    git: GitRunner, flags: Flags, config: NestedConfig, commits: list[str], subdir: Path, subref: str, command: str
-) -> tuple[str | None, str | None]:
-    """Replay each of `commits` that records an upstream commit as a nested commit of subdir's content.
+    def add(self, commit: str, parents: list[str]) -> None:
+        """Replay one commit, whose `parents` came before it."""
+        known = [parent for parent in parents if parent in self.nested]
+        last = self.joined.get(known[0]) if known else None
+        upstream = _recorded_commit(self.git, commit, self.subdir / GITNESTED_FILENAME)
+        if not upstream:
+            # No .gitnested here: the history passes through.
+            if known:
+                self.nested[commit], self.joined[commit] = self.nested[known[0]], last
+            return
+        _check_rebase_safety(self.git, self.command, self.subdir, self.subref, upstream)
+        # An upstream commit joins the first time, and with merge each time a new one is recorded.
+        joins = upstream != last if self.merge else not known
+        self.joined[commit] = upstream if joins else last
+        nested_parents = [*dict.fromkeys(self.nested[parent] for parent in known), *([upstream] if joins else [])]
+        self.nested[commit] = self._commit(commit, self._independent(nested_parents))
 
-    A recorded upstream commit becomes the second parent of the nested commit
-    that joins it: the first one always, and with the merge method every new
-    one after it, which is what ties the nested history to upstream.
+    def _commit(self, commit: str, parents: list[str]) -> str:
+        """The nested commit of `commit` on `parents`; the one parent itself if nothing changes."""
+        tree = self._subdir_tree(commit)
+        if len(parents) == 1 and tree == self._tree_of(parents[0]):
+            return parents[0]
+        nested = _create_chain_commit(self.git, commit, tree, parents)
+        self.trees[nested] = tree
+        return nested
 
-    Returns:
-        tuple: (the last nested commit, the first upstream commit recorded)
-    """
-    chain = _chain_commits(git, commits, subdir / GITNESTED_FILENAME)
-    merge = (flags.method or config.method) != 'rebase'
-    prev = joined = None
-    for commit, upstream in chain:
-        _check_rebase_safety(git, command, subdir, subref, upstream)
-        second_parent = upstream if upstream != joined and (merge or joined is None) else None
-        joined = second_parent or joined
-        prev = _create_chain_commit(git, commit, subdir, prev, second_parent)
-    return prev, chain[0][1] if chain else None
+    def _independent(self, commits: list[str]) -> list[str]:
+        """`commits` without those that are ancestors of another one."""
+        if len(commits) < 2:
+            return commits
+        independent = self.git.check_output(['merge-base', '--independent', *commits]).split()
+        return [commit for commit in commits if commit in independent]
+
+    def _tree_of(self, commit: str) -> str:
+        if commit not in self.trees:
+            self.trees[commit] = self.git.check_output(['rev-parse', f'{commit}^{{tree}}'])
+        return self.trees[commit]
+
+    def _subdir_tree(self, commit: str) -> str:
+        """The tree of subdir in `commit`, without the `removed` paths."""
+        self.git.run(['read-tree', f'{commit}:{self.subdir.as_posix()}'], env=self.index_env)
+        # -f: this index has nothing to do with the working tree
+        self.git.run(['rm', '--cached', '-r', '-q', '-f', '--ignore-unmatch', '--', *self.removed], env=self.index_env)
+        return self.git.check_output(['write-tree'], env=self.index_env)
 
 
 def _create_branch_from_parent(
@@ -142,29 +159,37 @@ def _create_branch_from_parent(
     subref: str,
     command: str,
     branch: str,
-) -> str | None:
-    """Build branch by replaying subdir content across the parent..HEAD commit range.
+    removed: list[str],
+) -> None:
+    """Build branch by replaying the commits from the recorded parent to HEAD.
 
-    Returns:
-        first_gitrepo_commit (or None), used to scope the later history filtering.
+    Merges stay merges where both sides changed the subdir. So a change
+    that came in through a merge keeps its own commit and message.
     """
     if not parent_is_ancestor(git, config.parent):
         raise GitNestedError(messages.sync_point_lost(gitnested, subdir))
 
-    commits = git.check_output([
+    lines = git.check_output([
         'rev-list',
         '--reverse',
-        '--ancestry-path',
         '--topo-order',
+        '--ancestry-path',
+        '--parents',
         f'{config.parent}..HEAD',
     ]).splitlines()
-    prev_commit, first_gitrepo_commit = _build_nested_commit_chain(git, flags, config, commits, subdir, subref, command)
-    if prev_commit is None:
+    with tempfile.TemporaryDirectory() as tmp:
+        merge = (flags.method or config.method) != 'rebase'
+        index_env = {**os.environ, 'GIT_INDEX_FILE': str(Path(tmp) / 'index')}
+        replay = _Replay(git, subdir, subref, command, merge, index_env, removed)
+        for line in lines:
+            commit, *parents = line.split()
+            replay.add(commit, parents)
+    tip = replay.nested.get(lines[-1].split()[0]) if lines else None
+    if tip is None:
         raise GitNestedError(
             f"{subdir.as_posix()}: no commit between {config.parent} and HEAD touches it, so there is no nested history to rebuild"
         )
-    git.run(['branch', branch, prev_commit])
-    return first_gitrepo_commit
+    git.run(['branch', branch, tip])
 
 
 def create_branch(
@@ -180,30 +205,18 @@ def create_branch(
     """Create `branch` holding the nested history of subdir, without its .gitnested file.
 
     From the recorded parent on when there is one; else the whole of HEAD's
-    history, filtered down to the subdir.
+    history, filtered down to the subdir. For a push it also leaves out what
+    upstream must not get.
     """
-    first_gitrepo_commit = None
+    removed = [GITNESTED_FILENAME, *(_local_only_paths(git, config, subdir) if command == 'push' else [])]
     if config.parent:
-        first_gitrepo_commit = _create_branch_from_parent(
-            git, flags, config, subdir, gitnested, subref, command, branch
-        )
-    else:
-        git.run(['branch', branch, 'HEAD'])
-        git.run(['filter-branch', '-f', '--subdirectory-filter', subref, branch], may_fail=True)
-
-    filter_range = f'{first_gitrepo_commit}..{branch}' if first_gitrepo_commit else branch
-    removed = ['.gitnested', *(_local_only_paths(git, config, subdir) if command == 'push' else [])]
+        _create_branch_from_parent(git, flags, config, subdir, gitnested, subref, command, branch, removed)
+        return
+    git.run(['branch', branch, 'HEAD'])
+    git.run(['filter-branch', '-f', '--subdirectory-filter', subref, branch], may_fail=True)
+    tree_filter = 'rm -rf -- ' + ' '.join(shlex.quote(path) for path in removed)
     git.run(
-        [
-            'filter-branch',
-            '-f',
-            '--prune-empty',
-            '--tree-filter',
-            'rm -rf -- ' + ' '.join(shlex.quote(path) for path in removed),
-            '--',
-            filter_range,
-            '--first-parent',
-        ],
+        ['filter-branch', '-f', '--prune-empty', '--tree-filter', tree_filter, '--', branch, '--first-parent'],
         may_fail=True,
     )
 

@@ -235,16 +235,16 @@ def test_branch_rev_list_one_path(foo_bar_cloned_and_nested):
     # assert branch is correctly created
     tmp_worktree = env.workspace / 'foo' / '.git' / 'tmp' / 'nested' / 'bar'
     assert (tmp_worktree).exists()
-    assert_commit_count(tmp_worktree, 6)
-    assert_commit(
-        cwd=tmp_worktree,
-        ref='HEAD',
-        commit_title="Merge branch 'master' into other",
-        changed_files=['file1', 'file2'],
-    )
+    # The merged commits keep their own commits; the merge stays a merge.
+    assert_commit_count(tmp_worktree, 8)
+    assert_commit(cwd=tmp_worktree, ref='HEAD', commit_title="Merge branch 'master' into other")
+    merged = env.run(['git', 'diff', '--name-only', 'HEAD^', 'HEAD'], cwd=tmp_worktree).output.split()
+    assert merged == ['file1', 'file2']
     assert_commit(tmp_worktree, 'HEAD~1', changed_files=['file5'])
     assert_commit(tmp_worktree, 'HEAD~2', changed_files=['file4'])
     assert_commit(tmp_worktree, 'HEAD~3', changed_files=['file3'])
+    assert_commit(tmp_worktree, 'HEAD^2', changed_files=['file2'])
+    assert_commit(tmp_worktree, 'HEAD^2~1', changed_files=['file1'])
 
 
 def test_branch_with_force(foo_bar_cloned_and_nested):

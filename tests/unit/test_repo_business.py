@@ -278,7 +278,7 @@ def test_create_branch_from_parent_raises_when_no_commit_touches_subdir():
     subdir = Path('sub')
     with pytest.raises(GitNestedError, match="no nested history to rebuild"):
         history._create_branch_from_parent(
-            git, flags, config, subdir, Path('sub/.gitnested'), 'sub', 'pull', 'nested/sub'
+            git, flags, config, subdir, Path('sub/.gitnested'), 'sub', 'pull', 'nested/sub', ['.gitnested']
         )
 
 
@@ -287,14 +287,22 @@ def test_create_branch_from_parent_raises_when_no_commit_touches_subdir():
 # ============================================================================
 
 
-def test_create_chain_commit_skips_a_commit_without_the_subdir():
-    git = FakeGit().respond('cat-file', '-e', returncode=1)
-    assert history._create_chain_commit(git, 'deadbeef', Path('sub'), 'prev', 'upstream') == 'prev'
+def _replay(git):
+    return history._Replay(git, Path('sub'), 'sub', 'pull', merge=True, index_env={}, removed=['.gitnested'])
 
 
-def test_chain_commits_skips_a_commit_without_gitnested_data():
-    git = FakeGit().respond('cat-file', '-p', stdout='')
-    assert history._chain_commits(git, ['deadbeef'], Path('sub/.gitnested')) == []
+def test_replay_passes_a_commit_without_gitnested_through():
+    """Without .gitnested the commit adds nothing; it maps to what its parent maps to."""
+    replay = _replay(FakeGit().respond('cat-file', '-p', stdout=''))
+    replay.nested['p'] = 'nested-p'
+    replay.add('c', ['p'])
+    assert replay.nested['c'] == 'nested-p'
+
+
+def test_replay_skips_a_commit_without_gitnested_or_known_parents():
+    replay = _replay(FakeGit().respond('cat-file', '-p', stdout=''))
+    replay.add('c', ['outside'])
+    assert 'c' not in replay.nested
 
 
 # ============================================================================
