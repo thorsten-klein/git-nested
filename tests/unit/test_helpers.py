@@ -15,6 +15,7 @@ from git_nested import (
     _version,
     gitfile,
     refs,
+    submodules,
     yamlio,
 )
 from git_nested import __main__ as dunder_main
@@ -248,3 +249,16 @@ def test_gitnested_is_written_with_lf(tmp_path):
     gitnested = tmp_path / '.gitnested'
     yamlio._write_yaml_config(gitnested, {'nested': {'remote': 'x', 'branch': 'main'}})
     assert b'\r\n' not in gitnested.read_bytes()
+
+
+@pytest.mark.parametrize(
+    ('url', 'base', 'resolved'),
+    [
+        ('../foo.git', '/srv/git/bar.git', '/srv/git/foo.git'),
+        ('./foo.git', '/srv/git/bar.git', '/srv/git/bar.git/foo.git'),
+        ('../foo.git', 'https://example.com/group/bar.git', 'https://example.com/group/foo.git'),
+        ('https://example.com/x.git', '/srv/git/bar.git', 'https://example.com/x.git'),
+    ],
+)
+def test_a_relative_submodule_url_is_resolved_like_git_does(url, base, resolved):
+    assert submodules.resolve(url, base) == resolved

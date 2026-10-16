@@ -25,6 +25,8 @@ class Flags:
     dir: str | None = None
     filter: list[str] | None = None
     force: bool = False
+    from_submodule: bool = False
+    recurse_submodules: bool = False
     fetch: bool = False
     message: str | None = None
     message_file: str | None = None

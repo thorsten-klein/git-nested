@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .. import content, discovery, gitfile, output
+from .. import content, discovery, gitfile, output, submodules
 from ..cli import setup
 from ..constants import GITNESTED_FILENAME
 from ..errors import GitNestedError
@@ -97,6 +97,32 @@ def _clone_into(
         subdir_worktree=None,
         command='clone',
     )
+    if flags.recurse_submodules:
+        nest_submodules(git, flags, subdir, config.remote)
+    else:
+        submodules.warn_if_any(git, subdir)
+
+
+def nest_submodules(git: GitRunner, flags: Flags, subdir: Path, remote: str) -> None:
+    """Turn each submodule under subdir into a nested repository, at the commit it pins.
+
+    Each one is cloned with -b <commit>, so it stays at that commit.
+    """
+    for path, pinned in submodules.gitlinks(git, subdir):
+        url = submodules.url_of(git, subdir / '.gitmodules', path.removeprefix(f'{subdir.as_posix()}/'), remote)
+        if url is None:
+            output.warn(f"{path}: .gitmodules has no url for it, so it stays empty")
+            continue
+        git.run(['rm', '-q', '--cached', '--', path])
+        clone_at(git, flags, Path(path), url, pinned)
+
+
+def clone_at(git: GitRunner, flags: Flags, subdir: Path, url: str, commit: str) -> None:
+    """Clone `url` at `commit` into subdir, and its submodules too."""
+    inner = Flags(branch=commit, recurse_submodules=True, quiet=flags.quiet, verbose=flags.verbose)
+    subdir, gitnested, subref, config = setup.setup_command(git, 'clone', inner, subdir, url)
+    do_clone(git, inner, config, subdir, gitnested, subref, git.check_output(['rev-parse', 'HEAD']))
+    output.say(f"{subdir.as_posix()}: cloned from {url} ({commit})")
 
 
 def cmd_clone(ctx: CommandContext) -> None:

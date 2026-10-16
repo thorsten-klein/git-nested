@@ -56,6 +56,19 @@ sequenceDiagram
         Note over git-nested: If it fails: reset -q --hard HEAD
         git-nested->>Git: update-ref refs/nested/<subref>/commit <nested_commit_ref>
     end
+
+    opt Upstream has submodules
+        git-nested->>Git: ls-files -s -z -- <subdir>
+        alt --recurse-submodules
+            loop For each submodule
+                git-nested->>Git: config -f <subdir>/.gitmodules --get-regexp ...
+                git-nested->>Git: rm -q --cached -- <path>
+                Note over git-nested: Clone its url at the pinned commit (-b <commit>)
+            end
+        else
+            Note over git-nested: Warn that they stay empty
+        end
+    end
 ```
 
 ---
@@ -98,6 +111,14 @@ sequenceDiagram
     git-nested->>Git: commit -m <message>
     Note over git-nested: If it fails: reset -q --hard HEAD
     git-nested->>Git: update-ref refs/nested/<subref>/commit <head_commit>
+
+    opt --from-submodule
+        git-nested->>Git: config -f .gitmodules --get-regexp ...
+        git-nested->>Git: ls-tree HEAD -- <subdir>
+        git-nested->>Git: submodule deinit -q -f -- <subdir>
+        git-nested->>Git: rm -q -f -- <subdir>
+        Note over git-nested: Remove .git/modules/<name>; clone its url at the pinned commit
+    end
 ```
 
 ---

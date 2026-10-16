@@ -66,6 +66,8 @@ def _flags_from_args(args: argparse.Namespace) -> Flags:
         commit=getattr(args, 'commit', False),
         filter=getattr(args, 'filter', []),
         force=getattr(args, 'force', False),
+        from_submodule=getattr(args, 'from_submodule', False),
+        recurse_submodules=getattr(args, 'recurse_submodules', False),
         fetch=getattr(args, 'fetch_flag', False),
         squash=getattr(args, 'squash', False),
         update=getattr(args, 'update', False),
