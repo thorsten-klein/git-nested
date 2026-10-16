@@ -415,6 +415,8 @@ def env(tmp_path):
         'HOME': str(test_env.test_home),
         'GIT_CONFIG_GLOBAL': str(test_env.test_home / '.gitconfig'),
         'GIT_CONFIG_SYSTEM': os.devnull,
+        # Drops config injected through the caller's environment, such as safe.bareRepository.
+        'GIT_CONFIG_COUNT': '0',
         # bin/ holds the 'git-nested' launcher `git nested` dispatches to --
         # replaced by the directory of the frozen binary when testing that.
         'PATH': os.pathsep.join([*map(str, path_dirs), os.getenv('PATH', '')]),

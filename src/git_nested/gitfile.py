@@ -115,11 +115,11 @@ def _update_lineage(nested: dict, initial: bool, flags: Flags, config: NestedCon
     """Write remote and branch where this is a new file, or the command line overrides them.
 
     An override is written when --update asks for it, and always by push
-    and clone; a clone, even a forced reclone onto another branch, always
-    records its branch.
+    and clone. A clone always records its branch and remote, even a
+    forced reclone.
     """
     overriding = flags.update or command in ('push', 'clone')
-    if initial or (overriding and flags.remote):
+    if initial or command == 'clone' or (overriding and flags.remote):
         nested['remote'] = config.remote
     if initial or command == 'clone' or (overriding and flags.branch):
         nested['branch'] = config.branch
