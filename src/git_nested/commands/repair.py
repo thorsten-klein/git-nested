@@ -49,5 +49,5 @@ def cmd_repair(ctx: CommandContext) -> None:
         git-nested:
           version:  "{VERSION}"
         """)
-    content.commit_gitnested_update(git, ctx.flags, ctx.flags.message or msg)
+    content.commit_gitnested_update(git, ctx.flags, subdir, ctx.flags.message or msg)
     output.say(f"{subdir.as_posix()}: sync point repaired, parent is now {sync_point}")

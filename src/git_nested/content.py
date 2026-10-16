@@ -92,7 +92,7 @@ def commit_nested_branch(
         msg = flags.message or discovery.build_commit_message(
             git, config, upstream_head_commit, nested_commit_ref, subdir, command
         )
-        commit_gitnested_update(git, flags, msg)
+        commit_gitnested_update(git, flags, subdir, msg)
 
     worktree.remove_worktree(git, subdir_worktree)
     refs.create_nested_ref(git, refs.sanitize_subref(git, subdir.as_posix()), 'commit', nested_commit_ref)
@@ -111,10 +111,16 @@ def _place_content(git: GitRunner, config: NestedConfig, subdir: Path, nested_co
         git.run(['read-tree', f'--prefix={subdir.as_posix()}', '-u', nested_commit_ref])
 
 
-def commit_gitnested_update(git: GitRunner, flags: Flags, msg: str) -> None:
-    """Commit what is staged onto the current branch, with --file's message if given, else `msg`."""
+def commit_gitnested_update(git: GitRunner, flags: Flags, subdir: Path, msg: str) -> None:
+    """Commit what is staged onto the current branch, with --file's message if given, else `msg`.
+
+    If the commit fails, e.g. a hook rejects it, the staged changes are undone.
+    The tree was clean before the command, so nothing else is lost.
+    """
     output.verbose("committing the .gitnested update")
-    if flags.message_file:
-        git.run(['commit', '--file', flags.message_file])
-    else:
-        git.run(['commit', '-m', msg])
+    message = ['--file', flags.message_file] if flags.message_file else ['-m', msg]
+    try:
+        git.run(['commit', *message])
+    except GitNestedError as e:
+        git.run(['reset', '-q', '--hard', 'HEAD'])
+        raise GitNestedError(f"{subdir.as_posix()}: the commit failed, so nothing was changed:\n{e.message}") from None

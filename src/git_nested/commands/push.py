@@ -109,7 +109,7 @@ def _record_push_commit(
         command='push',
     )
     msg = flags.message or discovery.build_commit_message(git, config, new_commit, new_commit, subdir, 'push')
-    content.commit_gitnested_update(git, flags, msg)
+    content.commit_gitnested_update(git, flags, subdir, msg)
 
 
 def cmd_push(ctx: CommandContext) -> None:

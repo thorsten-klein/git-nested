@@ -47,7 +47,7 @@ def test_verbose(env):
     assert cp.output.strip() == textwrap.dedent("""\
         * checking for a worktree on nested/doc
         * writing doc/.gitnested
-        * committing
+        * committing the .gitnested update
         doc: initialised as a nested repository with no remote""")
 
 

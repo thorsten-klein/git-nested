@@ -53,6 +53,7 @@ sequenceDiagram
         git-nested->>Git: add -f -- <subdir>/.gitnested
         git-nested->>Git: diff --cached --quiet
         git-nested->>Git: commit -m <message>
+        Note over git-nested: If it fails: reset -q --hard HEAD
         git-nested->>Git: update-ref refs/nested/<subref>/commit <nested_commit_ref>
     end
 ```
@@ -95,6 +96,7 @@ sequenceDiagram
     end
 
     git-nested->>Git: commit -m <message>
+    Note over git-nested: If it fails: reset -q --hard HEAD
     git-nested->>Git: update-ref refs/nested/<subref>/commit <head_commit>
 ```
 
@@ -216,6 +218,7 @@ sequenceDiagram
             git-nested->>Git: add -f -- <subdir>/.gitnested
             git-nested->>Git: diff --cached --quiet
             git-nested->>Git: commit -m <message>
+            Note over git-nested: If it fails: reset -q --hard HEAD
             git-nested->>Git: worktree prune
             git-nested->>Git: update-ref refs/nested/<subref>/commit <nested_commit_ref>
         end
@@ -302,6 +305,7 @@ sequenceDiagram
         Note over git-nested: Update .gitnested YAML
         git-nested->>Git: add -f -- <subdir>/.gitnested
         git-nested->>Git: commit -m <message>
+        Note over git-nested: If it fails: reset -q --hard HEAD
     end
 ```
 
@@ -453,6 +457,7 @@ sequenceDiagram
     git-nested->>Git: add -f -- <subdir>/.gitnested
     git-nested->>Git: rev-parse --short <sync point>
     git-nested->>Git: commit -m <message>
+    Note over git-nested: If it fails: reset -q --hard HEAD
 ```
 
 ---
@@ -503,6 +508,7 @@ sequenceDiagram
         git-nested->>Git: add -f -- <subdir>/.gitnested
         git-nested->>Git: diff --cached --quiet
         git-nested->>Git: commit -m <message>
+        Note over git-nested: If it fails: reset -q --hard HEAD
         git-nested->>Git: worktree prune
         git-nested->>Git: update-ref refs/nested/<subref>/commit <nested_commit_ref>
     end
