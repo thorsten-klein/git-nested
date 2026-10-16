@@ -372,3 +372,40 @@ def test_outer_and_inner_branches_coexist(foo_bar_cloned):
     assert result.output.strip() == "lib: branch nested/lib created, worktree at .git/tmp/nested/lib"
     branches = env.run(['git', 'branch', '--list', 'nested/*', '--format=%(refname:short)'], cwd=foo).output.split()
     assert branches == ['nested/lib', 'nested/lib%2Finner']
+
+
+def test_push_leaves_out_an_inner_repository_added_here(foo_bar_cloned):
+    """lib/inner was added in the parent repository; lib's upstream must not get it."""
+    env = foo_bar_cloned
+    foo = env.workspace / 'foo'
+    bar = (env.upstream / 'bar').as_posix()
+    cmd_git_nested(['clone', bar, 'lib'], foo)
+    cmd_git_nested(['clone', bar, 'lib/inner'], foo)
+    env.add_new_files('lib/from-foo', cwd=foo)
+
+    cmd_git_nested('push -b master lib', cwd=foo)
+
+    pushed = env.run(['git', 'ls-tree', '-r', '--name-only', 'master'], cwd=env.upstream / 'bar').output.split()
+    assert 'from-foo' in pushed
+    assert not [path for path in pushed if path.startswith('inner/')]
+    # The parent repository keeps it
+    cmd_git_nested('pull lib', cwd=foo)
+    assert (foo / 'lib' / 'inner' / '.gitnested').is_file()
+
+
+def test_push_keeps_an_inner_repository_from_upstream(foo_bar_cloned):
+    """An inner repository that upstream nests itself stays; its local level file is not pushed."""
+    env = foo_bar_cloned
+    foo, bar = env.workspace / 'foo', env.workspace / 'bar'
+    cmd_git_nested(['clone', (env.upstream / 'foo').as_posix(), 'inner'], bar)
+    env.run(['git', 'push'], cwd=bar)
+    cmd_git_nested(['clone', (env.upstream / 'bar').as_posix(), 'lib'], foo)
+    assert (foo / 'lib' / 'inner' / '.gitnested.level2').is_file()
+    env.add_new_files('lib/from-foo', cwd=foo)
+
+    cmd_git_nested('push -b master lib', cwd=foo)
+
+    pushed = env.run(['git', 'ls-tree', '-r', '--name-only', 'master'], cwd=env.upstream / 'bar').output.split()
+    assert 'inner/.gitnested' in pushed
+    assert 'from-foo' in pushed
+    assert not [path for path in pushed if '.gitnested.level' in path]

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
+import re
+import shlex
+from pathlib import Path, PurePosixPath
 
 import yaml
 
@@ -190,16 +192,39 @@ def create_branch(
         git.run(['filter-branch', '-f', '--subdirectory-filter', subref, branch], may_fail=True)
 
     filter_range = f'{first_gitrepo_commit}..{branch}' if first_gitrepo_commit else branch
+    removed = ['.gitnested', *(_local_only_paths(git, config, subdir) if command == 'push' else [])]
     git.run(
         [
             'filter-branch',
             '-f',
             '--prune-empty',
             '--tree-filter',
-            'rm -f .gitnested',
+            'rm -rf -- ' + ' '.join(shlex.quote(path) for path in removed),
             '--',
             filter_range,
             '--first-parent',
         ],
         may_fail=True,
     )
+
+
+def _local_only_paths(git: GitRunner, config: NestedConfig, subdir: Path) -> list[str]:
+    """The paths in subdir that upstream must not get, relative to subdir.
+
+    These are the .gitnested.levelN files, and the nested repositories added
+    in this repository. A nested repository that upstream has stays.
+    """
+    paths = []
+    prefix = f'{subdir.as_posix()}/'
+    for path in git.check_output(['ls-tree', '-r', '-z', '--name-only', 'HEAD', '--', subdir]).split('\0'):
+        relative = PurePosixPath(path.removeprefix(prefix))
+        if re.fullmatch(r'\.gitnested\.level\d+', relative.name):
+            paths.append(relative.as_posix())
+        elif relative.name == GITNESTED_FILENAME and relative.parent.name and not _upstream_has(git, config, relative):
+            paths.append(relative.parent.as_posix())
+    return paths
+
+
+def _upstream_has(git: GitRunner, config: NestedConfig, path: PurePosixPath) -> bool:
+    """Whether the recorded upstream commit has `path`."""
+    return bool(config.commit) and git.run(['cat-file', '-e', f'{config.commit}:{path}'], may_fail=True).returncode == 0
