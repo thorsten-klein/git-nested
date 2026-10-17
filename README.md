@@ -40,10 +40,6 @@ git-nested now supports nested repositories within nested repositories (recursiv
 - The nesting level is automatically detected based on existing level files in the repository
 - Example: `parent/nested1/nested2` can be pulled directly with `git nested pull nested1/nested2` using its `.gitnested.level2` file
 
-By default `git nested pull` still makes one parent commit. Use
-`git nested pull --no-squash` to keep the upstream commits as a merged second
-parent history, or set `squash: false` in `.gitnested`.
-
 ## Quick Start
 
 ### Requirements
@@ -283,6 +279,9 @@ upstream as it is and drops them.
 ```bash
 git nested pull --help
 ```
+
+`--no-squash` keeps the upstream commits as a second parent of the pull commit.
+Or set `squash: false` in `.gitnested`.
 
 **Example:**
 ```bash

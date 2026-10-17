@@ -23,12 +23,5 @@
 
 ```{include} ../README.md
 :start-after: "### Nested-in-Nested Support"
-:end-before: "### Limitations"
-```
-
-## Limitations
-
-```{include} ../README.md
-:start-after: "### Limitations"
 :end-before: "## Quick Start"
 ```
