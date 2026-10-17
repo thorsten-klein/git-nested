@@ -60,6 +60,25 @@ def record_nested_branch(git: GitRunner, subref: str, branch: str | None) -> Non
         git.run(['config', '--unset', _branch_name_key(subref)], may_fail=True)
 
 
+def track_upstream(git: GitRunner, branch: str, url: str, upstream_branch: str) -> None:
+    """Make upstream the remote of `branch`, so plain git can fetch, pull and push there.
+
+    The remote has the branch's name. It pushes `branch` to upstream_branch,
+    and it fetches no tags into the parent repository.
+    """
+    untrack_upstream(git, branch)
+    git.run(['remote', 'add', '-t', upstream_branch, branch, url])
+    git.run(['config', f'remote.{branch}.tagOpt', '--no-tags'])
+    git.run(['config', f'remote.{branch}.push', f'refs/heads/{branch}:refs/heads/{upstream_branch}'])
+    git.run(['config', f'branch.{branch}.remote', branch])
+    git.run(['config', f'branch.{branch}.merge', f'refs/heads/{upstream_branch}'])
+
+
+def untrack_upstream(git: GitRunner, branch: str) -> None:
+    """Remove the remote `track_upstream` made for `branch`, if there is one."""
+    git.run(['remote', 'remove', branch], may_fail=True)
+
+
 def guess_subdir(remote: str) -> str:
     """Guess subdirectory name from remote URL."""
     if not remote:

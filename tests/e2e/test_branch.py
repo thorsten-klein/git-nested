@@ -544,3 +544,34 @@ def test_clean_all_in_the_main_worktree_keeps_the_branches_of_others(foo_bar_clo
 
     branches = env.run(['git', 'branch', '--list', 'nested/*', '--format=%(refname:short)'], cwd=foo).output.split()
     assert branches == ['nested/bar@wt']
+
+
+def test_branch_worktree_pushes_and_pulls_with_plain_git(foo_bar_cloned_and_nested):
+    """The nested branch tracks upstream, so `git push` in its worktree goes there."""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    env.add_new_files('bar/from-foo', cwd=foo)
+    cmd_git_nested('branch bar', cwd=foo)
+    worktree = foo / '.git' / 'tmp' / 'nested' / 'bar'
+
+    env.run(['git', 'push'], cwd=worktree)
+    env.run(['git', 'pull'], cwd=worktree)
+
+    upstream = env.upstream / 'bar'
+    assert git_rev_parse(['master'], upstream) == git_rev_parse(['HEAD'], worktree)
+    assert (
+        env.run(['git', 'rev-parse', '--abbrev-ref', '@{upstream}'], cwd=worktree).output.strip() == "nested/bar/master"
+    )
+
+
+def test_clean_removes_the_upstream_remote(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    cmd_git_nested('branch bar', cwd=foo)
+    assert 'nested/bar' in env.run(['git', 'remote'], cwd=foo).output
+
+    cmd_git_nested('clean bar', cwd=foo)
+
+    assert 'nested/bar' not in env.run(['git', 'remote'], cwd=foo).output
+    config = env.run(['git', 'config', '--get-regexp', 'nested/bar'], cwd=foo, check=False).output
+    assert config == ""
