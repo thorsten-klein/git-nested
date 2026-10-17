@@ -82,7 +82,7 @@ html_static_path = ['_static']
 html_css_files = ['custom.css']
 html_js_files = ['custom.js']
 
-# The logo with the name on top of the sidebar. The browser tab shows only the nest.
+# The logo on top of the sidebar. The browser tab shows only its mark.
 html_logo = '_static/logo.svg'
 html_favicon = '_static/favicon.svg'
 

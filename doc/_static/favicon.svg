@@ -1,58 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <title>git-nested</title>
-  <defs>
-    <clipPath id="bowl">
-      <path d="M76 300 Q84 432 256 432 Q428 432 436 300 Q256 336 76 300 Z"/>
-    </clipPath>
-    <clipPath id="aboveRim">
-      <path d="M0 0 H512 V300 H436 Q256 336 76 300 H0 Z"/>
-    </clipPath>
-  </defs>
-
-  <g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 -14)">
-    <!-- back rim of the nest and git graph lines (gapped around the commits) -->
-    <g>
-      <path d="M76.0 300.0 L83.2 298.1 L90.4 296.3 L97.6 294.6 L104.8 292.9 L112.0 291.4 L119.2 289.9 L126.4 288.4 L133.6 287.1 L134.5 286.9" stroke-width="14"/>
-      <path d="M193.9 278.9 L201.1 278.2 L208.3 277.7 L215.5 277.2 L222.7 276.8 L228.1 276.6" stroke-width="14"/>
-      <path d="M283.9 276.6 L291.1 276.9 L298.3 277.3 L305.5 277.8 L312.7 278.4 L318.1 278.9" stroke-width="14"/>
-      <path d="M377.5 286.9 L384.7 288.3 L391.9 289.7 L399.1 291.2 L406.3 292.7 L413.5 294.4 L420.7 296.1 L427.9 297.9 L435.1 299.8 L436.0 300.0" stroke-width="14"/>
-      <path d="M194.1 292.0 L197.8 292.0 L201.4 292.0 L205.0 292.0 L208.7 292.0 L212.3 292.0 L216.0 292.0 L219.6 292.0 L223.2 292.0 L226.9 292.0" stroke-width="12"/>
-      <path d="M285.1 292.0 L288.8 292.0 L292.4 292.0 L296.0 292.0 L299.7 292.0 L303.3 292.0 L307.0 292.0 L310.6 292.0 L314.2 292.0 L317.9 292.0" stroke-width="12"/>
-      <path d="M167.8 256.0 L168.2 253.3 L168.7 250.7 L169.3 248.1 L169.8 245.6 L170.4 243.1 L171.1 240.7 L171.8 238.4 L172.5 236.0 L173.2 233.8 L174.0 231.5 L174.8 229.4 L175.7 227.3 L176.6 225.2 L177.5 223.2 L178.5 221.3 L179.5 219.5 L180.5 217.6 L181.6 215.9 L182.7 214.2 L183.9 212.6 L185.1 211.0 L186.3 209.6 L187.5 208.1 L188.8 206.8 L190.1 205.5" stroke-width="12"/>
-      <path d="M232.1 196.0 L233.9 196.0 L235.8 196.0 L237.6 196.0 L239.4 196.0 L241.3 196.0 L243.1 196.0 L245.0 196.0 L246.8 196.0 L248.6 196.0 L250.5 196.0 L252.3 196.0 L254.2 196.0 L256.0 196.0 L257.8 196.0 L259.7 196.0 L261.5 196.0 L263.4 196.0 L265.2 196.0 L267.0 196.0 L268.9 196.0 L270.7 196.0 L272.6 196.0 L274.4 196.0 L276.2 196.0 L278.1 196.0 L279.9 196.0" stroke-width="12"/>
-      <path d="M321.9 205.5 L323.2 206.8 L324.5 208.1 L325.7 209.6 L326.9 211.0 L328.1 212.6 L329.3 214.2 L330.4 215.9 L331.5 217.6 L332.5 219.5 L333.5 221.3 L334.5 223.2 L335.4 225.2 L336.3 227.3 L337.2 229.4 L338.0 231.5 L338.8 233.8 L339.5 236.0 L340.2 238.4 L340.9 240.7 L341.6 243.1 L342.2 245.6 L342.7 248.1 L343.3 250.7 L343.8 253.3 L344.2 256.0" stroke-width="12"/>
-      <path d="M317.8 180.6 L318.8 179.5 L319.8 178.3 L320.8 177.1 L321.8 175.8 L322.8 174.6 L323.8 173.3 L324.7 172.0 L325.6 170.7 L326.5 169.4 L327.4 168.0 L328.3 166.6 L329.1 165.2 L330.0 163.8 L330.8 162.3 L331.5 160.9 L332.3 159.3 L333.0 157.8 L333.7 156.2 L334.3 154.6 L335.0 153.0 L335.6 151.4 L336.1 149.7 L336.7 148.0 L337.2 146.2 L337.6 144.5 L338.0 142.6 L338.2 142.0" stroke-width="12"/>
-    </g>
-
-    <!-- branch commits -->
-    <g stroke-width="10">
-      <circle cx="210" cy="196" r="17"/>
-      <circle cx="302" cy="196" r="17"/>
-      <circle cx="340" cy="120" r="17"/>
-    </g>
-
-    <!-- main-line commits as eggs, tucked into the nest -->
-    <g stroke-width="10" clip-path="url(#aboveRim)">
-      <ellipse cx="165" cy="290" rx="24" ry="29"/>
-      <ellipse cx="256" cy="290" rx="24" ry="29"/>
-      <ellipse cx="347" cy="290" rx="24" ry="29"/>
-    </g>
-
-    <!-- front of the nest -->
-    <g clip-path="url(#bowl)" stroke-width="8">
-      <path d="M70 342 Q240 400 450 352"/>
-      <path d="M90 386 Q256 360 430 392"/>
-      <path d="M120 330 Q200 400 300 440"/>
-      <path d="M392 330 Q312 400 212 440"/>
-    </g>
-    <path d="M76 300 Q84 432 256 432 Q428 432 436 300 Q256 336 76 300 Z" stroke-width="14"/>
-
-    <!-- stray twigs -->
-    <g stroke-width="10">
-      <path d="M48 286 L104 312"/>
-      <path d="M464 286 L408 312"/>
-      <path d="M228 446 L246 428"/>
-      <path d="M288 448 L268 428"/>
-    </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="8 0 256 256" width="256" height="256" role="img" aria-label="git-nested">
+<!-- outer commit tree -->
+  <g fill="none" stroke="#1B2330" stroke-width="10" stroke-linecap="round">
+    <path d="M64 40 V216"/>
+    <path d="M64 44 C 64 62, 160 48, 160 70"/>
+    <path d="M160 186 C 160 208, 64 194, 64 212"/>
   </g>
+  <g fill="#1B2330">
+    <circle cx="64" cy="40"  r="15"/>
+    <circle cx="64" cy="128" r="15"/>
+    <circle cx="64" cy="216" r="15"/>
+  </g>
+
+  <!-- the nested repo: a commit that is itself a commit tree -->
+  <circle cx="160" cy="128" r="58" fill="#E6F6F0" stroke="#12A67E" stroke-width="10"/>
+
+  <!-- inner commit tree -->
+  <g fill="none" stroke="#0E7C5F" stroke-width="6" stroke-linecap="round">
+    <path d="M138 100 V156"/>
+    <path d="M138 104 C 138 114, 180 106, 180 118"/>
+    <path d="M180 138 C 180 150, 138 142, 138 152"/>
+  </g>
+  <g fill="#0E7C5F">
+    <circle cx="138" cy="100" r="8"/>
+    <circle cx="138" cy="128" r="8"/>
+    <circle cx="138" cy="156" r="8"/>
+  </g>
+  <circle cx="180" cy="128" r="10" fill="#FFFFFF" stroke="#0E7C5F" stroke-width="5"/>
 </svg>
