@@ -498,6 +498,17 @@ def test_push_rebase(foo_bar_cloned_and_nested):
     assert (env.workspace / 'bar' / 'FooBar2').is_file()
 
 
+def test_push_rebase_shorthand(foo_bar_cloned_and_nested):
+    """`push --rebase` matches `push -M rebase`."""
+    env = foo_bar_cloned_and_nested
+    gitnested = env.workspace / 'foo' / 'bar' / '.gitnested'
+
+    env.add_new_files('bar/FooBar', cwd=env.workspace / 'foo')
+    result = cmd_git_nested('push --rebase bar --branch master --commit', cwd=env.workspace / 'foo')
+    assert result.output.strip() == f"bar: pushed to {env.upstream.as_posix()}/bar (master)"
+    assert_gitnested_field(gitnested, method='rebase')
+
+
 def test_push_rebase_conflict(foo_bar_cloned_and_nested):
     """Test that nested push with conflicting upstream changes shows error"""
     env = foo_bar_cloned_and_nested

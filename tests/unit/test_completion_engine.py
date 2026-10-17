@@ -66,7 +66,7 @@ def test_a_flag_is_completed_without_asking_git(git):
 
 
 def test_a_command_offers_its_own_flags(git):
-    assert {'-s', '--squash', '-c', '--commit'} <= set(words(git, 'git nested push -'))
+    assert {'-s', '--squash', '-c', '--commit', '--merge', '--rebase'} <= set(words(git, 'git nested push -'))
 
 
 def test_a_command_does_not_offer_another_commands_flags(git):
@@ -90,6 +90,12 @@ def test_a_valueless_flag_does_not_swallow_the_next_word(git):
     """`--force` takes no value, so what follows it is still the subdir."""
     git.respond('ls-files', stdout='ext/lib/.gitnested\0')
     assert words(git, 'git nested pull --force ')[0] == 'ext/lib'
+
+
+def test_a_method_shorthand_does_not_swallow_the_next_word(git):
+    """`--rebase` takes no value, so what follows it is still the subdir."""
+    git.respond('ls-files', stdout='ext/lib/.gitnested\0')
+    assert words(git, 'git nested pull --rebase ')[0] == 'ext/lib'
 
 
 def test_a_flags_value_is_not_counted_as_a_positional(git):

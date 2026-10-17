@@ -213,10 +213,13 @@ git nested clone --help
 ```bash
 git nested clone https://github.com/user/lib ext/lib -b main
 git nested clone --adopt https://github.com/user/lib ext/lib
+
+git nested clone --rebase https://github.com/user/lib ext/lib
 ```
 
 This also works in a fresh repository with no commits yet. The clone commit
 becomes the root commit, and the first later sync records the parent.
+`--rebase` and `--merge` are short for `-M rebase` and `-M merge`.
 
 `--exclude <path>` leaves a path of upstream out, e.g. test data. `pull`
 keeps it out, and `push` never deletes it upstream. `--filter <path>` does
@@ -278,7 +281,7 @@ already has local changes on top of that upstream commit.
 
 Update a nested repo with the latest upstream changes.
 
-If upstream rewrote its history (a force-push), `pull` stops. `pull -M rebase`
+If upstream rewrote its history (a force-push), `pull` stops. `pull --rebase`
 then moves your local changes onto the new history. `pull --force` takes
 upstream as it is and drops them.
 
@@ -292,10 +295,14 @@ git nested pull --help
 Or set `squash: false` in `.gitnested`.
 It does not work with `--filter`, `--exclude` or `--path`.
 
+`--rebase` and `--merge` are short for `-M rebase` and `-M merge`.
+
 **Example:**
 ```bash
 git nested pull ext/lib
 git nested pull --no-squash ext/lib
+
+git nested pull --rebase ext/lib
 git nested pull --all  # Pull all nested repos
 git nested pull --all --single-commit  # ... in one commit
 ```
@@ -313,9 +320,12 @@ git nested push --help
 `--dry-run` shows the target branch and the commits a push would send, then
 stops. It changes nothing.
 
+`--rebase` and `--merge` are short for `-M rebase` and `-M merge`.
+
 **Example:**
 ```bash
 git nested push ext/lib
+git nested push --rebase ext/lib
 git nested push --all  # Push all nested repos
 ```
 

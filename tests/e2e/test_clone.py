@@ -86,6 +86,15 @@ def test_basic_clone(foo_bar_cloned):
     assert result.stdout.strip() == ''
 
 
+def test_clone_rebase_shorthand(foo_bar_cloned):
+    """`clone --rebase` stores rebase as the sync method."""
+    env = foo_bar_cloned
+
+    result = cmd_git_nested(f'clone --rebase {env.upstream.as_posix()}/bar rebase-bar', cwd=env.workspace / 'foo')
+    assert result.output.strip() == f"rebase-bar: cloned from {env.upstream.as_posix()}/bar (master)"
+    assert_gitnested_field(env.workspace / 'foo' / 'rebase-bar' / '.gitnested', method='rebase')
+
+
 def test_clone_tags(foo_bar_cloned):
     """Test cloning nested with annotated and lightweight tags"""
     env = foo_bar_cloned
