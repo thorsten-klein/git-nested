@@ -710,7 +710,8 @@ def test_pull_all_single_commit(foo_bar_cloned):
     cmd_git_nested('pull --all --single-commit', cwd=foo)
 
     assert git_rev_parse(['HEAD^'], cwd=foo) == before
-    assert (foo / 'one' / 'Bar2').is_file() and (foo / 'two' / 'Bar2').is_file()
+    assert (foo / 'one' / 'Bar2').is_file()
+    assert (foo / 'two' / 'Bar2').is_file()
     assert git_get_commit_msg(foo).strip() == "git nested pull --all\n\n- one\n- two"
     assert env.run(['git', 'status', '--porcelain'], cwd=foo).output == ''
 

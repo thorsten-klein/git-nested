@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 from pathlib import Path, PurePosixPath
+from typing import cast
 
 from . import discovery, filters, gitfile, history, output, refs, worktree
 from .constants import GITNESTED_FILENAME
@@ -157,4 +158,5 @@ def commit_all(git: GitRunner, flags: Flags, command: str) -> None:
     if not subdirs:
         return
     msg = f"git nested {command} --all\n\n" + "\n".join(f"- {subdir}" for subdir in subdirs)
-    commit_gitnested_update(git, dataclasses.replace(flags, single_commit=False), Path(), flags.message or msg)
+    one_commit = cast('Flags', dataclasses.replace(flags, single_commit=False))
+    commit_gitnested_update(git, one_commit, Path(), flags.message or msg)
