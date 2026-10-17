@@ -23,6 +23,7 @@ _OPTION_VALUE_NAMES = {
     'msg_file': 'file',
     'name': 'name',
     'remote': 'remote',
+    'upstream_commit': 'commit',
 }
 
 _POSITIONAL_VALUE_NAMES = {
