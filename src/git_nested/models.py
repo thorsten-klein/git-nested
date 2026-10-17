@@ -47,6 +47,7 @@ class Flags:
     upstream_commit: str | None = None
 
     no_squash: bool = False
+    tag: str | None = None
     update: bool = False
     quiet: bool = False
     verbose: int = 0

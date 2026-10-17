@@ -429,6 +429,9 @@ sequenceDiagram
         git-nested->>Git: read-tree <upstream> (temporary index)
         git-nested->>Git: rm --cached -r -q -f --ignore-unmatch -- <path>
         git-nested->>Git: read-tree --prefix=<path>/ <commit>:<subdir>
+
+    opt --tag
+        git-nested->>Git: push <remote> <commit>:refs/tags/<name>
     end
 ```
 

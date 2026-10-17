@@ -26,6 +26,7 @@ _OPTION_VALUE_NAMES = {
     'path': 'path',
     'pin': 'commit|tag',
     'remote': 'remote',
+    'tag': 'name',
     'upstream_commit': 'commit',
 }
 
@@ -120,7 +121,8 @@ def _option_value_name(option: str, kwargs: dict) -> str | None:
     if kwargs.get('action') in {'store_const', 'store_true', 'count'}:
         return None
     if kwargs.get('action') == 'append' or 'dest' in kwargs:
-        return _OPTION_VALUE_NAMES[option]
+        # An option not listed is named after itself
+        return _OPTION_VALUE_NAMES.get(option, option)
     return None
 
 

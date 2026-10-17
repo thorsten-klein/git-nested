@@ -852,3 +852,32 @@ def test_fetch_explains_a_missing_tracked_branch(foo_bar_cloned):
     assert (
         result.output.strip() == f"git-nested: {empty.as_posix()} has no branch master yet; 'git nested push' makes it"
     )
+
+
+def test_push_tag_tags_the_pushed_commit(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    env.add_new_files('bar/from-foo', cwd=foo)
+
+    result = cmd_git_nested('push -b master --tag v1.0 bar', cwd=foo)
+
+    upstream = env.upstream / 'bar'
+    assert (
+        env.run(['git', 'rev-parse', 'v1.0^{commit}'], cwd=upstream).output
+        == env.run(['git', 'rev-parse', 'master'], cwd=upstream).output
+    )
+    assert "bar: tagged" in result.output
+
+
+def test_push_tag_without_changes_tags_upstream(foo_bar_cloned_and_nested):
+    """Nothing to push: the tag goes on the upstream commit the subdir has."""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+
+    cmd_git_nested('push -b master --tag v0.9 bar', cwd=foo)
+
+    upstream = env.upstream / 'bar'
+    assert (
+        env.run(['git', 'rev-parse', 'v0.9^{commit}'], cwd=upstream).output
+        == env.run(['git', 'rev-parse', 'master'], cwd=upstream).output
+    )
