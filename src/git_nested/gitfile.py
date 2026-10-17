@@ -7,9 +7,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import output, yamlio
+from . import configio, output
 from ._version import VERSION
 from .constants import GITNESTED_FILENAME, GITNESTED_LEVEL_PREFIX
+from .errors import GitNestedError
 from .git import GitRunner
 from .models import Flags, NestedConfig
 
@@ -66,13 +67,13 @@ def _create_one_level_file(git: GitRunner, gitnested_file: Path, level: int) -> 
     output.verbose(f"creating {level_file.as_posix()} for the sub-nested repository")
     if not gitnested_file.exists():
         return
-    data = yamlio._read_yaml_config(gitnested_file)
+    data = configio.read(gitnested_file)
     # The parent field describes lineage in the intermediate repo's context,
     # which doesn't apply here; it gets set correctly on this sub-nested
     # repo's own first pull/push.
     if 'nested' in data:
         data['nested']['parent'] = ''
-    yamlio._write_yaml_config(level_file, data)
+    configio.write(level_file, data, toml=configio.is_toml(gitnested_file))
     git.run(['add', '-f', '--', str(level_file)])
     create_level_gitnested_files(git, gitnested_file.parent, level + 1)
 
@@ -97,10 +98,10 @@ def update_gitrepo_file(
     head_commit: str | None,
     command: str,
 ) -> None:
-    """Update .gitnested YAML file, and stage it."""
+    """Update the .gitnested file, and stage it."""
     initial = not gitnested.exists() and not _recreate_gitnested_from_parent(git, gitnested, head_commit)
 
-    data = yamlio._read_yaml_config(gitnested) if gitnested.exists() else {}
+    data = configio.read(gitnested) if gitnested.exists() else {}
     nested = data.setdefault('nested', {})
     nested['commit'] = upstream_head_commit
     nested['method'] = flags.method or config.method or 'merge'
@@ -115,8 +116,18 @@ def update_gitrepo_file(
     if head_commit and nested_commit_ref and git.check_output(['rev-parse', nested_commit_ref]) == upstream_head_commit:
         nested['parent'] = head_commit
 
-    yamlio._write_yaml_config(gitnested, data)
+    configio.write(gitnested, data, toml=new_file_is_toml(git) if initial else None)
     git.run(['add', '-f', '--', gitnested])
+
+
+def new_file_is_toml(git: GitRunner) -> bool:
+    """Whether a new .gitnested file is TOML: git config nested.format says so."""
+    fmt = git.check_output(['config', '--get', 'nested.format'], may_fail=True) or 'yaml'
+    if fmt not in configio.FORMATS:
+        raise GitNestedError(f"nested.format is {fmt}; use one of {', '.join(configio.FORMATS)}")
+    if fmt == 'toml':
+        configio.need_toml('nested.format')
+    return fmt == 'toml'
 
 
 def _update_lineage(nested: dict, initial: bool, flags: Flags, config: NestedConfig, command: str) -> None:

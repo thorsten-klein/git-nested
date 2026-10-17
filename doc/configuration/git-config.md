@@ -17,6 +17,17 @@ commits. Those hooks are for your changes, not for upstream content.
 
 See [Hooks and signing](../guides/hooks-and-signing.md).
 
+### `nested.format`
+
+```bash
+git config nested.format toml
+```
+
+The format of new `.gitnested` files: `yaml` (the default) or `toml`. TOML
+needs Python 3.11 or newer. Files that exist keep their format.
+
+See [The `.gitnested` file](gitnested-file.md#toml).
+
 ### `user.signingKey`
 
 git's own setting. `-S` uses it to pick the GPG key.

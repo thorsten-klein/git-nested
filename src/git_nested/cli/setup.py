@@ -69,6 +69,9 @@ def setup_command(
 
     # clone and init have no .gitnested yet. clean does not need it.
     if command in ['clone', 'init', 'clean']:
+        # Check nested.format now, not after the content is in place.
+        if command != 'clean':
+            gitfile.new_file_is_toml(git)
         config = NestedConfig(remote=flags.remote or upstream or '', branch=flags.branch or '', pin=flags.pin or '')
     else:
         config = gitfile.read_config(gitnested, flags)

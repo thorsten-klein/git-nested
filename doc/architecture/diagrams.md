@@ -53,7 +53,7 @@ sequenceDiagram
         git-nested->>Git: ls-files -- <subdir>
         git-nested->>Git: log --format=%H %T <upstream_head>
         Note over git-nested: Find the newest upstream commit<br/>whose tree matches <subdir> at HEAD
-        Note over git-nested: Write .gitnested YAML
+        Note over git-nested: Write .gitnested
         git-nested->>Git: rev-parse <matching_commit>
         git-nested->>Git: add -f -- <subdir>/.gitnested
         git-nested->>Git: commit --no-verify [--signoff] [-S] -m <message>
@@ -68,7 +68,7 @@ sequenceDiagram
             git-nested->>Git: merge-base --is-ancestor <upstream> <nested_ref>
             git-nested->>Git: ls-files -- <subdir>
             git-nested->>Git: read-tree --prefix=<subdir> -u <nested_commit_ref>
-            Note over git-nested: Write .gitnested YAML
+            Note over git-nested: Write .gitnested
             git-nested->>Git: rev-parse <nested_commit_ref>
             git-nested->>Git: add -f -- <subdir>/.gitnested
             git-nested->>Git: diff --cached --quiet
@@ -132,7 +132,7 @@ sequenceDiagram
 
     rect rgb(230, 245, 255)
         Note over git-nested,Git: update_gitrepo_file
-        Note over git-nested: Write .gitnested YAML
+        Note over git-nested: Write .gitnested
         git-nested->>Git: rev-parse <nested_commit_ref>
         git-nested->>Git: add -f -- <subdir>/.gitnested
     end
@@ -282,7 +282,7 @@ sequenceDiagram
                 git-nested->>Git: ls-files -- <subdir>
                 git-nested->>Git: rm -r -- <subdir>
                 git-nested->>Git: read-tree --prefix=<subdir> -u <nested_commit_ref>
-                Note over git-nested: Write .gitnested YAML
+                Note over git-nested: Write .gitnested
                 git-nested->>Git: add -f -- <subdir>/.gitnested
                 git-nested->>Git: diff --cached --quiet
                 git-nested->>Git: commit --no-verify [--signoff] [-S] -m <message>
@@ -304,7 +304,7 @@ sequenceDiagram
             git-nested->>Git: ls-files -- <subdir>
             git-nested->>Git: rm -r -- <subdir>
             git-nested->>Git: read-tree --prefix=<subdir> -u <nested_commit_ref>
-            Note over git-nested: Write .gitnested YAML
+            Note over git-nested: Write .gitnested
             git-nested->>Git: add -f -- <subdir>/.gitnested
             git-nested->>Git: commit --no-verify [--signoff] [-S] -m <message>
             git-nested->>Git: worktree prune
@@ -416,7 +416,7 @@ sequenceDiagram
     end
 
     opt --commit flag
-        Note over git-nested: Update .gitnested YAML
+        Note over git-nested: Update .gitnested
         git-nested->>Git: add -f -- <subdir>/.gitnested
         git-nested->>Git: commit --no-verify [--signoff] [-S] -m <message>
         Note over git-nested: If it fails: reset -q --hard HEAD
@@ -652,7 +652,7 @@ sequenceDiagram
         git-nested->>Git: ls-files -- <subdir>
         git-nested->>Git: rm -r -- <subdir>
         git-nested->>Git: read-tree --prefix=<subdir> -u <nested_commit_ref>
-        Note over git-nested: Write .gitnested YAML
+        Note over git-nested: Write .gitnested
         git-nested->>Git: rev-parse <nested_commit_ref>
         git-nested->>Git: add -f -- <subdir>/.gitnested
         git-nested->>Git: diff --cached --quiet
