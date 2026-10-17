@@ -33,11 +33,16 @@ git-nested = "git_nested:main"
 
 [project.urls]
 Homepage = "https://github.com/thorsten-klein/git-nested"
-Documentation = "https://github.com/thorsten-klein/git-nested#readme"
+Documentation = "https://thorsten-klein.github.io/git-nested/"
 Repository = "https://github.com/thorsten-klein/git-nested"
 Issues = "https://github.com/thorsten-klein/git-nested/issues"
 
 [dependency-groups]
+docs = [
+    "myst-parser>=4.0.0,<5",
+    "Sphinx>=8.0.0,<9",
+    "sphinxcontrib-mermaid>=1.0.0,<2",
+]
 lint = [
     "bandit>=1.8.0",
     "complexipy>=7.0.0",
@@ -58,6 +63,7 @@ test = [
 ]
 dev = [
     "poethepoet~=0.37",
+    {include-group = "docs"},
     {include-group = "lint"},
     {include-group = "test"},
 ]
@@ -209,6 +215,7 @@ complexity = "complexipy"
 test-unit = {cmd = "pytest -v -n=auto -W error -m unit", env = {PYTHONIOENCODING = "utf-8"}}
 flakefinder = "pytest -n=auto -W error --flake-finder --flake-runs=200"
 test = {cmd = "pytest -v -n=auto -W error --cov-config=pyproject.toml --cov=git_nested --junitxml=junit.xml -o junit_family=legacy --cov-report=term --cov-report=html --cov-report=xml", env = {PYTHONIOENCODING = "utf-8"}}
+docs = "sphinx-build -b html -W --keep-going docs docs/_build/html"
 
 # Build the standalone executable, then run the whole suite through it
 # (GIT_NESTED_EXE makes conftest drive `git nested` on PATH instead of the
