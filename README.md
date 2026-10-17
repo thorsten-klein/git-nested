@@ -1,6 +1,6 @@
 # git-nested
 
-<img src="https://raw.githubusercontent.com/thorsten-klein/git-nested/main/doc/_static/logo.svg" alt="logo" width="200"/>
+<img src="https://raw.githubusercontent.com/thorsten-klein/git-nested/main/doc/_static/logo.svg" alt="logo" width="500"/>
 
 > An alternative to git-submodule and git-subtree for managing nested repositories.
 

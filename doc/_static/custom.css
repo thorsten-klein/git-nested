@@ -100,13 +100,3 @@
   color: #fcfcfc;
   text-decoration: underline;
 }
-
-/* 6. The logo in the sidebar (html_logo in doc/conf.py). It is black lines
- *    without a background, so it needs a light one on the blue sidebar. */
-.wy-side-nav-search .wy-dropdown > a img.logo,
-.wy-side-nav-search > a img.logo {
-  background: #fcfcfc;
-  border-radius: 50%;
-  padding: 8px;
-  width: 120px;
-}

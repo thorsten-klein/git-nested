@@ -1,6 +1,6 @@
 # git-nested
 
-<img src="https://raw.githubusercontent.com/thorsten-klein/git-nested/main/doc/_static/logo.svg" alt="git-nested logo" width="200"/>
+<img src="https://raw.githubusercontent.com/thorsten-klein/git-nested/main/doc/_static/logo.svg" alt="git-nested logo" width="500"/>
 
 Put another repository into a folder of yours. Pull its new changes. Push
 your changes back.

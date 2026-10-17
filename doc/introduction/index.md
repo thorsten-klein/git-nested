@@ -1,6 +1,6 @@
 # About git-nested
 
-<img src="https://raw.githubusercontent.com/thorsten-klein/git-nested/main/doc/_static/logo.svg" alt="git-nested logo" width="200"/>
+<img src="https://raw.githubusercontent.com/thorsten-klein/git-nested/main/doc/_static/logo.svg" alt="git-nested logo" width="500"/>
 
 git-nested puts another git repository into a folder of your repository.
 The files are ordinary files in ordinary commits. You can still pull new
