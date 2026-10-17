@@ -282,6 +282,7 @@ git nested pull --help
 
 `--no-squash` keeps the upstream commits as a second parent of the pull commit.
 Or set `squash: false` in `.gitnested`.
+It does not work with `--filter`, `--exclude` or `--path`.
 
 **Example:**
 ```bash
