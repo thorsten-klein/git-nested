@@ -38,9 +38,13 @@ Repository = "https://github.com/thorsten-klein/git-nested"
 Issues = "https://github.com/thorsten-klein/git-nested/issues"
 
 [dependency-groups]
+# The Sphinx toolchain doc/conf.py needs. See doc/contributing/documentation.md.
 docs = [
     "myst-parser>=4.0.0,<5",
     "Sphinx>=8.0.0,<9",
+    "sphinx-copybutton>=0.5.2,<1",
+    "sphinx-markdown-builder>=0.6.8,<1",
+    "sphinx-rtd-theme>=3.0.0,<4",
     "sphinxcontrib-mermaid>=1.0.0,<2",
 ]
 lint = [
@@ -194,7 +198,7 @@ extraPaths = ["src", "tests"]
 skips = ["B404", "B603", "B607"]
 
 [tool.poe.tasks]
-all = ["lock-check", "pre-commit", "lint", "format", "mypy", "pyright", "bandit", "pip-audit", "complexity", "test"]
+all = ["lock-check", "pre-commit", "lint", "format", "mypy", "pyright", "bandit", "pip-audit", "complexity", "test", "docs"]
 # Every workflow installs with `uv sync --frozen`, so a pyproject dependency
 # edit without a matching `uv lock` fails in CI as an opaque sync error. This
 # turns that into a local, named failure instead. It is a poe task rather than
@@ -215,7 +219,17 @@ complexity = "complexipy"
 test-unit = {cmd = "pytest -v -n=auto -W error -m unit", env = {PYTHONIOENCODING = "utf-8"}}
 flakefinder = "pytest -n=auto -W error --flake-finder --flake-runs=200"
 test = {cmd = "pytest -v -n=auto -W error --cov-config=pyproject.toml --cov=git_nested --junitxml=junit.xml -o junit_family=legacy --cov-report=term --cov-report=html --cov-report=xml", env = {PYTHONIOENCODING = "utf-8"}}
-docs = "sphinx-build -b html -W --keep-going docs docs/_build/html"
+# The docs site, built twice: HTML for people, Markdown for AI tools. The
+# Markdown copy goes under html/markdown/, so one publish step carries both.
+# -W --keep-going: every warning fails the build, and all of them are shown.
+docs = {shell = """
+set -e
+sphinx-build -b html -W --keep-going doc doc/_build/html
+sphinx-build -b markdown -W --keep-going doc doc/_build/markdown
+rm -rf doc/_build/html/.doctrees doc/_build/markdown/.doctrees doc/_build/html/markdown
+cp -r doc/_build/markdown doc/_build/html/markdown
+"""}
+"docs-clean" = "rm -rf doc/_build"
 
 # Build the standalone executable, then run the whole suite through it
 # (GIT_NESTED_EXE makes conftest drive `git nested` on PATH instead of the
