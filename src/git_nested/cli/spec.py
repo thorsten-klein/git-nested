@@ -41,6 +41,7 @@ VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
         'gpg_sign',
         'message',
         'method',
+        'no_squash',
         'recurse_submodules',
         'remote',
         'signoff',
@@ -151,6 +152,11 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
         {'action': 'store_true', 'dest': 'fetch_flag', 'help': "fetch the upstream content first"},
     ),
     ('method', ('-M', '--method'), {'dest': 'method', 'help': "join method: 'merge' (default) or 'rebase'"}),
+    (
+        'no_squash',
+        ('--no-squash',),
+        {'action': 'store_true', 'help': "keep the upstream commits by making a merge commit in the parent repository"},
+    ),
     (
         'name',
         ('-n', '--name'),
@@ -285,6 +291,7 @@ COMMAND_DESCRIPTION: dict[str, str] = {
     ),
     'pull': (
         "Fetch the upstream of <subdir> and join the new commits into it, by merge or by rebase. "
+        "By default the result is one parent commit; --no-squash keeps the upstream commits as a merged second-parent history. "
         "If that conflicts, the half-finished work is left in a worktree and the way to finish it by hand is printed."
     ),
     'push': (
@@ -357,6 +364,7 @@ COMMAND_EXAMPLES: dict[str, list[str]] = {
     ],
     'pull': [
         "git nested pull ext/lib",
+        "git nested pull --no-squash ext/lib",
         "git nested pull -M rebase ext/lib",
         "git nested pull --all",
     ],

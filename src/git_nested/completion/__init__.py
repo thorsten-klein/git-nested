@@ -107,6 +107,7 @@ _VALUE_CANDIDATES: dict[str, list[Candidate]] = {
 # by the second. A key absent from here takes a value nothing can enumerate.
 _CONFIG_VALUE_CANDIDATES: dict[str, list[Candidate]] = {
     'method': _VALUE_CANDIDATES['method'],
+    'squash': [('true', "pull makes one parent commit"), ('false', "pull keeps the upstream commits")],
 }
 
 

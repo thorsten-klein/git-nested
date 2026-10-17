@@ -509,6 +509,7 @@ def assert_gitnested_field(
     commit: str | None = None,
     parent: str | None = None,
     method: str | None = None,
+    squash: str | None = None,
     version: str | None = None,
 ):
     """Assert that according fields in .gitnested YAML file have the expected value"""
@@ -526,6 +527,7 @@ def assert_gitnested_field(
     _assert_yaml_field(nested_data, 'commit', commit)
     _assert_yaml_field(nested_data, 'parent', parent)
     _assert_yaml_field(nested_data, 'method', method)
+    _assert_yaml_field(nested_data, 'squash', squash)
     _assert_yaml_field(nested_data, 'cmdver', version)
 
 

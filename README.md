@@ -26,7 +26,7 @@ This allows you to run subsequent commands (pull, push, etc.) on the copied code
 
 - **Self-contained**: Your repository becomes a monorepo. No need for additional access rights to nested repositories.
 - **Simple**: Intuitive commands that feel like native git
-- **Clean**: Keeps your git history squeaky clean (single commit per operation)
+- **Clean**: Keeps your git history tidy. One commit per pull is still the default.
 - **Just Works**: Users get everything with a normal `git clone` - no special setup needed
 - **Flexible**: Different branches can have different nested repos in different states
 - **Safe**: Easy to try and reset without breaking anything
@@ -39,10 +39,6 @@ git-nested now supports nested repositories within nested repositories (recursiv
 - These level files allow you to pull/push sub-nested repositories directly from the parent repository
 - The nesting level is automatically detected based on existing level files in the repository
 - Example: `parent/nested1/nested2` can be pulled directly with `git nested pull nested1/nested2` using its `.gitnested.level2` file
-
-### Limitations
-
-- git-nested squashes the commits during a `git nested pull` into one commit. Otherwise the tool cannot determine at a later point of time, that the commit was pulled or not. This feature might be added in future, so that the commit message is adapted to indicate that a commit has been pulled via git-nested.
 
 ## Quick Start
 
@@ -284,9 +280,14 @@ upstream as it is and drops them.
 git nested pull --help
 ```
 
+`--no-squash` keeps the upstream commits as a second parent of the pull commit.
+Or set `squash: false` in `.gitnested`.
+It does not work with `--filter`, `--exclude` or `--path`.
+
 **Example:**
 ```bash
 git nested pull ext/lib
+git nested pull --no-squash ext/lib
 git nested pull --all  # Pull all nested repos
 ```
 

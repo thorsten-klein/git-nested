@@ -20,6 +20,7 @@ CONFIG_FIELDS: dict[str, str] = {
     'remote': "the upstream repository",
     'branch': "the upstream branch",
     'method': "how upstream history is joined: 'merge' or 'rebase'",
+    'squash': "whether pull makes one parent commit: 'true' or 'false'",
     'commit': "the upstream commit currently nested",
     'parent': "the commit the nested history hangs off",
     'filter': "the paths of the upstream repository that are nested",
@@ -31,7 +32,7 @@ CONFIG_FIELDS: dict[str, str] = {
 
 # The rest are written by the nested operations themselves; setting one by
 # hand would describe a state the repository is not in.
-WRITABLE_CONFIG_FIELDS = ('remote', 'branch', 'method', 'parent', 'readonly')
+WRITABLE_CONFIG_FIELDS = ('remote', 'branch', 'method', 'squash', 'parent', 'readonly')
 
 
 def create_level_gitnested_files(git: GitRunner, subdir: Path, level: int | None = None) -> None:

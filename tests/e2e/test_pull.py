@@ -253,6 +253,37 @@ def test_pull_message(prepare_pull_test):
     env.run(['git', 'push'], cwd=env.workspace / 'bar')
 
 
+def test_pull_without_squash(prepare_pull_test):
+    """Pull can keep the upstream commits in a merge commit."""
+    env = prepare_pull_test
+
+    cmd_git_nested('pull --no-squash bar', cwd=env.workspace / 'foo')
+
+    parents = env.run(['git', 'show', '-s', '--format=%P', 'HEAD'], cwd=env.workspace / 'foo').stdout.split()
+    assert len(parents) == 2
+    assert parents[0] == git_rev_parse(['HEAD^1'], cwd=env.workspace / 'foo')
+    assert git_rev_parse(['HEAD^2:bar/Bar2'], cwd=env.workspace / 'foo') == git_rev_parse(
+        ['HEAD:Bar2'], cwd=env.workspace / 'bar'
+    )
+
+    messages = env.run(
+        ['git', 'log', '--format=%s', 'HEAD^2', '--not', 'HEAD^1'], cwd=env.workspace / 'foo'
+    ).stdout.splitlines()
+    assert 'add new file: Bar2' in messages
+
+
+def test_pull_without_squash_from_config(prepare_pull_test):
+    """The .gitnested squash field can make no-squash pulls the default."""
+    env = prepare_pull_test
+    cmd_git_nested('config bar squash false', cwd=env.workspace / 'foo')
+    env.run(['git', 'commit', '-m', 'set squash false'], cwd=env.workspace / 'foo')
+
+    cmd_git_nested('pull bar', cwd=env.workspace / 'foo')
+
+    assert len(env.run(['git', 'show', '-s', '--format=%P', 'HEAD'], cwd=env.workspace / 'foo').stdout.split()) == 2
+    assert_gitnested_field(env.workspace / 'foo' / 'bar' / '.gitnested', squash='false')
+
+
 def test_pull_new_branch(foo_bar_cloned_and_nested):
     """Test nested pull switching to a new branch"""
     env = foo_bar_cloned_and_nested
@@ -632,3 +663,15 @@ def test_pull_rebase_takes_local_changes_onto_a_rewritten_upstream(foo_bar_clone
     assert (foo / 'bar' / 'from-foo').is_file()
     assert (foo / 'bar' / 'Bar3').is_file()
     assert not (foo / 'bar' / 'bard').exists()
+
+
+def test_pull_without_squash_refuses_a_part_of_upstream(foo_bar_cloned):
+    """The upstream commits would bring back the files --exclude leaves out."""
+    env = foo_bar_cloned
+    foo = env.workspace / 'foo'
+    cmd_git_nested(['clone', '--exclude', 'bard', (env.upstream / 'bar').as_posix()], foo)
+
+    result = cmd_git_nested('pull --no-squash bar', cwd=foo, check=False)
+
+    assert result.returncode != 0
+    assert "--no-squash can't keep the history of a part of upstream" in result.output

@@ -74,6 +74,7 @@ def _flags_from_args(args: argparse.Namespace) -> Flags:
         signoff=getattr(args, 'signoff', False),
         fetch=getattr(args, 'fetch_flag', False),
         short=getattr(args, 'short', False),
+        no_squash=getattr(args, 'no_squash', False),
         squash=getattr(args, 'squash', False),
         update=getattr(args, 'update', False),
         quiet=getattr(args, 'quiet', False),

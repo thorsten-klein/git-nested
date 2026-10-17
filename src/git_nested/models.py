@@ -41,6 +41,8 @@ class Flags:
     short: bool = False
     squash: bool = False
     upstream_commit: str | None = None
+
+    no_squash: bool = False
     update: bool = False
     quiet: bool = False
     verbose: int = 0
@@ -58,6 +60,7 @@ class NestedConfig:
     path: str = ''
     parent: str = ''
     method: str = 'merge'
+    squash: bool = True
     readonly: bool = False
 
     @classmethod
@@ -76,6 +79,7 @@ class NestedConfig:
             path=nested.get('path') or '',
             parent=nested.get('parent', ''),
             method='rebase' if nested.get('method') == 'rebase' else 'merge',
+            squash=str(nested.get('squash', 'true')).lower() != 'false',
             readonly=str(nested.get('readonly')).lower() == 'true',
         )
         if not config.remote:

@@ -149,6 +149,11 @@ def test_the_value_of_a_config_key_is_offered(git):
     assert words(git, 'git nested config ext/lib method ')[:2] == ['merge', 'rebase']
 
 
+def test_the_value_of_the_squash_config_key_is_offered(git):
+    git.respond('ls-files', stdout='ext/lib/.gitnested\0')
+    assert words(git, 'git nested config ext/lib squash ')[:2] == ['true', 'false']
+
+
 def test_a_config_key_with_no_enumerable_value_offers_only_flags(git):
     git.respond('ls-files', stdout='ext/lib/.gitnested\0')
     assert words(git, 'git nested config ext/lib remote ') == ['-h', '--help']

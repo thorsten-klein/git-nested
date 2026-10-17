@@ -260,17 +260,38 @@ sequenceDiagram
 
         git-nested->>Git: update-ref refs/nested/<subref>/branch nested/<subref>
 
-        rect rgb(230, 255, 230)
-            Note over git-nested,Git: commit_nested_branch
-            git-nested->>Git: rev-parse refs/nested/<subref>/fetch
+        alt default squash
+            rect rgb(230, 255, 230)
+                Note over git-nested,Git: commit_nested_branch
+                git-nested->>Git: rev-parse refs/nested/<subref>/fetch
+                git-nested->>Git: ls-files -- <subdir>
+                git-nested->>Git: rm -r -- <subdir>
+                git-nested->>Git: read-tree --prefix=<subdir> -u <nested_commit_ref>
+                Note over git-nested: Write .gitnested YAML
+                git-nested->>Git: add -f -- <subdir>/.gitnested
+                git-nested->>Git: diff --cached --quiet
+                git-nested->>Git: commit --no-verify [--signoff] [-S] -m <message>
+                Note over git-nested: If it fails: reset -q --hard HEAD
+                git-nested->>Git: worktree prune
+                git-nested->>Git: rev-parse --git-dir
+                Note over git-nested: Remove empty parent dirs up to .git/tmp
+                git-nested->>Git: update-ref refs/nested/<subref>/commit <nested_commit_ref>
+            end
+        else --no-squash or squash: false
+            loop For each commit on the nested branch
+                git-nested->>Git: read-tree --empty
+                git-nested->>Git: read-tree --prefix=<subdir> <commit>^{tree}
+                git-nested->>Git: write-tree
+                git-nested->>Git: log -1 --format=%ad%n%ae%n%an%n%cd%n%ce%n%cn%n%B <commit>
+                git-nested->>Git: commit-tree [-S] -p <rewritten parents> <tree>
+            end
+            git-nested->>Git: merge --no-commit --no-ff -s ours --allow-unrelated-histories <rewritten tip>
             git-nested->>Git: ls-files -- <subdir>
             git-nested->>Git: rm -r -- <subdir>
             git-nested->>Git: read-tree --prefix=<subdir> -u <nested_commit_ref>
             Note over git-nested: Write .gitnested YAML
             git-nested->>Git: add -f -- <subdir>/.gitnested
-            git-nested->>Git: diff --cached --quiet
             git-nested->>Git: commit --no-verify [--signoff] [-S] -m <message>
-            Note over git-nested: If it fails: reset -q --hard HEAD
             git-nested->>Git: worktree prune
             git-nested->>Git: rev-parse --git-dir
             Note over git-nested: Remove empty parent dirs up to .git/tmp
