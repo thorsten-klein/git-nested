@@ -223,6 +223,8 @@ def cmd_pull(ctx: CommandContext) -> None:
     git, flags = ctx.git, ctx.flags
     subdir, gitnested, subref, config = setup.setup_command(git, 'pull', flags, ctx.subdir, ctx.upstream)
     _check_no_squash(flags, config, subdir)
+    if fetch.skip_missing_branch(git, flags, config, subdir):
+        return
 
     if flags.force:
         config, up_to_date = clone.do_clone(git, flags, config, subdir, gitnested, subref, ctx.head)

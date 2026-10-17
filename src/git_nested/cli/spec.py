@@ -387,6 +387,7 @@ COMMAND_EXAMPLES: dict[str, list[str]] = {
     'fetch': [
         "git nested fetch ext/lib",
         "git nested fetch --all",
+        "git nested fetch --all -b release/2.0",
     ],
     'init': [
         "git nested init doc",
@@ -399,12 +400,14 @@ COMMAND_EXAMPLES: dict[str, list[str]] = {
         "git nested pull -M rebase ext/lib",
         "git nested pull --rebase ext/lib",
         "git nested pull --all",
+        "git nested pull --all -b release/2.0",
     ],
     'push': [
         "git nested push ext/lib",
         "git nested push --dry-run ext/lib",
         "git nested push --rebase ext/lib",
         "git nested push --squash -m 'one commit upstream' ext/lib",
+        "git nested push --all -b release/2.0",
     ],
     'repair': [
         "git nested repair ext/lib",

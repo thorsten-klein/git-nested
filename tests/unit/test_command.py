@@ -1,5 +1,6 @@
 """Unit tests for GitNestedCommand's CLI plumbing that don't need a real nested repo"""
 
+import contextlib
 from pathlib import Path
 
 import pytest
@@ -64,6 +65,33 @@ def test_dispatch_command_unknown_command_is_a_usage_error(cmd):
     ctx = CommandContext(git=cmd.git, flags=Flags())
     with pytest.raises(GitNestedError, match='unknown command bogus'):
         cmd.dispatch_command('bogus', ctx)
+
+
+@pytest.mark.parametrize(
+    ('command', 'message'),
+    [
+        ('diff', "--branch and --all can't be used together"),
+        ('pull', None),
+    ],
+)
+def test_run_checks_when_all_can_share_one_branch(cmd, monkeypatch, command, message):
+    ctx = CommandContext(git=cmd.git, flags=Flags(all=True, branch='topic'))
+    monkeypatch.setattr(cmd, 'parse_args', lambda _args: (command, ctx))
+    monkeypatch.setattr(cmd.git, 'check', lambda: None)
+    monkeypatch.setattr('git_nested.cli.app.location.at_top_level', lambda *_a, **_k: contextlib.nullcontext())
+    monkeypatch.setattr('git_nested.cli.app.checks.check_repository', lambda *_a, **_k: (Path('.git/tmp'), 'head'))
+    monkeypatch.setattr('git_nested.cli.app.discovery.find_all_nested_repositories', lambda *_a, **_k: [Path('one')])
+    seen = []
+    monkeypatch.setattr(cmd, 'dispatch_command', lambda _command, passed_ctx: seen.append(passed_ctx.subdir))
+
+    if message:
+        with pytest.raises(GitNestedError, match=message):
+            cmd._run([])
+        assert seen == []
+        return
+
+    cmd._run([])
+    assert seen == [Path('one')]
 
 
 # ============================================================================

@@ -305,6 +305,8 @@ git nested pull --no-squash ext/lib
 git nested pull --rebase ext/lib
 git nested pull --all  # Pull all nested repos
 git nested pull --all --single-commit  # ... in one commit
+
+git nested pull --all -b release/2.0
 ```
 
 ### `git nested push`
@@ -327,6 +329,7 @@ stops. It changes nothing.
 git nested push ext/lib
 git nested push --rebase ext/lib
 git nested push --all  # Push all nested repos
+git nested push --all -b release/2.0
 ```
 
 ### `git nested status`
@@ -352,6 +355,12 @@ Fetch remote content for a nested repository.
 
 ```bash
 git nested fetch --help
+```
+
+**Example:**
+```bash
+git nested fetch ext/lib
+git nested fetch --all -b release/2.0
 ```
 
 ### `git nested diff`

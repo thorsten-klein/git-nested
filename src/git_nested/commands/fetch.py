@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from .. import discovery, output, refs
 from ..cli import setup
 from ..constants import FETCH_HEAD_REV
 from ..errors import GitNestedError
 from ..git import GitRunner
-from ..models import CommandContext, NestedConfig
+from ..models import CommandContext, Flags, NestedConfig
 
 
 def do_fetch(git: GitRunner, config: NestedConfig, subref: str) -> str:
@@ -51,6 +53,16 @@ def _fetch_pin(git: GitRunner, config: NestedConfig, tip: str) -> str:
     return pinned
 
 
+def skip_missing_branch(git: GitRunner, flags: Flags, config: NestedConfig, subdir: Path) -> bool:
+    """Skip an `--all -b` fetch or pull whose upstream does not have that branch."""
+    if not (flags.all and flags.branch):
+        return False
+    if discovery.has_branch(git, config.remote, config.branch) is not False:
+        return False
+    output.say(f"{subdir.as_posix()}: skipped, {config.remote} has no branch {config.branch}")
+    return True
+
+
 def cmd_fetch(ctx: CommandContext) -> None:
     """Fetch a nested repo's remote branch."""
     git = ctx.git
@@ -59,6 +71,8 @@ def cmd_fetch(ctx: CommandContext) -> None:
 
     if config.remote == 'none':
         output.say(f"{subdir.as_posix()}: skipped, it has no remote")
+    elif skip_missing_branch(git, flags, config, subdir):
+        return
     else:
         do_fetch(git, config, subref)
         output.say(f"{subdir.as_posix()}: fetched from {config.remote} ({config.branch})")
