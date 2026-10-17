@@ -88,7 +88,7 @@ def test_config_rejects_a_read_only_field(foo_bar_cloned_and_nested):
 
     assert result.returncode != 0
     assert "commit is written by git-nested itself" in result.output
-    assert "the settable fields are remote, branch, method, squash, parent, readonly" in result.output
+    assert "the settable fields are remote, branch, method, squash, parent, pin, readonly" in result.output
 
 
 def test_config_rejects_an_unknown_field(foo_bar_cloned_and_nested):

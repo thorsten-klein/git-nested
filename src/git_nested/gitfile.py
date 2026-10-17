@@ -105,14 +105,10 @@ def update_gitrepo_file(
     nested['commit'] = upstream_head_commit
     nested['method'] = flags.method or config.method or 'merge'
     nested['cmdver'] = VERSION
-    if flags.filter:
-        nested['filter'] = flags.filter
-    if flags.exclude:
-        nested['exclude'] = flags.exclude
-    if flags.path:
-        nested['path'] = flags.path
-    if flags.pin:
-        nested['pin'] = flags.pin
+    # These are written only when given
+    for field in ('filter', 'exclude', 'path', 'pin'):
+        if getattr(flags, field):
+            nested[field] = getattr(flags, field)
 
     _update_lineage(nested, initial, flags, config, command)
     # The parent only moves once the nested commit has caught up with upstream.

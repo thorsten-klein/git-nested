@@ -24,7 +24,6 @@ _OPTION_VALUE_NAMES = {
     'msg_file': 'file',
     'name': 'name',
     'path': 'path',
-
     'pin': 'commit|tag',
     'remote': 'remote',
     'upstream_commit': 'commit',
