@@ -79,6 +79,61 @@ def test_do_push_refuses_a_branch_without_the_upstream_head(monkeypatch):
         push.do_push(*args, 'sub', 'foo', None)
 
 
+def test_do_push_dry_run_lists_commits_and_cleans_up(monkeypatch):
+    said = []
+    cleaned = []
+    monkeypatch.setattr(push.output, 'say', said.append)
+    monkeypatch.setattr(push, '_fetch_push_target', lambda *_args: 'upstream')
+    monkeypatch.setattr(push, '_build_push_branch', lambda *_args: 'nested/sub')
+    monkeypatch.setattr(push.worktree, 'delete_branch', lambda *_args: cleaned.append('done'))
+    git = (
+        FakeGit()
+        .respond('rev-list', 'refs/heads/nested/sub')
+        .respond('rev-parse', 'nested/sub', stdout='new')
+        .respond('merge-base', '--is-ancestor', returncode=0)
+        .respond('log', '--oneline', 'upstream..nested/sub', stdout='abc1234 one')
+    )
+    args = (
+        git,
+        Flags(dry_run=True),
+        NestedConfig(remote='x', branch='main'),
+        Path('sub'),
+        Path('sub/.gitnested'),
+        Path('tmp'),
+    )
+
+    assert push.do_push(*args, 'sub', 'main', None) == 'new'
+    assert said == ['sub: would push to x (main)', '  abc1234 one']
+    assert cleaned == ['done']
+
+
+def test_do_push_dry_run_fetches_the_target_of_an_explicit_branch(monkeypatch):
+    said = []
+    monkeypatch.setattr(push.output, 'say', said.append)
+    monkeypatch.setattr(push, '_fetch_push_target', lambda *_args: None)
+    git = (
+        FakeGit()
+        .respond('rev-list', 'refs/heads/topic')
+        .respond('rev-parse', 'topic', stdout='new')
+        .respond('log', '--oneline', 'topic', stdout='abc1234 one')
+    )
+
+    result = push.do_push(
+        git,
+        Flags(dry_run=True),
+        NestedConfig(remote='x', branch='main'),
+        Path('sub'),
+        Path('sub/.gitnested'),
+        Path('tmp'),
+        'sub',
+        'main',
+        'topic',
+    )
+
+    assert result == 'new'
+    assert said == ['sub: would push to x (main)', '  abc1234 one']
+
+
 def test_fetch_push_target_raises_on_other_errors():
     git = FakeGit().respond('ls-remote', returncode=128, stderr="fatal: unable to access remote\n")
     flags, config = Flags(), NestedConfig(remote='x', branch='main')

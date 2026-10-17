@@ -56,6 +56,7 @@ VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
         'all',
         'branch',
         'commit',
+        'dry_run',
         'force',
         'gpg_sign',
         'message',
@@ -127,6 +128,7 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
         ('-c', '--commit'),
         {'action': 'store_true', 'help': "record the pushed commit in .gitnested; needs a push to the tracked branch"},
     ),
+    ('dry_run', ('--dry-run',), {'action': 'store_true', 'dest': 'dry_run', 'help': "show what would be pushed"}),
     ('force', ('-f', '--force'), {'action': 'store_true', 'help': "force the operation"}),
     (
         'from_submodule',
@@ -309,6 +311,7 @@ COMMAND_DESCRIPTION: dict[str, str] = {
         "Send the commits you made in <subdir> to its upstream. "
         "Only the changes inside the subdirectory go; the rest of the parent repository is not part of it. "
         "Without --commit, other changes in the parent repository do not matter; uncommitted changes in <subdir> are warned about and ignored."
+        " --dry-run shows the target branch and the commits, then stops."
     ),
     'repair': (
         "Fix the parent recorded in <subdir>/.gitnested when it is no longer part of the current history, "
@@ -381,6 +384,7 @@ COMMAND_EXAMPLES: dict[str, list[str]] = {
     ],
     'push': [
         "git nested push ext/lib",
+        "git nested push --dry-run ext/lib",
         "git nested push --squash -m 'one commit upstream' ext/lib",
     ],
     'repair': [

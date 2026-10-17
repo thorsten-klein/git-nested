@@ -1,5 +1,7 @@
 """Tests for git nested push command"""
 
+import re
+
 from conftest import (
     assert_commit,
     assert_commit_count,
@@ -738,6 +740,31 @@ def test_push_refuses_a_read_only_repository(foo_bar_cloned_and_nested):
     assert result.output.strip() == (
         "git-nested: bar: is read-only, so push refuses; 'git nested config bar readonly false' allows it"
     )
+
+
+def test_push_dry_run_shows_commits_and_keeps_state(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    gitnested = foo / 'bar' / '.gitnested'
+    before = gitnested.read_text()
+    env.add_new_files('bar/from-foo', cwd=foo)
+
+    result = cmd_git_nested('push --dry-run -b master bar', cwd=foo)
+
+    head, commit = result.output.strip().splitlines()
+    assert head == f"bar: would push to {env.upstream.as_posix()}/bar (master)"
+    assert re.fullmatch(r'  [0-9a-f]{7,} add new file: bar/from-foo', commit)
+    assert gitnested.read_text() == before
+    assert_commit_count(env.workspace / 'bar', 2)
+    assert env.run(['git', 'branch', '--list', 'nested/bar*'], cwd=foo).stdout.strip() == ''
+
+
+def test_push_dry_run_with_nothing_new(foo_bar_cloned_and_nested):
+    foo = foo_bar_cloned_and_nested.workspace / 'foo'
+
+    result = cmd_git_nested('push --dry-run -b master bar', cwd=foo)
+
+    assert result.output.strip() == "bar: nothing to push"
 
 
 def test_push_all_skips_a_read_only_repository(foo_bar_cloned_and_nested):

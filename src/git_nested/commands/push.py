@@ -110,13 +110,52 @@ def do_push(
         the pushed commit, or None if upstream already has it.
     """
     if branch is not None:
-        return _push(git, flags, config, subref, branch, branch_name, None)
+        upstream_head = _fetch_push_target(git, flags, config, branch_name) if flags.dry_run else None
+        return (
+            _dry_run_push(git, flags, config, subdir, branch, branch_name, upstream_head)
+            if flags.dry_run
+            else _push(git, flags, config, subref, branch, branch_name, None)
+        )
     upstream_head = _fetch_push_target(git, flags, config, branch_name)
     built = _build_push_branch(git, flags, config, subdir, gitnested, git_tmp, subref, upstream_head)
     try:
+        if flags.dry_run:
+            return _dry_run_push(git, flags, config, subdir, built, branch_name, upstream_head)
         return _push(git, flags, config, subref, built, branch_name, upstream_head)
     finally:
         worktree.delete_branch(git, built, git_tmp)
+
+
+def _new_push_commit(git: GitRunner, flags: Flags, branch: str, upstream_head: str | None) -> str | None:
+    """The commit a push would add upstream, or None if upstream already has it."""
+    if not git.branch_exists(branch):
+        raise GitNestedError(f"no nested branch {branch} to push")
+    new_commit = git.check_output(['rev-parse', branch])
+    if new_commit == upstream_head:
+        return None
+    if upstream_head and not flags.force and not git.commit_in_rev_list(upstream_head, branch):
+        raise GitNestedError(f"can't commit: {branch} does not contain the upstream HEAD {upstream_head}")
+    return new_commit
+
+
+def _dry_run_push(
+    git: GitRunner,
+    flags: Flags,
+    config: NestedConfig,
+    subdir: Path,
+    branch: str,
+    branch_name: str,
+    upstream_head: str | None,
+) -> str | None:
+    """Show what a push would do, without pushing or recording it."""
+    new_commit = _new_push_commit(git, flags, branch, upstream_head)
+    if new_commit is None:
+        return None
+    rev = f'{upstream_head}..{branch}' if upstream_head else branch
+    commits = git.check_output(['log', '--oneline', rev])
+    output.say(f"{subdir.as_posix()}: would push to {config.remote} ({branch_name})")
+    output.say('\n'.join(f"  {line}" for line in commits.splitlines()))
+    return new_commit
 
 
 def _push(
@@ -133,14 +172,9 @@ def _push(
     Only a branch built for the push is known to sit on upstream, so only
     then is there an upstream_head to compare against.
     """
-    if not git.branch_exists(branch):
-        raise GitNestedError(f"no nested branch {branch} to push")
-    new_commit = git.check_output(['rev-parse', branch])
-    if new_commit == upstream_head:
+    new_commit = _new_push_commit(git, flags, branch, upstream_head)
+    if new_commit is None:
         return None
-    if upstream_head and not flags.force and not git.commit_in_rev_list(upstream_head, branch):
-        raise GitNestedError(f"can't commit: {branch} does not contain the upstream HEAD {upstream_head}")
-
     git.network(
         ['push', *(['--force'] if flags.force else []), config.remote, f'{branch}:{branch_name}'],
         f"pushing to {config.remote} ({branch_name})",
@@ -209,7 +243,7 @@ def cmd_push(ctx: CommandContext) -> None:
     """Push local nested repo changes upstream."""
     git, flags, branch = ctx.git, ctx.flags, ctx.nested_commit_ref
     subdir, gitnested, subref, config = setup.setup_command(git, 'push', flags, ctx.subdir, ctx.upstream)
-    if config.readonly:
+    if config.readonly and not flags.dry_run:
         _skip_read_only(flags, subdir)
         return
     if branch and flags.squash:
@@ -220,10 +254,16 @@ def cmd_push(ctx: CommandContext) -> None:
     if flags.commit:
         _check_commit_target(flags, subdir, gitnested, config, branch_name)
     new_commit = do_push(git, flags, config, subdir, gitnested, ctx.tmp, subref, branch_name, branch)
-
     if new_commit is None:
         output.say(f"{subdir.as_posix()}: nothing to push")
-        return
-    if flags.commit:
-        _record_push_commit(git, flags, subdir, gitnested, config, new_commit, ctx.head)
+    elif not flags.dry_run:
+        _pushed(ctx, config, subdir, gitnested, new_commit, branch_name)
+
+
+def _pushed(
+    ctx: CommandContext, config: NestedConfig, subdir: Path, gitnested: Path, new_commit: str, branch_name: str
+) -> None:
+    """Record the pushed commit when --commit asks for it, and report the push."""
+    if ctx.flags.commit:
+        _record_push_commit(ctx.git, ctx.flags, subdir, gitnested, config, new_commit, ctx.head)
     output.say(f"{subdir.as_posix()}: pushed to {config.remote} ({branch_name})")

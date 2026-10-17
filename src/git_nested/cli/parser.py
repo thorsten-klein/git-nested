@@ -66,6 +66,7 @@ def _flags_from_args(args: argparse.Namespace) -> Flags:
         all_deep=getattr(args, 'ALL_flag', False),
         commit=getattr(args, 'commit', False),
         exclude=getattr(args, 'exclude', []),
+        dry_run=getattr(args, 'dry_run', False),
         filter=getattr(args, 'filter', []),
         force=getattr(args, 'force', False),
         from_submodule=getattr(args, 'from_submodule', False),
@@ -96,16 +97,18 @@ def _flags_from_args(args: argparse.Namespace) -> Flags:
 
 
 # Flags that name one thing, so they make no sense for every nested repository at once.
-_SINGLE_TARGET_FLAGS = (
-    ('dir', "--dir names one worktree, so it can't be used with --all"),
-    ('name', "--name names one branch, so it can't be used with --all"),
+# Pairs of flags that can't be given together
+_EXCLUSIVE_FLAGS = (
+    ('all', 'dir', "--dir names one worktree, so it can't be used with --all"),
+    ('all', 'name', "--name names one branch, so it can't be used with --all"),
+    ('dry_run', 'commit', "--dry-run can't be combined with --commit"),
 )
 
 
 def _check_flags(flags: Flags) -> None:
     """Reject the flags that cannot be honoured together."""
-    for attr, message in _SINGLE_TARGET_FLAGS:
-        if flags.all and getattr(flags, attr):
+    for first, second, message in _EXCLUSIVE_FLAGS:
+        if getattr(flags, first) and getattr(flags, second):
             output.usage_error(message)
     if flags.update and not (flags.branch or flags.remote):
         output.usage_error("--update needs --branch or --remote to have something to update")
