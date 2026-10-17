@@ -160,6 +160,8 @@ def _clone_into(
 
     config.filter = flags.filter or config.filter
     config.exclude = flags.exclude or config.exclude
+    config.path = flags.path or config.path
+    _check_path(git, config, subdir, upstream_head_commit)
     output.verbose(f"creating {subdir.as_posix()}/")
     subdir.mkdir(parents=True, exist_ok=True)
     output.verbose(f"committing the new {subdir.as_posix()}/ content")
@@ -204,6 +206,16 @@ def clone_at(git: GitRunner, flags: Flags, subdir: Path, url: str, commit: str) 
     subdir, gitnested, subref, config = setup.setup_command(git, 'clone', inner, subdir, url)
     do_clone(git, inner, config, subdir, gitnested, subref, git.check_output(['rev-parse', 'HEAD']))
     output.say(f"{subdir.as_posix()}: cloned from {url} ({commit})")
+
+
+def _check_path(git: GitRunner, config: NestedConfig, subdir: Path, upstream: str) -> None:
+    """Refuse a --path that upstream has no directory at, or one together with --filter."""
+    if not config.path:
+        return
+    if config.filter:
+        raise GitNestedError("--path and --filter can't be used together")
+    if git.check_output(['cat-file', '-t', f'{upstream}:{config.path}'], may_fail=True) != 'tree':
+        raise GitNestedError(f"{subdir.as_posix()}: upstream has no directory {config.path}")
 
 
 def cmd_clone(ctx: CommandContext) -> None:

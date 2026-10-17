@@ -20,7 +20,9 @@ def cmd_diff(ctx: CommandContext) -> None:
         return
 
     upstream = fetch.do_fetch(git, config, subref)
-    if config.filter or config.exclude:
+    if config.path:
+        upstream = f'{upstream}:{config.path}'
+    elif config.filter or config.exclude:
         upstream = filters.build_filtered_commit(git, Path.cwd(), config.filter or [], config.exclude or [], upstream)
     local_tree = git.check_output(['rev-parse', f'HEAD:{subdir.as_posix()}'])
     diff = git.check_output(['diff', local_tree, upstream, '--', ':(exclude,glob)**/.gitnested*'])

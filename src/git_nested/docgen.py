@@ -23,6 +23,7 @@ _OPTION_VALUE_NAMES = {
     'method': 'merge|rebase',
     'msg_file': 'file',
     'name': 'name',
+    'path': 'path',
     'remote': 'remote',
     'upstream_commit': 'commit',
 }
