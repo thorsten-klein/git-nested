@@ -17,6 +17,7 @@ from .cli.spec import (
 _OPTION_VALUE_NAMES = {
     'branch': 'branch',
     'dir': 'dir',
+    'exclude': 'path',
     'filter': 'path',
     'message': 'message',
     'method': 'merge|rebase',
