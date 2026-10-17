@@ -96,11 +96,13 @@ def test_nested_format_picks_the_format_of_a_new_file(value, toml):
 
 
 def test_nested_format_must_be_known():
+    git = _format('json')
     with pytest.raises(GitNestedError, match=r"nested\.format is json; use one of yaml, toml"):
-        gitfile.new_file_is_toml(_format('json'))
+        gitfile.new_file_is_toml(git)
 
 
 def test_nested_format_toml_needs_python_3_11(monkeypatch):
     monkeypatch.setattr(configio, 'tomllib', None)
+    git = _format('toml')
     with pytest.raises(GitNestedError, match=r"nested\.format is TOML, which needs Python 3\.11 or newer"):
-        gitfile.new_file_is_toml(_format('toml'))
+        gitfile.new_file_is_toml(git)
