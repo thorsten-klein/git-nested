@@ -1,11 +1,13 @@
 name: Docs
 
 # Builds doc/ (see doc/conf.py) with Sphinx. On pull requests it only
-# builds, so a broken page fails the check. On main it also publishes the
-# site to the gh_pages branch, which GitHub Pages serves.
+# builds, so a broken page fails the check. On main and on a release tag it
+# also publishes the site to the gh_pages branch, which GitHub Pages serves.
+# A tag build shows the release version.
 on:
   push:
     branches: [main]
+    tags: ['*.*.*']
   pull_request:
     branches: ['**']
   # by hand: 'Run workflow' in the Actions tab, or `gh workflow run docs.yml`
@@ -34,7 +36,7 @@ jobs:
       - name: Build docs
         run: uv run poe docs
       - name: Upload docs
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
         uses: actions/upload-artifact@v7
         with:
           name: docs-html
@@ -42,10 +44,14 @@ jobs:
           include-hidden-files: true
 
   # A job of its own, so only this one can write to the repository.
-  # Only main is published, also when the workflow is started by hand.
+  # Only main and tags are published, also when the workflow is started by hand.
   publish:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
     needs: build
+    # One publish at a time: a tag and main are often pushed together.
+    concurrency:
+      group: gh-pages
+      cancel-in-progress: false
     runs-on: ubuntu-26.04
     permissions:
       contents: write
