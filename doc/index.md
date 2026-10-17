@@ -113,6 +113,7 @@ cli/environment-variables
 What git-nested stores, and where.
 
 - [The `.gitnested` file](configuration/gitnested-file.md)
+- [`.gitnested` examples](configuration/examples.md)
 - [git config settings](configuration/git-config.md)
 
 ```{toctree}
@@ -121,6 +122,7 @@ What git-nested stores, and where.
 :hidden:
 
 configuration/gitnested-file
+configuration/examples
 configuration/git-config
 ```
 

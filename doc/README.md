@@ -37,6 +37,8 @@ on GitHub, or as a website at <https://thorsten-klein.github.io/git-nested/>.
 
 - **[`configuration/gitnested-file.md`](configuration/gitnested-file.md)**:
   every field of the `.gitnested` file.
+- **[`configuration/examples.md`](configuration/examples.md)**: how
+  `.gitnested` looks in common cases, in YAML and TOML.
 - **[`configuration/git-config.md`](configuration/git-config.md)**: the
   `git config` settings git-nested reads and writes.
 
