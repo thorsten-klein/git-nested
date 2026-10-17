@@ -10,6 +10,8 @@ the content comes from, and how far it is in step with upstream.
 Read and change it with [`git nested config`](../cli/config.md), not by
 hand.
 
+See [`.gitnested` examples](examples.md) for more examples.
+
 ## Example
 
 ```yaml
