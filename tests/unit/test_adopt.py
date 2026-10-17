@@ -70,8 +70,9 @@ def test_adopt_existing_subdir_rejects_empty_directory(tmp_path):
     config = NestedConfig(remote='r', branch='main')
     gitnested = vendored / '.gitnested'
 
+    flags = Flags(adopt=True)
     with pytest.raises(GitNestedError, match='does not exist or is empty'):
-        _adopt_existing_subdir(NO_GIT, Flags(adopt=True), config, vendored, gitnested, 'vendor/bar', 'head')
+        _adopt_existing_subdir(NO_GIT, flags, config, vendored, gitnested, 'vendor/bar', 'head')
 
 
 def test_adopt_existing_subdir_rejects_existing_gitnested(tmp_path):
@@ -83,8 +84,9 @@ def test_adopt_existing_subdir_rejects_existing_gitnested(tmp_path):
     gitnested.write_text('nested:\n  remote: r\n  branch: main\n')
     config = NestedConfig(remote='r', branch='main')
 
+    flags = Flags(adopt=True)
     with pytest.raises(GitNestedError, match='is already a nested repository'):
-        _adopt_existing_subdir(NO_GIT, Flags(adopt=True), config, vendored, gitnested, 'vendor/bar', 'head')
+        _adopt_existing_subdir(NO_GIT, flags, config, vendored, gitnested, 'vendor/bar', 'head')
 
 
 def test_adopt_existing_subdir_requires_tracked_content(tmp_path):
@@ -96,8 +98,9 @@ def test_adopt_existing_subdir_requires_tracked_content(tmp_path):
     config = NestedConfig(remote='r', branch='main')
     gitnested = vendored / '.gitnested'
 
+    flags = Flags(adopt=True)
     with pytest.raises(GitNestedError, match='git tracks nothing in it'):
-        _adopt_existing_subdir(git, Flags(adopt=True), config, vendored, gitnested, 'vendor/bar', 'head')
+        _adopt_existing_subdir(git, flags, config, vendored, gitnested, 'vendor/bar', 'head')
 
 
 def test_resolve_upstream_commit_needs_remote():
