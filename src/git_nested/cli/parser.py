@@ -61,6 +61,7 @@ def _add_subparser(subparsers: argparse._SubParsersAction, command: str) -> None
 def _flags_from_args(args: argparse.Namespace) -> Flags:
     """Build a Flags object from parsed args, applying per-command option support rules."""
     flags = Flags(
+        adopt=getattr(args, 'adopt', False),
         all=getattr(args, 'all_flag', False) or getattr(args, 'ALL_flag', False),
         all_deep=getattr(args, 'ALL_flag', False),
         commit=getattr(args, 'commit', False),

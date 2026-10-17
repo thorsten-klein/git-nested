@@ -9,8 +9,8 @@ from .._compat import rmtree
 from ..cli import setup
 from ..errors import GitNestedError
 from ..git import GitRunner
-from ..models import CommandContext, Flags
-from . import clone
+from ..models import CommandContext, Flags, NestedConfig
+from . import clone, fetch
 
 # Where this repository lists its submodules
 _GITMODULES = Path('.gitmodules')
@@ -38,14 +38,25 @@ def _init_from_submodule(git: GitRunner, flags: Flags, subdir: Path) -> None:
     clone.clone_at(git, flags, subdir, url, pinned)
 
 
-def cmd_init(ctx: CommandContext) -> None:
-    """Initialize a subdirectory as a nested repo."""
-    git, flags, head_commit = ctx.git, ctx.flags, ctx.head
-    if flags.from_submodule:
-        _init_from_submodule(git, flags, setup.resolve_subdir(ctx.subdir))
-        return
-    subdir, gitnested, subref, config = setup.setup_command(git, 'init', flags, ctx.subdir, ctx.upstream)
+def _resolve_upstream_commit(git: GitRunner, flags: Flags, config: NestedConfig, subref: str) -> str:
+    """The upstream commit to record for an adopted directory."""
+    if not flags.upstream_commit:
+        return ''
+    if not config.remote:
+        raise GitNestedError("--commit needs --remote")
+    if not config.branch:
+        output.verbose("determining the upstream default branch")
+        config.branch = discovery.get_upstream_branch(git, config)
+    fetched = fetch.do_fetch(git, config, subref)
+    if not git.rev_exists(flags.upstream_commit):
+        raise GitNestedError(f"no such upstream commit: {flags.upstream_commit}")
+    if not git.commit_in_rev_list(flags.upstream_commit, fetched):
+        raise GitNestedError(f"{flags.upstream_commit}: is not part of {config.remote} ({config.branch})")
+    return flags.upstream_commit
 
+
+def _validate_init_target(subdir: Path, gitnested: Path, git: GitRunner) -> None:
+    """Reject targets that cannot become nested repositories."""
     if not subdir.exists():
         raise GitNestedError(f"{subdir.as_posix()}: does not exist")
     if gitnested.exists():
@@ -53,25 +64,41 @@ def cmd_init(ctx: CommandContext) -> None:
     if not git.is_tracked(subdir):
         raise GitNestedError(f"{subdir.as_posix()}: exists, but git tracks nothing in it")
 
+
+def _default_branch(git: GitRunner, config: NestedConfig) -> str:
+    """The branch init should record when none was given."""
+    return config.branch or git.check_output(['config', '--get', 'init.defaultbranch'], may_fail=True) or 'main'
+
+
+def cmd_init(ctx: CommandContext) -> None:
+    """Initialize a subdirectory as a nested repo."""
+    git, flags, head_commit = ctx.git, ctx.flags, ctx.head
+    if flags.from_submodule:
+        _init_from_submodule(git, flags, setup.resolve_subdir(ctx.subdir))
+        return
+    subdir, gitnested, subref, config = setup.setup_command(git, 'init', flags, ctx.subdir, ctx.upstream)
+    _validate_init_target(subdir, gitnested, git)
+
+    upstream_commit = _resolve_upstream_commit(git, flags, config, subref)
     config.remote = config.remote or 'none'
-    config.branch = (
-        config.branch or git.check_output(['config', '--get', 'init.defaultbranch'], may_fail=True) or 'main'
-    )
+    config.branch = _default_branch(git, config)
 
     output.verbose(f"writing {subdir.as_posix()}/.gitnested")
+    nested_commit_ref = upstream_commit or head_commit
     gitfile.update_gitrepo_file(
         git=git,
         flags=flags,
         config=config,
         gitnested=gitnested,
-        upstream_head_commit='',  # No upstream for init
-        nested_commit_ref=head_commit,
+        upstream_head_commit=upstream_commit,
+        nested_commit_ref=nested_commit_ref,
         head_commit=head_commit,
         command='init',
     )
-    msg = discovery.build_commit_message(git, config, head_commit, head_commit, subdir, 'init')
+    msg = discovery.build_commit_message(git, config, upstream_commit or head_commit, nested_commit_ref, subdir, 'init')
     content.commit_gitnested_update(git, flags, subdir, msg)
-    refs.create_nested_ref(git, subref, 'commit', head_commit)
+    refs.create_nested_ref(git, subref, 'commit', nested_commit_ref)
 
     remote = "no remote" if config.remote == 'none' else f"{config.remote} ({config.branch})"
-    output.say(f"{subdir.as_posix()}: initialised as a nested repository with {remote}")
+    at = f" at {git.check_output(['rev-parse', '--short', upstream_commit])}" if upstream_commit else ''
+    output.say(f"{subdir.as_posix()}: initialised as a nested repository with {remote}{at}")

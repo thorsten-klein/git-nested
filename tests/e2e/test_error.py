@@ -19,6 +19,12 @@ def test_help(env):
     result = cmd_git_nested('clone --help', cwd=env.workspace / 'init')
     assert result.returncode == 0
     assert 'usage: git nested clone [-h]' in result.stdout
+    assert '--adopt' in result.stdout
+    assert result.stderr.strip() == ""
+
+    result = cmd_git_nested('init --help', cwd=env.workspace / 'init')
+    assert result.returncode == 0
+    assert '--commit' in result.stdout
     assert result.stderr.strip() == ""
 
     result = cmd_git_nested('status --help', cwd=env.workspace / 'init')

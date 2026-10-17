@@ -42,21 +42,33 @@ sequenceDiagram
         git-nested->>Git: update-ref refs/nested/<subref>/fetch FETCH_HEAD^0
     end
 
-    Note over git-nested: mkdir <subdir>/
-
-    rect rgb(230, 255, 230)
-        Note over git-nested,Git: commit_nested_branch
-        git-nested->>Git: rev-list <upstream_commit> -1
-        git-nested->>Git: merge-base --is-ancestor <upstream> <nested_ref>
+    alt --adopt
         git-nested->>Git: ls-files -- <subdir>
-        git-nested->>Git: read-tree --prefix=<subdir> -u <nested_commit_ref>
+        git-nested->>Git: log --format=%H %T <upstream_head>
+        Note over git-nested: Find the newest upstream commit<br/>whose tree matches <subdir> at HEAD
         Note over git-nested: Write .gitnested YAML
-        git-nested->>Git: rev-parse <nested_commit_ref>
+        git-nested->>Git: rev-parse <matching_commit>
         git-nested->>Git: add -f -- <subdir>/.gitnested
-        git-nested->>Git: diff --cached --quiet
         git-nested->>Git: commit --no-verify [--signoff] [-S] -m <message>
         Note over git-nested: If it fails: reset -q --hard HEAD
-        git-nested->>Git: update-ref refs/nested/<subref>/commit <nested_commit_ref>
+        git-nested->>Git: update-ref refs/nested/<subref>/commit <matching_commit>
+    else Plain clone
+        Note over git-nested: mkdir <subdir>/
+
+        rect rgb(230, 255, 230)
+            Note over git-nested,Git: commit_nested_branch
+            git-nested->>Git: rev-list <upstream_commit> -1
+            git-nested->>Git: merge-base --is-ancestor <upstream> <nested_ref>
+            git-nested->>Git: ls-files -- <subdir>
+            git-nested->>Git: read-tree --prefix=<subdir> -u <nested_commit_ref>
+            Note over git-nested: Write .gitnested YAML
+            git-nested->>Git: rev-parse <nested_commit_ref>
+            git-nested->>Git: add -f -- <subdir>/.gitnested
+            git-nested->>Git: diff --cached --quiet
+            git-nested->>Git: commit --no-verify [--signoff] [-S] -m <message>
+            Note over git-nested: If it fails: reset -q --hard HEAD
+            git-nested->>Git: update-ref refs/nested/<subref>/commit <nested_commit_ref>
+        end
     end
 
     opt Upstream has submodules
@@ -99,7 +111,15 @@ sequenceDiagram
     git-nested->>Git: ls-files -- <subdir>
     Note over git-nested: Validate subdir is tracked
 
-    opt No branch specified
+    alt --commit without --branch
+        git-nested->>Git: ls-remote --symref <remote>
+        Note over git-nested: Determine upstream default branch
+        git-nested->>Git: fetch --no-tags --quiet <remote> <branch>
+        git-nested->>Git: rev-parse FETCH_HEAD^0
+        git-nested->>Git: update-ref refs/nested/<subref>/fetch FETCH_HEAD^0
+        git-nested->>Git: rev-list <commit> -1
+        git-nested->>Git: merge-base --is-ancestor <commit> <fetched_head>
+    else No branch specified
         git-nested->>Git: config --get init.defaultbranch
     end
 
@@ -112,7 +132,7 @@ sequenceDiagram
 
     git-nested->>Git: commit --no-verify [--signoff] [-S] -m <message>
     Note over git-nested: If it fails: reset -q --hard HEAD
-    git-nested->>Git: update-ref refs/nested/<subref>/commit <head_commit>
+    git-nested->>Git: update-ref refs/nested/<subref>/commit <nested_commit_ref>
 
     opt --from-submodule
         git-nested->>Git: config -f .gitmodules --get-regexp ...
