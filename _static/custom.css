@@ -1,0 +1,102 @@
+/* Changes to the defaults of sphinx_rtd_theme. See html_css_files in doc/conf.py. */
+
+/* 1. Use the full width of the window. The theme stops at 800px. */
+.wy-nav-content {
+  max-width: none;
+}
+
+/* 2. Let table cells wrap. The theme keeps inline code on one line,
+ *    so a table with code in it grows wider than the page. */
+.rst-content table.docutils code,
+.rst-content table.docutils tt {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.rst-content table.docutils td,
+.rst-content table.docutils th {
+  white-space: normal;
+}
+
+/* 3. Draw a box around a quote ('>'), so it does not look like
+ *    normal text. */
+.rst-content blockquote {
+  border: 1px solid #e1e4e5;
+  border-left: 4px solid #999;
+  border-radius: 4px;
+  background: #fafafa;
+  padding: 12px 18px;
+}
+
+/* No gap below the last paragraph in the box. */
+.rst-content blockquote :last-child {
+  margin-bottom: 0;
+}
+
+/* 4. GitHub alerts ('> [!NOTE]', '> [!TIP]', ...). custom.js adds the
+ *    classes. The colors are the ones GitHub uses. */
+.rst-content blockquote.alert {
+  border-left-width: 4px;
+}
+
+.rst-content blockquote.alert-note {
+  border-color: #0969da;
+  background: #ddf4ff;
+}
+
+.rst-content blockquote.alert-tip {
+  border-color: #1a7f37;
+  background: #dafbe1;
+}
+
+.rst-content blockquote.alert-important {
+  border-color: #8250df;
+  background: #fbefff;
+}
+
+.rst-content blockquote.alert-warning {
+  border-color: #9a6700;
+  background: #fff8c5;
+}
+
+.rst-content blockquote.alert-caution {
+  border-color: #cf222e;
+  background: #ffebe9;
+}
+
+.rst-content blockquote.alert .alert-title {
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+/* 5. The version line in the sidebar (doc/_templates/layout.html).
+ *    The template can only add it after the search box. These rules
+ *    show it between the title and the search box. */
+.wy-side-nav-search {
+  display: flex;
+  flex-direction: column;
+}
+
+.wy-side-nav-search > div.version {
+  order: 1;
+  margin-top: -0.4045em;
+  margin-bottom: 0.809em;
+  font-weight: 400;
+  color: hsla(0, 0%, 100%, 0.4);
+}
+
+.wy-side-nav-search > [role="search"] {
+  order: 2;
+}
+
+/* The version reads as text. It is underlined on hover. */
+.wy-side-nav-search > div.version a,
+.wy-side-nav-search > div.version a:visited {
+  color: inherit;
+  text-decoration: none;
+}
+
+.wy-side-nav-search > div.version a:hover {
+  color: #fcfcfc;
+  text-decoration: underline;
+}

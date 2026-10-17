@@ -1,0 +1,714 @@
+
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Install git-nested &mdash; git-nested</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=481c1642" />
+
+  
+    <link rel="canonical" href="https://thorsten-klein.github.io/git-nested/introduction/install.html" />
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=6efca38a"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+      <script src="../_static/custom.js?v=05c7c2e1"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="git-nested in 5 minutes" href="../quickstart/05-minutes.html" />
+    <link rel="prev" title="About git-nested" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            git-nested
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+<div class="version"><a href="https://github.com/thorsten-klein/git-nested/tree/24c84375b91a3e5975345896027f8b72dfda9236">1.2.0</a>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="index.html">About git-nested</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="index.html#what-problem-does-it-solve">What problem does it solve?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#how-it-works-in-short">How it works, in short</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#who-has-to-install-git-nested">Who has to install git-nested?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#why-use-it">Why use it?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#where-it-comes-from">Where it comes from</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#next-steps">Next steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Install git-nested</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#pick-a-way-to-install">Pick a way to install</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#from-pypi">From PyPI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#standalone-executable">Standalone executable</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#from-source-with-shell-setup">From source, with shell setup</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#from-source-by-hand">From source, by hand</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#shell-completion">Shell completion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#manual-page">Manual page</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#check-the-install">Check the install</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#next-step">Next step</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Quickstart</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/05-minutes.html">git-nested in 5 minutes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/05-minutes.html#make-an-upstream-repository">1. Make an upstream repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/05-minutes.html#make-your-project">2. Make your project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/05-minutes.html#clone-the-library-into-your-project">3. Clone the library into your project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/05-minutes.html#look-at-the-status">4. Look at the status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/05-minutes.html#change-the-library-in-your-project">5. Change the library in your project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/05-minutes.html#push-the-change-upstream">6. Push the change upstream</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/05-minutes.html#pull-a-change-from-upstream">7. Pull a change from upstream</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/05-minutes.html#share-your-project">8. Share your project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/05-minutes.html#what-next">What next?</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/everyday.html">Everyday tasks</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/everyday.html#add-a-repository">Add a repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/everyday.html#see-where-everything-stands">See where everything stands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/everyday.html#get-new-upstream-changes">Get new upstream changes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/everyday.html#see-what-you-changed">See what you changed</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/everyday.html#send-your-changes-upstream">Send your changes upstream</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/everyday.html#work-from-inside-the-folder">Work from inside the folder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/everyday.html#change-a-setting">Change a setting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/everyday.html#clean-up-after-a-failed-pull-or-push">Clean up after a failed pull or push</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart/everyday.html#undo">Undo</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/how-it-works.html">How it works</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/how-it-works.html#the-picture">The picture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/how-it-works.html#the-gitnested-file">The <code class="docutils literal notranslate"><span class="pre">.gitnested</span></code> file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/how-it-works.html#clone">Clone</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/how-it-works.html#rebuilding-the-nested-history">Rebuilding the nested history</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/how-it-works.html#pull">Pull</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/how-it-works.html#push">Push</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../concepts/how-it-works.html#which-branch-does-push-use">Which branch does push use?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/how-it-works.html#what-does-merge-or-rebase-mean-here">What does <code class="docutils literal notranslate"><span class="pre">merge</span></code> or <code class="docutils literal notranslate"><span class="pre">rebase</span></code> mean here?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/how-it-works.html#temporary-things">Temporary things</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/how-it-works.html#clean-working-tree">Clean working tree</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/how-it-works.html#your-hooks">Your hooks</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/comparison.html">Compared to submodule and subtree</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/comparison.html#short-answer">Short answer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/comparison.html#git-submodule">git submodule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/comparison.html#git-subtree">git subtree</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/comparison.html#who-needs-what">Who needs what</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">git nested command</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../cli/index.html">Overview and common options</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cli/index.html#commands">Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/index.html#getting-help">Getting help</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/index.html#the-subdir-argument">The <code class="docutils literal notranslate"><span class="pre">&lt;subdir&gt;</span></code> argument</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/index.html#options-for-all-commands">Options for all commands</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#how-much-it-tells-you">How much it tells you</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#color">Color</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#credentials">Credentials</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/index.html#options-many-commands-share">Options many commands share</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../cli/index.html#all-and-b"><code class="docutils literal notranslate"><span class="pre">--all</span></code> and <code class="docutils literal notranslate"><span class="pre">-b</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/index.html#exit-status">Exit status</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli/clone.html"><code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">nested</span> <span class="pre">clone</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cli/clone.html#what-it-does">What it does</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/clone.html#arguments">Arguments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/clone.html#options">Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/clone.html#examples">Examples</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../cli/clone.html#a-release">A release</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/clone.html#only-a-part-of-upstream">Only a part of upstream</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/clone.html#a-folder-you-already-have">A folder you already have</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/clone.html#clone-again">Clone again</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/clone.html#notes">Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/clone.html#see-also">See also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli/init.html"><code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">nested</span> <span class="pre">init</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cli/init.html#what-it-does">What it does</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/init.html#arguments">Arguments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/init.html#options">Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/init.html#examples">Examples</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../cli/init.html#new-code-new-upstream">New code, new upstream</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/init.html#no-upstream-yet">No upstream yet</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/init.html#a-copy-of-upstream">A copy of upstream</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/init.html#from-a-submodule">From a submodule</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/init.html#notes">Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/init.html#see-also">See also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli/pull.html"><code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">nested</span> <span class="pre">pull</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cli/pull.html#what-it-does">What it does</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/pull.html#arguments">Arguments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/pull.html#options">Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/pull.html#examples">Examples</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../cli/pull.html#switch-to-another-branch">Switch to another branch</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/pull.html#keep-the-upstream-history">Keep the upstream history</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/pull.html#upstream-rewrote-its-history">Upstream rewrote its history</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/pull.html#move-a-pin">Move a pin</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/pull.html#notes">Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/pull.html#see-also">See also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli/push.html"><code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">nested</span> <span class="pre">push</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cli/push.html#what-it-does">What it does</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/push.html#the-target-branch">The target branch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/push.html#arguments">Arguments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/push.html#options">Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/push.html#examples">Examples</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../cli/push.html#look-first">Look first</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/push.html#one-commit-upstream">One commit upstream</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/push.html#tag-a-release">Tag a release</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../cli/push.html#push-a-branch-you-fixed-by-hand">Push a branch you fixed by hand</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/push.html#notes">Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/push.html#see-also">See also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli/fetch.html"><code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">nested</span> <span class="pre">fetch</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cli/fetch.html#what-it-does">What it does</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/fetch.html#arguments">Arguments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/fetch.html#options">Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/fetch.html#examples">Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/fetch.html#notes">Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/fetch.html#see-also">See also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli/status.html"><code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">nested</span> <span class="pre">status</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cli/status.html#what-it-does">What it does</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/status.html#options">Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/status.html#examples">Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/status.html#output">Output</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../cli/status.html#short"><code class="docutils literal notranslate"><span class="pre">--short</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/status.html#see-also">See also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli/diff.html"><code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">nested</span> <span class="pre">diff</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cli/diff.html#what-it-does">What it does</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/diff.html#arguments">Arguments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/diff.html#options">Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/diff.html#examples">Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/diff.html#see-also">See also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli/branch.html"><code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">nested</span> <span class="pre">branch</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cli/branch.html#what-it-does">What it does</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/branch.html#arguments">Arguments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/branch.html#options">Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/branch.html#examples">Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/branch.html#branch-names">Branch names</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/branch.html#notes">Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/branch.html#see-also">See also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli/run.html"><code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">nested</span> <span class="pre">run</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cli/run.html#what-it-does">What it does</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/run.html#arguments">Arguments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/run.html#examples">Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/run.html#notes">Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/run.html#see-also">See also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli/commit.html"><code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">nested</span> <span class="pre">commit</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cli/commit.html#what-it-does">What it does</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/commit.html#arguments">Arguments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/commit.html#options">Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/commit.html#examples">Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/commit.html#notes">Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/commit.html#see-also">See also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli/repair.html"><code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">nested</span> <span class="pre">repair</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cli/repair.html#what-it-does">What it does</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/repair.html#arguments">Arguments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/repair.html#options">Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/repair.html#examples">Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/repair.html#notes">Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/repair.html#see-also">See also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli/clean.html"><code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">nested</span> <span class="pre">clean</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cli/clean.html#what-it-does">What it does</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/clean.html#arguments">Arguments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/clean.html#options">Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/clean.html#examples">Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/clean.html#see-also">See also</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli/config.html"><code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">nested</span> <span class="pre">config</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cli/config.html#what-it-does">What it does</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/config.html#arguments">Arguments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/config.html#keys">Keys</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/config.html#examples">Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/config.html#notes">Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli/completion.html"><code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">nested</span> <span class="pre">completion</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cli/completion.html#what-it-does">What it does</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/completion.html#arguments">Arguments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../cli/completion.html#setup">Setup</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli/version.html"><code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">nested</span> <span class="pre">version</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cli/version.html#what-it-does">What it does</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../cli/environment-variables.html">Environment variables</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../cli/environment-variables.html#for-development">For development</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Configuration</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../configuration/gitnested-file.html">The <code class="docutils literal notranslate"><span class="pre">.gitnested</span></code> file</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../configuration/gitnested-file.html#example">Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../configuration/gitnested-file.html#fields">Fields</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../configuration/gitnested-file.html#remote"><code class="docutils literal notranslate"><span class="pre">remote</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../configuration/gitnested-file.html#branch"><code class="docutils literal notranslate"><span class="pre">branch</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../configuration/gitnested-file.html#commit"><code class="docutils literal notranslate"><span class="pre">commit</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../configuration/gitnested-file.html#parent"><code class="docutils literal notranslate"><span class="pre">parent</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../configuration/gitnested-file.html#method"><code class="docutils literal notranslate"><span class="pre">method</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../configuration/gitnested-file.html#squash"><code class="docutils literal notranslate"><span class="pre">squash</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../configuration/gitnested-file.html#filter"><code class="docutils literal notranslate"><span class="pre">filter</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../configuration/gitnested-file.html#exclude"><code class="docutils literal notranslate"><span class="pre">exclude</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../configuration/gitnested-file.html#path"><code class="docutils literal notranslate"><span class="pre">path</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../configuration/gitnested-file.html#pin"><code class="docutils literal notranslate"><span class="pre">pin</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../configuration/gitnested-file.html#readonly"><code class="docutils literal notranslate"><span class="pre">readonly</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../configuration/gitnested-file.html#cmdver"><code class="docutils literal notranslate"><span class="pre">cmdver</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../configuration/gitnested-file.html#level-files">Level files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../configuration/gitnested-file.html#line-endings">Line endings</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../configuration/git-config.html">git config settings</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../configuration/git-config.html#settings-you-set">Settings you set</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../configuration/git-config.html#nested-verify"><code class="docutils literal notranslate"><span class="pre">nested.verify</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../configuration/git-config.html#user-signingkey"><code class="docutils literal notranslate"><span class="pre">user.signingKey</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../configuration/git-config.html#settings-git-nested-writes">Settings git-nested writes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../configuration/git-config.html#nested-subdir-branchname"><code class="docutils literal notranslate"><span class="pre">nested.&lt;subdir&gt;.branchname</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../configuration/git-config.html#remote-nested-branch-and-branch-nested-branch"><code class="docutils literal notranslate"><span class="pre">remote.&lt;nested-branch&gt;.*</span></code> and <code class="docutils literal notranslate"><span class="pre">branch.&lt;nested-branch&gt;.*</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../guides/conflicts.html">Resolve conflicts</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guides/conflicts.html#what-you-see">What you see</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/conflicts.html#finish-the-pull">Finish the pull</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/conflicts.html#with-the-rebase-method">With the rebase method</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/conflicts.html#give-up-instead">Give up instead</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/conflicts.html#do-it-all-by-hand">Do it all by hand</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/conflicts.html#tips">Tips</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/partial.html">Nest only a part of upstream</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guides/partial.html#leave-paths-out-exclude">Leave paths out: <code class="docutils literal notranslate"><span class="pre">--exclude</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/partial.html#keep-only-some-paths-filter">Keep only some paths: <code class="docutils literal notranslate"><span class="pre">--filter</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/partial.html#one-folder-path">One folder: <code class="docutils literal notranslate"><span class="pre">--path</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/partial.html#limits">Limits</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/pin.html">Pin a release</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guides/pin.html#track-a-tag">Track a tag</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/pin.html#track-the-branch-stay-at-a-release">Track the branch, stay at a release</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/submodules.html">Upstream submodules</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guides/submodules.html#when-upstream-has-submodules">When upstream has submodules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/submodules.html#pull">Pull</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/submodules.html#push">Push</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/submodules.html#replace-your-own-submodule">Replace your own submodule</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/adopt.html">Adopt an existing folder</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guides/adopt.html#the-files-match-an-upstream-commit">The files match an upstream commit</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/adopt.html#you-know-the-upstream-commit">You know the upstream commit</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/adopt.html#you-do-not-know-the-commit">You do not know the commit</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/adopt.html#notes">Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/many.html">Many nested repositories at once</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guides/many.html#all"><code class="docutils literal notranslate"><span class="pre">--all</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/many.html#one-commit-for-all-single-commit">One commit for all: <code class="docutils literal notranslate"><span class="pre">--single-commit</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/many.html#one-branch-across-all-all-b">One branch across all: <code class="docutils literal notranslate"><span class="pre">--all</span> <span class="pre">-b</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/many.html#read-only-repositories">Read-only repositories</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/many.html#scripts">Scripts</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/squash-merges.html">Squash merges and rebases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guides/squash-merges.html#the-problem">The problem</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/squash-merges.html#what-git-nested-does">What git-nested does</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/squash-merges.html#fix-it-for-good">Fix it for good</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/squash-merges.html#when-it-can-not-be-found">When it can not be found</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/squash-merges.html#avoid-it">Avoid it</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/nested-in-nested.html">Nested repositories inside nested repositories</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guides/nested-in-nested.html#level-files">Level files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/nested-in-nested.html#pull-and-push-the-inner-one">Pull and push the inner one</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/nested-in-nested.html#pull-and-push-the-outer-one">Pull and push the outer one</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/nested-in-nested.html#status">Status</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/hooks-and-signing.html">Hooks and signing</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../guides/hooks-and-signing.html#hooks">Hooks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/hooks-and-signing.html#sign-off">Sign-off</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../guides/hooks-and-signing.html#gpg-signing">GPG signing</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/index.html">Architecture</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../architecture/index.html#goals">Goals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture/index.html#how-a-command-runs">How a command runs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture/index.html#modules">Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../architecture/index.html#command-line-cli">Command line: <code class="docutils literal notranslate"><span class="pre">cli/</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../architecture/index.html#commands-commands">Commands: <code class="docutils literal notranslate"><span class="pre">commands/</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../architecture/index.html#core">Core</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../architecture/index.html#support">Support</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture/index.html#key-decisions">Key decisions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../architecture/index.html#the-command-line-is-data">The command line is data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../architecture/index.html#rebuild-the-history-every-time">Rebuild the history every time</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../architecture/index.html#work-in-a-separate-worktree">Work in a separate worktree</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../architecture/index.html#leave-the-user-s-hooks-alone">Leave the user’s hooks alone</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../architecture/index.html#talk-like-git">Talk like git</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture/index.html#git-calls">Git calls</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/diagrams.html">Git call diagrams</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../architecture/diagrams.html#clone">clone</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture/diagrams.html#init">init</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture/diagrams.html#fetch">fetch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture/diagrams.html#pull">pull</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture/diagrams.html#push">push</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture/diagrams.html#branch">branch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture/diagrams.html#run">run</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture/diagrams.html#repair">repair</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture/diagrams.html#commit">commit</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture/diagrams.html#status">status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture/diagrams.html#diff">diff</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture/diagrams.html#clean">clean</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture/diagrams.html#config">config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../architecture/diagrams.html#version">version</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Contributing</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../contributing/development.html">Development</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../contributing/development.html#setup">Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributing/development.html#making-changes">Making changes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributing/development.html#tests">Tests</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../contributing/development.html#the-standalone-executable">The standalone executable</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../contributing/development.html#checks">Checks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributing/development.html#adding-a-command">Adding a command</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributing/development.html#commit-messages">Commit messages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributing/development.html#reporting-bugs-and-security-issues">Reporting bugs and security issues</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing/documentation.html">Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../contributing/documentation.html#build">Build</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributing/documentation.html#where-to-write-what">Where to write what</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributing/documentation.html#layout">Layout</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributing/documentation.html#writing-style">Writing style</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributing/documentation.html#markdown">Markdown</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contributing/documentation.html#publishing">Publishing</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">git-nested</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Install git-nested</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/thorsten-klein/git-nested/blob/main/doc/introduction/install.md" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="install-git-nested">
+<h1>Install git-nested<a class="headerlink" href="#install-git-nested" title="Link to this heading"></a></h1>
+<section id="requirements">
+<h2>Requirements<a class="headerlink" href="#requirements" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>git 2.23 or newer</p></li>
+<li><p>Python 3.10 or newer. The standalone executable does not need Python.</p></li>
+</ul>
+</section>
+<section id="pick-a-way-to-install">
+<h2>Pick a way to install<a class="headerlink" href="#pick-a-way-to-install" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Way</p></th>
+<th class="head"><p>Good for</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="#from-pypi">From PyPI</a></p></td>
+<td><p>Most people</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#standalone-executable">Standalone executable</a></p></td>
+<td><p>Machines without Python</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#from-source-with-shell-setup">From source, with shell setup</a></p></td>
+<td><p>Working on git-nested</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#from-source-by-hand">From source, by hand</a></p></td>
+<td><p>Full control</p></td>
+</tr>
+</tbody>
+</table>
+<p>After the install, <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">nested</span></code> works like any git command. git finds it
+because the program is called <code class="docutils literal notranslate"><span class="pre">git-nested</span></code> and is on your <code class="docutils literal notranslate"><span class="pre">PATH</span></code>.</p>
+<section id="from-pypi">
+<h3>From PyPI<a class="headerlink" href="#from-pypi" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>git-nested
+</pre></div>
+</div>
+<p>Or as a tool of its own, with <code class="docutils literal notranslate"><span class="pre">uv</span></code> or <code class="docutils literal notranslate"><span class="pre">pipx</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>tool<span class="w"> </span>install<span class="w"> </span>git-nested
+pipx<span class="w"> </span>install<span class="w"> </span>git-nested
+</pre></div>
+</div>
+<p>To get the newest code from GitHub instead of a release:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/thorsten-klein/git-nested
+</pre></div>
+</div>
+</section>
+<section id="standalone-executable">
+<h3>Standalone executable<a class="headerlink" href="#standalone-executable" title="Link to this heading"></a></h3>
+<p>Each <a class="reference external" href="https://github.com/thorsten-klein/git-nested/releases">release</a> has
+one archive per platform. The archive holds a single file with git-nested,
+Python and everything else it needs. Only git has to be installed.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Platform</p></th>
+<th class="head"><p>Asset</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Linux (x86_64)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">git-nested-&lt;version&gt;-x64-linux.tar.xz</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>macOS (Apple silicon)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">git-nested-&lt;version&gt;-arm64-macos.tar.xz</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Windows (x86_64)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">git-nested-&lt;version&gt;-x64-windows.zip</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p>On Linux:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># find the Linux asset of the newest release</span>
+<span class="nv">ASSET</span><span class="o">=</span><span class="k">$(</span>curl<span class="w"> </span>-sSL<span class="w"> </span>https://api.github.com/repos/thorsten-klein/git-nested/releases/latest<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-o<span class="w"> </span><span class="s1">&#39;https://[^&quot;]*x64-linux\.tar\.xz&#39;</span><span class="k">)</span>
+
+<span class="c1"># download and unpack it</span>
+curl<span class="w"> </span>-sSL<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$ASSET</span><span class="s2">&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>tar<span class="w"> </span>-xJ
+sudo<span class="w"> </span>install<span class="w"> </span>git-nested<span class="w"> </span>/usr/local/bin/<span class="w">   </span><span class="c1"># any folder on PATH works</span>
+</pre></div>
+</div>
+<p>Keep the file name <code class="docutils literal notranslate"><span class="pre">git-nested</span></code> (<code class="docutils literal notranslate"><span class="pre">git-nested.exe</span></code> on Windows). That is how
+git finds it. The archive also has a copy with the version in its name, for
+example <code class="docutils literal notranslate"><span class="pre">git-nested-1.2.3</span></code>.</p>
+<blockquote>
+<div><p>[!NOTE]
+The Linux binary needs glibc 2.28 or newer. It runs on Ubuntu 20.04,
+Debian 10, RHEL 8 and newer. It does not run on musl systems such as
+Alpine.</p>
+</div></blockquote>
+<blockquote>
+<div><p>[!NOTE]
+The macOS binary is not signed. macOS blocks it after the download. Run
+this once to allow it:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>xattr<span class="w"> </span>-d<span class="w"> </span>com.apple.quarantine<span class="w"> </span>git-nested
+</pre></div>
+</div>
+</div></blockquote>
+</section>
+<section id="from-source-with-shell-setup">
+<h3>From source, with shell setup<a class="headerlink" href="#from-source-with-shell-setup" title="Link to this heading"></a></h3>
+<p>This puts git-nested on your <code class="docutils literal notranslate"><span class="pre">PATH</span></code>, adds the manual page and turns on tab
+completion.</p>
+<p>For bash and zsh:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/thorsten-klein/git-nested<span class="w"> </span>/path/to/git-nested
+<span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;source /path/to/git-nested/.rc&#39;</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>~/.bashrc
+<span class="nb">source</span><span class="w"> </span>~/.bashrc
+</pre></div>
+</div>
+<p>For fish:</p>
+<div class="highlight-fish notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/thorsten-klein/git-nested /path/to/git-nested
+<span class="k">echo</span> <span class="s1">&#39;source /path/to/git-nested/.fish.rc&#39;</span> <span class="o">&gt;&gt;</span> ~/.config/fish/config.fish
+</pre></div>
+</div>
+</section>
+<section id="from-source-by-hand">
+<h3>From source, by hand<a class="headerlink" href="#from-source-by-hand" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/thorsten-klein/git-nested<span class="w"> </span>/path/to/git-nested
+<span class="nb">export</span><span class="w"> </span><span class="nv">PATH</span><span class="o">=</span><span class="s2">&quot;/path/to/git-nested/bin:</span><span class="nv">$PATH</span><span class="s2">&quot;</span>
+</pre></div>
+</div>
+<p>Add the <code class="docutils literal notranslate"><span class="pre">export</span></code> line to your shell profile (<code class="docutils literal notranslate"><span class="pre">~/.bashrc</span></code>, <code class="docutils literal notranslate"><span class="pre">~/.zshrc</span></code>) to
+keep it.</p>
+</section>
+</section>
+<section id="shell-completion">
+<h2>Shell completion<a class="headerlink" href="#shell-completion" title="Link to this heading"></a></h2>
+<p>The shell setup from source turns completion on for you. For any other way,
+add one line to your shell profile:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># ~/.bashrc</span>
+<span class="nb">eval</span><span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>git-nested<span class="w"> </span>completion<span class="w"> </span>bash<span class="k">)</span><span class="s2">&quot;</span>
+
+<span class="c1"># ~/.zshrc, after compinit</span>
+<span class="nb">eval</span><span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>git-nested<span class="w"> </span>completion<span class="w"> </span>zsh<span class="k">)</span><span class="s2">&quot;</span>
+</pre></div>
+</div>
+<div class="highlight-fish notranslate"><div class="highlight"><pre><span></span><span class="c"># ~/.config/fish/config.fish</span>
+git-nested completion <span class="nb">fish</span> <span class="o">|</span> <span class="nb">source</span>
+</pre></div>
+</div>
+<p>The script comes from git-nested itself. So it always matches the version
+you have. It completes commands, options, nested folders and branch names.
+See <a class="reference internal" href="../cli/completion.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">nested</span> <span class="pre">completion</span></code></span></a>.</p>
+</section>
+<section id="manual-page">
+<h2>Manual page<a class="headerlink" href="#manual-page" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">nested</span> <span class="pre">--help</span></code> opens the manual page. git has to find it on your
+<code class="docutils literal notranslate"><span class="pre">MANPATH</span></code>.</p>
+<ul class="simple">
+<li><p>The shell setup from source does this for you.</p></li>
+<li><p>The standalone archive has the page in <code class="docutils literal notranslate"><span class="pre">man/man1/</span></code>.</p></li>
+<li><p>Otherwise add it yourself:</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">MANPATH</span><span class="o">=</span><span class="s2">&quot;/path/to/git-nested/man:</span><span class="nv">$MANPATH</span><span class="s2">&quot;</span>
+</pre></div>
+</div>
+<p>Help for one command needs no setup. <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">nested</span> <span class="pre">pull</span> <span class="pre">--help</span></code> prints the
+options and some examples.</p>
+</section>
+<section id="check-the-install">
+<h2>Check the install<a class="headerlink" href="#check-the-install" title="Link to this heading"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>nested<span class="w"> </span>version
+</pre></div>
+</div>
+<p>This prints the git-nested version, where it is installed and the git
+version.</p>
+</section>
+<section id="next-step">
+<h2>Next step<a class="headerlink" href="#next-step" title="Link to this heading"></a></h2>
+<p><a class="reference internal" href="../quickstart/05-minutes.html"><span class="std std-doc">git-nested in 5 minutes</span></a></p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="About git-nested" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../quickstart/05-minutes.html" class="btn btn-neutral float-right" title="git-nested in 5 minutes" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright Thorsten Klein.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
