@@ -408,7 +408,7 @@ def test_check_repository_returns_no_head_in_empty_repo():
         .respond('rev-parse', 'HEAD', stdout='HEAD', returncode=128)
     )
 
-    git_tmp, head_commit = checks.check_repository(git, 'clone')
+    git_tmp, head_commit = checks.check_repository(git, 'clone', Flags())
 
     assert git_tmp == Path('.git/tmp')
     assert head_commit is None
