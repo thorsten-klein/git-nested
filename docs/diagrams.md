@@ -530,6 +530,10 @@ sequenceDiagram
 
     git-nested->>Git: config nested.<subref>.branchname <name>
     Note over git-nested: Or config --unset, for the default name
+
+    Note over git-nested: A remote of the same name tracks upstream
+    git-nested->>Git: remote add -t <branch> nested/<subref> <remote>
+    git-nested->>Git: config branch.nested/<subref>.remote/.merge, remote push refspec
 ```
 
 ---
@@ -784,6 +788,8 @@ sequenceDiagram
     git-nested->>Git: worktree prune
     git-nested->>Git: rev-parse --git-dir
     Note over git-nested: Remove empty parent dirs up to .git/tmp
+
+    git-nested->>Git: remote remove nested/<subref>
 
     git-nested->>Git: rev-list refs/heads/nested/<subref> -1
     alt Branch exists

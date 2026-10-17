@@ -475,6 +475,10 @@ The read-only keys are written by the nested operations themselves; setting one
 by hand would describe a state the repository is not in. A write stages the
 changed `.gitnested` file, it does not commit it.
 
+The branch tracks the upstream through a remote of the same name. So plain
+`git fetch`, `git pull` and `git push` in its worktree talk to the upstream.
+`git nested clean` removes that remote again.
+
 **Example:**
 ```bash
 git nested config ext/lib method rebase

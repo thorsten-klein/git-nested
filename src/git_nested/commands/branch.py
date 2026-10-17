@@ -47,6 +47,8 @@ def cmd_branch(ctx: CommandContext) -> None:
         worktree_dir=target,
     )
     refs.record_nested_branch(git, subref, branch)
+    refs.untrack_upstream(git, current)
+    refs.track_upstream(git, branch, config.remote, config.branch)
     output.say(f"{subdir.as_posix()}: branch {branch} created, worktree at {subdir_worktree.as_posix()}")
 
 

@@ -23,6 +23,7 @@ def do_clean(git: GitRunner, flags: Flags, subdir: Path, git_tmp: Path) -> list[
 def _delete_branch(git: GitRunner, branch: str, git_tmp: Path) -> list[str]:
     """Remove `branch` and its worktree; return what was removed."""
     worktree.remove_worktree(git, worktree.find_worktree(git, branch) or git_tmp / branch)
+    refs.untrack_upstream(git, branch)
     if not git.branch_exists(branch):
         return []
     git.run(['update-ref', '-d', f'refs/heads/{branch}'])
