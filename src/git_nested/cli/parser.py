@@ -72,6 +72,7 @@ def _flags_from_args(args: argparse.Namespace) -> Flags:
         recurse_submodules=getattr(args, 'recurse_submodules', False),
         gpg_sign=getattr(args, 'gpg_sign', False),
         signoff=getattr(args, 'signoff', False),
+        single_commit=getattr(args, 'single_commit', False),
         fetch=getattr(args, 'fetch_flag', False),
         short=getattr(args, 'short', False),
         no_squash=getattr(args, 'no_squash', False),
@@ -126,6 +127,8 @@ def parse_args(git: GitRunner, args_list: list[str]) -> tuple[str, CommandContex
 
     flags = _flags_from_args(args)
     _check_flags(flags)
+    if flags.single_commit and not flags.all:
+        output.usage_error("--single-commit needs --all")
 
     upstream = getattr(args, 'upstream', None)
     subdir = getattr(args, 'subdir', None)
