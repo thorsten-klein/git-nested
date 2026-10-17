@@ -239,9 +239,10 @@ def _replay_into_branch(replay: _Replay, rev_list: list[str], branch: str, plain
     git = replay.git
     lines = git.check_output(['rev-list', '--reverse', '--topo-order', '--parents', *rev_list]).splitlines()
     add = replay.add_plain if plain else replay.add
-    for line in lines:
+    for done, line in enumerate(lines, 1):
         commit, *parents = line.split()
         add(commit, parents)
+        output.progress(f'{replay.subdir.as_posix()}: rebuilding the nested history', done, len(lines))
     tip = replay.nested.get(lines[-1].split()[0]) if lines else None
     if tip is None:
         return False
