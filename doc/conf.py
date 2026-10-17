@@ -82,6 +82,10 @@ html_static_path = ['_static']
 html_css_files = ['custom.css']
 html_js_files = ['custom.js']
 
+# The logo on top of the sidebar. The browser tab shows only its mark.
+html_logo = '_static/logo.svg'
+html_favicon = '_static/favicon.svg'
+
 html_theme_options = {
     'collapse_navigation': False,
     'navigation_depth': 3,
