@@ -45,13 +45,7 @@ def do_pull(
         command='pull',
     )
 
-    # The nested branch only ever held the filtered subset of upstream, so a
-    # merge of the raw upstream would see every file left out as deleted
-    # locally, and conflict wherever upstream touched one. A filtered view of
-    # the fetched commit leaves only the files that matter to conflict.
-    merge_target = f'refs/nested/{subref}/fetch'
-    if config.filter:
-        merge_target = filters.build_filtered_commit(git, subdir_worktree, config.filter, upstream_head_commit)
+    merge_target = _merge_target(git, config, subdir_worktree, subref, upstream_head_commit)
 
     method = flags.method or config.method
     cmd = _join_command(method, config, merge_target, branch)
@@ -79,6 +73,18 @@ def _join_command(method: str, config: NestedConfig, merge_target: str, branch: 
     # --ff and --no-edit: the user's merge.ff must not apply here.
     # Without a parent the histories are unrelated (nested-in-nested repos).
     return ['merge', '--ff', '--no-edit', merge_target, *([] if config.parent else ['--allow-unrelated-histories'])]
+
+
+def _merge_target(git: GitRunner, config: NestedConfig, worktree_dir: Path, subref: str, upstream: str) -> str:
+    """What the nested branch is merged with: upstream, or the part of it git-nested manages.
+
+    The nested branch only ever held that part. A merge of all of upstream
+    would see every file left out as deleted locally, and conflict wherever
+    upstream touched one.
+    """
+    if not (config.filter or config.exclude):
+        return f'refs/nested/{subref}/fetch'
+    return filters.build_filtered_commit(git, worktree_dir, config.filter or [], config.exclude or [], upstream)
 
 
 def cmd_pull(ctx: CommandContext) -> None:

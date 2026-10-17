@@ -65,6 +65,7 @@ def _flags_from_args(args: argparse.Namespace) -> Flags:
         all=getattr(args, 'all_flag', False) or getattr(args, 'ALL_flag', False),
         all_deep=getattr(args, 'ALL_flag', False),
         commit=getattr(args, 'commit', False),
+        exclude=getattr(args, 'exclude', []),
         filter=getattr(args, 'filter', []),
         force=getattr(args, 'force', False),
         from_submodule=getattr(args, 'from_submodule', False),

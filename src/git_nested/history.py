@@ -10,7 +10,7 @@ from pathlib import Path, PurePosixPath
 
 import yaml
 
-from . import messages, output
+from . import filters, messages, output
 from .constants import GIT_LOG_DATE_DEFAULT_FLAG, GITNESTED_FILENAME
 from .errors import GitNestedError
 from .git import GitRunner
@@ -108,6 +108,7 @@ class _Replay:
     removed: list[str]
     sign: bool = False
     gitlinked: tuple[str, ...] = ()
+    keep: tuple[list[str], list[str]] | None = None
     nested: dict[str, str] = field(default_factory=dict)
     joined: dict[str, str | None] = field(default_factory=dict)
     trees: dict[str, str] = field(default_factory=dict)
@@ -167,6 +168,8 @@ class _Replay:
         self.git.run(['rm', '--cached', '-r', '-q', '-f', '--ignore-unmatch', '--', *self.removed], env=self.index_env)
         for path in self.gitlinked:
             self._as_gitlink(commit, path)
+        if self.keep:
+            self._keep_unmanaged(commit, *self.keep)
         return self.git.check_output(['write-tree'], env=self.index_env)
 
     def _as_gitlink(self, commit: str, path: str) -> None:
@@ -178,6 +181,17 @@ class _Replay:
         if pinned:
             self.git.run(['rm', '--cached', '-r', '-q', '-f', '--ignore-unmatch', '--', path], env=self.index_env)
             self.git.run(['update-index', '--add', '--cacheinfo', f'160000,{pinned},{path}'], env=self.index_env)
+
+    def _keep_unmanaged(self, commit: str, entries: list[str], exclude: list[str]) -> None:
+        """Put back the upstream files git-nested does not manage, so a push does not delete them.
+
+        They come from the upstream commit `commit` records.
+        """
+        upstream = _recorded_commit(self.git, commit, self.subdir / GITNESTED_FILENAME)
+        if upstream:
+            _, rest = filters.split(self.git, upstream, entries, exclude)
+            info = ''.join(f'{line}\0' for line in rest)
+            self.git.run(['update-index', '-z', '--index-info'], env=self.index_env, input=info)
 
 
 def _usable_parent(git: GitRunner, parent: str, gitnested: Path, subdir: Path) -> str:
@@ -216,6 +230,13 @@ def _replay_into_branch(replay: _Replay, rev_list: list[str], branch: str, plain
     return True
 
 
+def _unmanaged_to_keep(config: NestedConfig, command: str) -> tuple[list[str], list[str]] | None:
+    """For a push with a filter or excludes: (filter, exclude), so it gives back what git-nested does not manage."""
+    if command != 'push' or not (config.filter or config.exclude):
+        return None
+    return config.filter or [], config.exclude or []
+
+
 def create_branch(
     git: GitRunner,
     flags: Flags,
@@ -241,7 +262,8 @@ def create_branch(
     merge = (flags.method or config.method) != 'rebase'
     with tempfile.TemporaryDirectory() as tmp:
         index_env = {**os.environ, 'GIT_INDEX_FILE': str(Path(tmp) / 'index')}
-        replay = _Replay(git, subdir, subref, command, merge, index_env, removed, flags.gpg_sign, gitlinked)
+        keep = _unmanaged_to_keep(config, command)
+        replay = _Replay(git, subdir, subref, command, merge, index_env, removed, flags.gpg_sign, gitlinked, keep)
         if parent:
             built = _replay_into_branch(replay, ['--ancestry-path', f'{parent}..HEAD'], branch, plain=False)
         else:

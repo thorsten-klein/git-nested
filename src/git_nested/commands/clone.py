@@ -159,6 +159,7 @@ def _clone_into(
     upstream_head_commit = fetched or fetch.do_fetch(git, config, subref)
 
     config.filter = flags.filter or config.filter
+    config.exclude = flags.exclude or config.exclude
     output.verbose(f"creating {subdir.as_posix()}/")
     subdir.mkdir(parents=True, exist_ok=True)
     output.verbose(f"committing the new {subdir.as_posix()}/ content")
