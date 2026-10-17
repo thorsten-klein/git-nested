@@ -100,6 +100,32 @@ def test_branch(foo_bar_cloned_and_nested):
     assert current_gitnested == original_gitnested
 
 
+def test_branch_allows_changes_outside_subdir(foo_bar_cloned_and_nested):
+    """branch reads committed content, so other dirty paths do not block it"""
+    env = foo_bar_cloned_and_nested
+
+    (env.workspace / 'foo' / 'outer').write_text('uncommitted\n')
+    env.run(['git', 'add', 'outer'], cwd=env.workspace / 'foo')
+
+    result = cmd_git_nested('branch bar', cwd=env.workspace / 'foo')
+    assert result.output.strip() == "bar: branch nested/bar created, worktree at .git/tmp/nested/bar"
+
+
+def test_branch_warns_when_subdir_has_uncommitted_changes(foo_bar_cloned_and_nested):
+    """branch warns when the nested subdir is dirty, then ignores that dirt"""
+    env = foo_bar_cloned_and_nested
+
+    target = env.workspace / 'foo' / 'bar' / 'Bar'
+    original = target.read_text()
+    target.write_text(original + 'local only\n')
+    env.run(['git', 'add', 'bar/Bar'], cwd=env.workspace / 'foo')
+
+    result = cmd_git_nested('branch bar', cwd=env.workspace / 'foo')
+    assert "git-nested: bar: has uncommitted changes; branch uses only committed content" in result.output
+    assert "bar: branch nested/bar created, worktree at .git/tmp/nested/bar" in result.output
+    assert (env.workspace / 'foo' / '.git' / 'tmp' / 'nested' / 'bar' / 'Bar').read_text() == original
+
+
 def test_branch_all(foo_bar_cloned):
     """Test commands work using --all flag"""
     env = foo_bar_cloned

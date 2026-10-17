@@ -214,6 +214,7 @@ COMMAND_DESCRIPTION: dict[str, str] = {
         "and check it out in a worktree, at <dir> if given. Use it to look at the nested history on its own, "
         "or to fix up a pull that stopped on conflicts. If <dir> already holds the worktree of <subdir>, "
         "the branch is rebuilt there; the worktree of anything else is never touched. "
+        "Other changes in the parent repository do not matter; uncommitted changes in <subdir> are warned about and ignored. "
         "--name picks another branch name than nested/<subdir>; it is remembered, "
         "so the other commands use that branch too, until 'git nested clean'."
     ),
@@ -241,7 +242,7 @@ COMMAND_DESCRIPTION: dict[str, str] = {
     ),
     'diff': (
         "Show what <subdir> has locally that its upstream does not, as an ordinary diff. "
-        "Nothing is fetched first unless you ask for it."
+        "Other changes in the parent repository do not matter; uncommitted changes in <subdir> are warned about and ignored."
     ),
     'fetch': (
         "Fetch the upstream branch of <subdir> into a local ref, without changing any file. "
@@ -258,7 +259,8 @@ COMMAND_DESCRIPTION: dict[str, str] = {
     ),
     'push': (
         "Send the commits you made in <subdir> to its upstream. "
-        "Only the changes inside the subdirectory go; the rest of the parent repository is not part of it."
+        "Only the changes inside the subdirectory go; the rest of the parent repository is not part of it. "
+        "Without --commit, other changes in the parent repository do not matter; uncommitted changes in <subdir> are warned about and ignored."
     ),
     'repair': (
         "Fix the parent recorded in <subdir>/.gitnested when it is no longer part of the current history, "

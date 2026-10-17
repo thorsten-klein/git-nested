@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from . import output
 from .errors import GitNestedError
 from .git import GitRunner
+from .models import Flags
 
 
-def check_repository(git: GitRunner, command: str) -> tuple[Path | None, str | None]:
+def check_repository(git: GitRunner, command: str, flags: Flags) -> tuple[Path | None, str | None]:
     """Check that repository is ready.
 
     Returns:
@@ -37,12 +39,18 @@ def check_repository(git: GitRunner, command: str) -> tuple[Path | None, str | N
     if git.check_output(['rev-parse', '--is-inside-work-tree'], may_fail=True) != 'true':
         raise GitNestedError("not inside a git working tree")
 
-    check_worktree_clean(git, command)
+    if _needs_clean_worktree(command, flags):
+        check_worktree_clean(git, command)
 
     # `git rev-parse HEAD` prints the literal string `HEAD` on an unborn branch,
     # so the exit code has to decide whether there is a commit.
     head = git.run(['rev-parse', 'HEAD'], may_fail=True)
     return git_tmp, head.stdout.strip() if head.returncode == 0 else None
+
+
+def _needs_clean_worktree(command: str, flags: Flags) -> bool:
+    """Whether `command` writes to the parent worktree or index."""
+    return command in ['clone', 'commit', 'init', 'pull', 'repair'] or (command == 'push' and flags.commit)
 
 
 def check_worktree_clean(git: GitRunner, command: str) -> None:
@@ -64,3 +72,24 @@ def check_worktree_clean(git: GitRunner, command: str) -> None:
         raise GitNestedError(f"{pwd}: can't {command}, the working tree has changes")
     if git.run(['diff-index', '--quiet', '--cached', '--ignore-submodules', 'HEAD'], may_fail=True).returncode != 0:
         raise GitNestedError(f"{pwd}: can't {command}, the index has changes")
+
+
+def warn_uncommitted_subdir_changes(git: GitRunner, command: str, flags: Flags, subdir: Path) -> None:
+    """Warn when `command` ignores uncommitted changes in `subdir`."""
+    if command not in ['branch', 'diff', 'push'] or (command == 'push' and flags.commit):
+        return
+
+    git.run(['update-index', '-q', '--ignore-submodules', '--refresh'], may_fail=True)
+    pathspec = ['--', subdir.as_posix()]
+    if git.run(['diff-files', '--quiet', '--ignore-submodules', *pathspec], may_fail=True).returncode != 0:
+        output.warn(f"{subdir.as_posix()}: has uncommitted changes; {command} uses only committed content")
+        return
+    if git.run(['rev-parse', '--verify', 'HEAD'], may_fail=True).returncode != 0:
+        return
+    if (
+        git.run(
+            ['diff-index', '--quiet', '--cached', '--ignore-submodules', 'HEAD', *pathspec], may_fail=True
+        ).returncode
+        != 0
+    ):
+        output.warn(f"{subdir.as_posix()}: has uncommitted changes; {command} uses only committed content")

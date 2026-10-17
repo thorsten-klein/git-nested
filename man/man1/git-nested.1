@@ -25,6 +25,14 @@ date. That file is what
 and
 .B git nested push
 use to move changes between your subdirectory and its upstream.
+.PP
+The commands that read only committed nested history \-\-
+.BR branch ,
+.B diff
+and
+.B "push without --commit"
+\-\- do not need a clean parent working tree.
+If the nested subdirectory itself has uncommitted tracked changes, git-nested warns and ignores them.
 .SH COMMANDS
 .TP
 .B branch

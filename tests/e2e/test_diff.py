@@ -83,18 +83,28 @@ def test_diff_no_remote(env):
     assert result.output.strip() == "doc: skipped, it has no remote"
 
 
-def test_diff_requires_clean_worktree(foo_bar_cloned_and_nested):
-    """Test that diff refuses to run while there are uncommitted changes in the outer repo"""
+def test_diff_allows_changes_outside_subdir(foo_bar_cloned_and_nested):
+    """diff reads committed content, so other dirty paths do not block it"""
     env = foo_bar_cloned_and_nested
 
-    (env.workspace / 'foo' / 'untracked_file').write_text('uncommitted\n')
-    env.run(['git', 'add', 'untracked_file'], cwd=env.workspace / 'foo')
+    (env.workspace / 'foo' / 'outer').write_text('uncommitted\n')
+    env.run(['git', 'add', 'outer'], cwd=env.workspace / 'foo')
 
-    result = cmd_git_nested('diff bar', cwd=env.workspace / 'foo', check=False)
-    assert result.returncode == 1
-    assert (
-        result.output.strip() == f"git-nested: {env.workspace.as_posix()}/foo: can't diff, the working tree has changes"
-    )
+    result = cmd_git_nested('diff bar', cwd=env.workspace / 'foo')
+    assert result.output.strip() == f"bar: no differences from {env.upstream.as_posix()}/bar (master)"
+
+
+def test_diff_warns_when_subdir_has_uncommitted_changes(foo_bar_cloned_and_nested):
+    """diff warns when the nested subdir is dirty, then ignores that dirt"""
+    env = foo_bar_cloned_and_nested
+
+    target = env.workspace / 'foo' / 'bar' / 'Bar'
+    target.write_text(target.read_text() + 'local only\n')
+    env.run(['git', 'add', 'bar/Bar'], cwd=env.workspace / 'foo')
+
+    result = cmd_git_nested('diff bar', cwd=env.workspace / 'foo')
+    assert "git-nested: bar: has uncommitted changes; diff uses only committed content" in result.output
+    assert f"bar: no differences from {env.upstream.as_posix()}/bar (master)" in result.output
 
 
 def test_diff_all(foo_bar_cloned):

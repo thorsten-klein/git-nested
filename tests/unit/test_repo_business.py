@@ -365,8 +365,35 @@ def test_check_repository_raises_on_nested_branch_checked_out():
         .respond('rev-parse', '--git-common-dir', stdout='.git')
         .respond('symbolic-ref', stdout='nested/sub')
     )
+    flags = Flags()
     with pytest.raises(GitNestedError, match="while the nested branch"):
-        checks.check_repository(git, 'pull')
+        checks.check_repository(git, 'pull', flags)
+
+
+def test_check_repository_skips_clean_tree_for_branch():
+    git = (
+        FakeGit()
+        .respond('rev-parse', '--git-dir', stdout='.git')
+        .respond('symbolic-ref', returncode=1)
+        .respond('rev-parse', '--is-inside-work-tree', stdout='true')
+        .respond('rev-parse', 'HEAD', stdout='deadbeef')
+    )
+    assert checks.check_repository(git, 'branch', Flags()) == (Path('.git/tmp'), 'deadbeef')
+    assert ('update-index', '-q', '--ignore-submodules', '--refresh') not in git.calls
+
+
+def test_check_repository_checks_clean_tree_for_push_commit():
+    git = (
+        FakeGit()
+        .respond('rev-parse', '--git-dir', stdout='.git')
+        .respond('symbolic-ref', returncode=1)
+        .respond('rev-parse', '--is-inside-work-tree', stdout='true')
+        .respond('update-index', returncode=0)
+        .respond('diff-files', '--quiet', '--ignore-submodules', returncode=1)
+    )
+    flags = Flags(commit=True)
+    with pytest.raises(GitNestedError, match="there are unstaged changes"):
+        checks.check_repository(git, 'push', flags)
 
 
 def test_check_repository_returns_no_head_in_empty_repo():
@@ -381,7 +408,7 @@ def test_check_repository_returns_no_head_in_empty_repo():
         .respond('rev-parse', 'HEAD', stdout='HEAD', returncode=128)
     )
 
-    git_tmp, head_commit = checks.check_repository(git, 'clone')
+    git_tmp, head_commit = checks.check_repository(git, 'clone', Flags())
 
     assert git_tmp == Path('.git/tmp')
     assert head_commit is None
@@ -398,6 +425,12 @@ def test_check_worktree_clean_raises_when_head_unverifiable():
     git = _clean_up_to_head(verify=(('rev-parse', '--verify', 'HEAD'), 1))
     with pytest.raises(GitNestedError, match="HEAD cannot be verified"):
         checks.check_worktree_clean(git, 'pull')
+
+
+def test_check_worktree_clean_skips_commands_that_do_not_need_it():
+    git = FakeGit()
+    checks.check_worktree_clean(git, 'status')
+    assert git.calls == []
 
 
 def test_check_worktree_clean_raises_when_index_has_changes():
@@ -418,6 +451,54 @@ def test_check_worktree_clean_raises_on_unstaged_changes():
     )
     with pytest.raises(GitNestedError, match="there are unstaged changes"):
         checks.check_worktree_clean(git, 'pull')
+
+
+def test_warn_uncommitted_subdir_changes_warns_on_unstaged_changes(monkeypatch):
+    seen: list[str] = []
+    monkeypatch.setattr(checks.output, 'warn', seen.append)
+    git = (
+        FakeGit()
+        .respond('update-index', returncode=0)
+        .respond('diff-files', '--quiet', '--ignore-submodules', '--', 'sub', returncode=1)
+    )
+    checks.warn_uncommitted_subdir_changes(git, 'diff', Flags(), Path('sub'))
+    assert seen == ['sub: has uncommitted changes; diff uses only committed content']
+
+
+def test_warn_uncommitted_subdir_changes_warns_on_staged_changes(monkeypatch):
+    seen: list[str] = []
+    monkeypatch.setattr(checks.output, 'warn', seen.append)
+    git = (
+        FakeGit()
+        .respond('update-index', returncode=0)
+        .respond('diff-files', '--quiet', '--ignore-submodules', '--', 'sub', returncode=0)
+        .respond('rev-parse', '--verify', 'HEAD', returncode=0)
+        .respond('diff-index', '--quiet', '--cached', '--ignore-submodules', 'HEAD', '--', 'sub', returncode=1)
+    )
+    checks.warn_uncommitted_subdir_changes(git, 'branch', Flags(), Path('sub'))
+    assert seen == ['sub: has uncommitted changes; branch uses only committed content']
+
+
+def test_warn_uncommitted_subdir_changes_skips_empty_head(monkeypatch):
+    seen: list[str] = []
+    monkeypatch.setattr(checks.output, 'warn', seen.append)
+    git = (
+        FakeGit()
+        .respond('update-index', returncode=0)
+        .respond('diff-files', '--quiet', '--ignore-submodules', '--', 'sub', returncode=0)
+        .respond('rev-parse', '--verify', 'HEAD', returncode=1)
+    )
+    checks.warn_uncommitted_subdir_changes(git, 'diff', Flags(), Path('sub'))
+    assert seen == []
+
+
+def test_warn_uncommitted_subdir_changes_skips_push_commit(monkeypatch):
+    seen: list[str] = []
+    monkeypatch.setattr(checks.output, 'warn', seen.append)
+    git = FakeGit()
+    checks.warn_uncommitted_subdir_changes(git, 'push', Flags(commit=True), Path('sub'))
+    assert seen == []
+    assert git.calls == []
 
 
 # ============================================================================
