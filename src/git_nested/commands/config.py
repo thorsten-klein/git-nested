@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .. import gitfile, output, yamlio
+from .. import configio, gitfile, output
 from ..cli import setup
 from ..errors import GitNestedError
 from ..git import GitRunner
@@ -22,7 +22,7 @@ def read_fields(gitnested: Path) -> dict[str, str]:
     """The fields the .gitnested file actually sets, in the documented order, each as one line."""
     if not gitnested.is_file():
         raise GitNestedError(f"{gitnested.as_posix()} does not exist")
-    nested = yamlio._read_yaml_config(gitnested).get('nested') or {}
+    nested = configio.read(gitnested).get('nested') or {}
     return {
         # A filter is a list; it prints as one space-separated line.
         field: ' '.join(map(str, value)) if isinstance(value, list) else str(value)
@@ -39,9 +39,9 @@ def write_field(git: GitRunner, gitnested: Path, key: str, value: str) -> None:
     valid = _VALID_VALUES.get(key)
     if valid and value not in valid:
         raise GitNestedError(f"{value} is not a valid {key}; use one of {', '.join(valid)}")
-    data = yamlio._read_yaml_config(gitnested)
+    data = configio.read(gitnested)
     data.setdefault('nested', {})[key] = value
-    yamlio._write_yaml_config(gitnested, data)
+    configio.write(gitnested, data)
     git.run(['add', '-f', '--', gitnested])
 
 

@@ -3,7 +3,7 @@
 The words this documentation uses, in alphabetical order.
 
 **`.gitnested` file**
-: A small YAML file in each nested folder. It records the upstream, the
+: A small YAML or TOML file in each nested folder. It records the upstream, the
   branch, the upstream commit and the sync point. It is committed to your
   repository, but never pushed upstream. See
   [The `.gitnested` file](../configuration/gitnested-file.md).

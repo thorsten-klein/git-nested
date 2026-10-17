@@ -8,9 +8,7 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
-import yaml
-
-from . import filters, messages, output
+from . import configio, filters, messages, output
 from .constants import GIT_LOG_DATE_DEFAULT_FLAG, GITNESTED_FILENAME
 from .errors import GitNestedError
 from .git import GitRunner
@@ -26,8 +24,8 @@ def _recorded_commit(git: GitRunner, rev: str, gitnested: Path) -> str | None:
     """The upstream commit gitnested records as of rev, or None if it records none there."""
     gitrepo_content = git.check_output(['cat-file', '-p', f'{rev}:{gitnested.as_posix()}'], may_fail=True)
     try:
-        commit = (yaml.safe_load(gitrepo_content) or {}).get('nested', {}).get('commit')
-    except yaml.YAMLError:
+        commit = configio.parse(gitrepo_content).get('nested', {}).get('commit')
+    except GitNestedError:
         return None
     return commit.strip() if commit else None
 

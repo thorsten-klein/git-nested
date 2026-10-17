@@ -5,7 +5,7 @@ the content comes from, and how far it is in step with upstream.
 
 - It is committed to your repository.
 - It is never pushed upstream.
-- It is YAML. All fields sit under `nested:`.
+- It is YAML or TOML. All fields sit under `nested`.
 
 Read and change it with [`git nested config`](../cli/config.md), not by
 hand.
@@ -24,6 +24,31 @@ nested:
   branch: main
   parent: b2dfdc71d112c5e7102726c32c323901a9457630
 ```
+
+## TOML
+
+With Python 3.11 or newer, `.gitnested` can also be TOML:
+
+```toml
+# This subdirectory is managed by "git nested".
+# Refer to: https://github.com/thorsten-klein/git-nested#readme
+#
+[nested]
+commit = "401b344cd6917389538657fa06cd5f007dfb664c"
+method = "merge"
+cmdver = "1.1.1"
+remote = "https://github.com/user/lib"
+branch = "main"
+parent = "b2dfdc71d112c5e7102726c32c323901a9457630"
+```
+
+- A file with a `[nested]` line is TOML. Any other file is YAML.
+- git-nested keeps the format of a file when it writes it.
+- New files are YAML. Set [`nested.format`](git-config.md#nestedformat) to
+  `toml` to get TOML instead.
+- Python 3.10 cannot read TOML. There, git-nested stops with an error.
+
+You can turn a YAML file into TOML by hand. The fields stay the same.
 
 ## Fields
 

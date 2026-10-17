@@ -79,7 +79,7 @@ One module per command, for example `commands/pull.py`. Each has one
 | `output.py` | everything git-nested prints; hides credentials |
 | `messages.py` | the long help texts, for example after a conflict |
 | `models.py` | `Flags`, `NestedConfig`, `CommandContext` |
-| `yamlio.py` | reads and writes the YAML of `.gitnested` |
+| `configio.py` | reads and writes `.gitnested`, as YAML or TOML |
 | `errors.py` | `GitNestedError`, the one exception type |
 | `constants.py` | shared names |
 | `_version.py` | the version |

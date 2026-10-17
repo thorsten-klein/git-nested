@@ -6,8 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-import yaml
-
+from . import configio
 from .errors import GitNestedError
 
 if TYPE_CHECKING:
@@ -71,11 +70,11 @@ class NestedConfig:
 
     @classmethod
     def from_file(cls, filepath: str | Path) -> NestedConfig:
-        """Read config from .gitnested YAML file."""
+        """Read config from a .gitnested file."""
         path = Path(filepath)
         if not path.is_file():
             raise GitNestedError(f"{path.as_posix()} does not exist")
-        nested = (yaml.safe_load(path.read_text(encoding='utf-8')) or {}).get('nested', {})
+        nested = configio.read(path).get('nested', {})
         config = cls(
             remote=nested.get('remote', ''),
             branch=nested.get('branch', ''),

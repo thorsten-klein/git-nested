@@ -14,10 +14,10 @@ from git_nested import (
     NestedConfig,
     _compat,
     _version,
+    configio,
     gitfile,
     refs,
     submodules,
-    yamlio,
 )
 from git_nested import __main__ as dunder_main
 from git_nested import git as git_module
@@ -219,7 +219,7 @@ def test_worktree_paths_outside_the_repository_stay_absolute(tmp_path, monkeypat
 def test_gitnested_is_written_with_lf(tmp_path):
     """No CRLF, also on Windows, so the file is the same on every platform."""
     gitnested = tmp_path / '.gitnested'
-    yamlio._write_yaml_config(gitnested, {'nested': {'remote': 'x', 'branch': 'main'}})
+    configio.write(gitnested, {'nested': {'remote': 'x', 'branch': 'main'}})
     assert b'\r\n' not in gitnested.read_bytes()
 
 
