@@ -74,6 +74,9 @@ The pages are GitHub Markdown, read by [MyST](https://myst-parser.readthedocs.io
 push to `main`, it also publishes the site to the `gh_pages` branch. GitHub
 Pages serves it at <https://thorsten-klein.github.io/git-nested/>.
 
+A release tag like `1.2.0` publishes the site again. Then the site shows
+the release version.
+
 To publish by hand, start the workflow in the Actions tab, or run:
 
 ```bash
