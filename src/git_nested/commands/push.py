@@ -114,14 +114,14 @@ def do_push(
         return (
             _dry_run_push(git, flags, config, subdir, branch, branch_name, upstream_head)
             if flags.dry_run
-            else _push(git, flags, config, subref, branch, branch_name, None)
+            else _push(git, flags, config, subdir, subref, branch, branch_name, None)
         )
     upstream_head = _fetch_push_target(git, flags, config, branch_name)
     built = _build_push_branch(git, flags, config, subdir, gitnested, git_tmp, subref, upstream_head)
     try:
         if flags.dry_run:
             return _dry_run_push(git, flags, config, subdir, built, branch_name, upstream_head)
-        return _push(git, flags, config, subref, built, branch_name, upstream_head)
+        return _push(git, flags, config, subdir, subref, built, branch_name, upstream_head)
     finally:
         worktree.delete_branch(git, built, git_tmp)
 
@@ -162,6 +162,7 @@ def _push(
     git: GitRunner,
     flags: Flags,
     config: NestedConfig,
+    subdir: Path,
     subref: str,
     branch: str,
     branch_name: str,
@@ -174,13 +175,25 @@ def _push(
     """
     new_commit = _new_push_commit(git, flags, branch, upstream_head)
     if new_commit is None:
+        # Upstream has it already, at upstream_head
+        if upstream_head:
+            _tag(git, flags, config, subdir, upstream_head)
         return None
     git.network(
         ['push', *(['--force'] if flags.force else []), config.remote, f'{branch}:{branch_name}'],
         f"pushing to {config.remote} ({branch_name})",
     )
     refs.create_nested_ref(git, subref, 'push', branch)
+    _tag(git, flags, config, subdir, new_commit)
     return new_commit
+
+
+def _tag(git: GitRunner, flags: Flags, config: NestedConfig, subdir: Path, commit: str) -> None:
+    """Tag `commit` upstream as --tag asks."""
+    if not flags.tag:
+        return
+    git.network(['push', config.remote, f'{commit}:refs/tags/{flags.tag}'], f"tagging {config.remote} ({flags.tag})")
+    output.say(f"{subdir.as_posix()}: tagged {commit[:9]} as {flags.tag}")
 
 
 def _record_push_commit(

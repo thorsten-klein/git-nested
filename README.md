@@ -315,6 +315,9 @@ Push local changes back to the upstream repository.
 Without `--commit`, other dirty paths in the parent repo do not block it.
 Dirty tracked changes in the nested subdir are warned about and ignored.
 
+`--tag <name>` also tags the pushed upstream commit. With nothing to push, it
+tags the upstream commit the subdir has. With `--all` it tags each one.
+
 ```bash
 git nested push --help
 ```

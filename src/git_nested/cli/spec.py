@@ -72,6 +72,7 @@ VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
         'signoff',
         'single_commit',
         'squash',
+        'tag',
         'update',
     ],
     'status': ['ALL', 'all', 'fetch', 'short'],
@@ -188,6 +189,7 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
     ('path', ('--path',), {'dest': 'path', 'help': "nest only this directory of upstream, at the root of <subdir>"}),
     ('pin', ('--pin',), {'dest': 'pin', 'help': "nest this commit or tag of the branch, not its newest commit"}),
     ('msg_file', ('--file',), {'dest': 'msg_file', 'help': "file to read the commit message from"}),
+    ('tag', ('--tag',), {'dest': 'tag', 'help': "tag the pushed upstream commit with this name"}),
     ('remote', ('-r', '--remote'), {'dest': 'remote', 'help': "upstream remote to push/pull/fetch"}),
     (
         'short',
@@ -223,6 +225,7 @@ SUPPORTED_OPT_ATTRS: list[tuple[str, str]] = [
     ('upstream_commit', 'upstream_commit'),
     ('path', 'path'),
     ('pin', 'pin'),
+    ('tag', 'tag'),
 ]
 
 # Most commands take the same first positional, so it gets the same text.
