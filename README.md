@@ -226,6 +226,12 @@ the opposite: it keeps only that path. Both can be given more than once.
 subdir: `--path javascript` puts upstream's `javascript/` into `ext/js/`.
 `pull` takes only that directory, and `push` puts your changes back under it.
 
+`-b` also takes a tag or a commit, e.g. `-b v1.2`. To nest a release but
+keep the branch it belongs to, pin it instead: `-b main --pin v1.2`.
+git-nested checks that the pin is on the branch. `pull` stays at the pin.
+`pull --pin v1.3` moves it forward with a normal merge, so local changes
+stay.
+
 If upstream has submodules, `--recurse-submodules` nests them too. Each one
 stays at the commit upstream pins. Without it they stay empty, and
 git-nested says so.
@@ -429,6 +435,8 @@ git nested config <subdir> <key> <value>    # set one field
 | `exclude` | the paths of the upstream repository that are left out | no |
 
 | `path` | the directory of the upstream repository that is nested, at the root of the subdir | no |
+
+| `pin` | a commit or tag of the branch to nest, instead of its newest commit | yes |
 | `cmdver` | the git-nested version that last wrote this file | no |
 | `readonly` | `true` makes `push` refuse, for a repository that is only pulled | yes |
 
