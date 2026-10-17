@@ -201,6 +201,9 @@ git nested pull ext/lib -vv    # plus every git command that is run
 Colour is used when the output is a terminal. `NO_COLOR=1` turns it off,
 `FORCE_COLOR=1` keeps it on when piping.
 
+In a terminal, git-nested also names each remote it contacts, shows git's
+progress, and counts the commits while it rebuilds a nested history.
+
 ### `git nested clone`
 
 Clone an external repository into a subdirectory of your project.

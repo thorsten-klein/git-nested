@@ -146,6 +146,15 @@ def network(msg: str) -> None:
         verbose(msg)
 
 
+def progress(label: str, done: int, total: int) -> None:
+    """Show `done` of `total` steps on one line, in a terminal only; the last step clears it."""
+    if not interactive():
+        return
+    line = '' if done >= total else f'{label}: {done}/{total}'
+    sys.stderr.write(f'\r{line}\x1b[K')
+    sys.stderr.flush()
+
+
 def payload(text: str) -> None:
     """Write a command's actual result to stdout, whatever the level.
 

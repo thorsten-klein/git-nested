@@ -216,3 +216,16 @@ def test_interactive_needs_a_terminal_and_no_quiet(printing, monkeypatch):
     assert output.interactive() is True
     output.set_level(Flags(quiet=True))
     assert output.interactive() is False
+
+
+def test_progress_redraws_one_line_and_clears_it(printing, monkeypatch, capsys):
+    """In a terminal the count redraws in place; the last step leaves the line empty."""
+    monkeypatch.setattr(output, 'interactive', lambda: True)
+    output.progress("lib: rebuilding", 1, 2)
+    output.progress("lib: rebuilding", 2, 2)
+    assert capsys.readouterr().err == "\rlib: rebuilding: 1/2\x1b[K\r\x1b[K"
+
+
+def test_progress_is_silent_without_a_terminal(printing, capsys):
+    output.progress("lib: rebuilding", 1, 2)
+    assert capsys.readouterr().err == ""
