@@ -1,6 +1,9 @@
-# git-nested — Subcommand Git Call Diagrams
+# Git call diagrams
 
-Each diagram below shows the sequence of underlying `git` commands executed by a `git nested` subcommand.
+Each diagram shows the git commands one `git nested` command runs, in order.
+It is the fastest way to see what a command really does.
+
+`completion` runs no git command, so it has no diagram.
 
 ---
 
@@ -12,7 +15,7 @@ sequenceDiagram
     participant git-nested
     participant Git
 
-    User->>git-nested: git nested clone <subdir> <remote>
+    User->>git-nested: git nested clone <remote> <subdir>
     git-nested->>Git: rev-parse --show-prefix
     Note over git-nested: Below the top level: rev-parse --show-toplevel,<br/>paths rebased, then run from there
     git-nested->>Git: rev-parse --git-dir

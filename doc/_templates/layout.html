@@ -1,0 +1,19 @@
+{# Adds the version line under the title in the sidebar.
+
+   sphinx_rtd_theme 3.x shows a version only on readthedocs.org. This site
+   is published to GitHub Pages, so it renders the line itself.
+   `release` and `version_url` come from doc/conf.py. The version links to
+   the commit the site was built from. doc/_static/custom.css moves the
+   line above the search box. #}
+{% extends "!layout.html" %}
+
+{%- block sidebartitle %}
+{{ super() }}
+{%- if release %}
+<div class="version">
+  {%- if version_url %}<a href="{{ version_url }}">{{ release }}</a>
+  {%- else %}{{ release }}
+  {%- endif %}
+</div>
+{%- endif %}
+{%- endblock %}

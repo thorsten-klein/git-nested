@@ -1,11 +1,15 @@
 name: Docs
 
+# Builds doc/ (see doc/conf.py) with Sphinx. On pull requests it only
+# builds, so a broken page fails the check. On main it also publishes the
+# site to the gh_pages branch, which GitHub Pages serves.
 on:
   push:
     branches: [main]
-    tags: ['*.*.*']
   pull_request:
     branches: ['**']
+  # by hand: 'Run workflow' in the Actions tab, or `gh workflow run docs.yml`
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
@@ -17,6 +21,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          # doc/conf.py shows the version from `git describe`, which needs the tags.
+          fetch-depth: 0
       - name: Install uv
         uses: astral-sh/setup-uv@v10.3.0
         with:
@@ -27,14 +34,17 @@ jobs:
       - name: Build docs
         run: uv run poe docs
       - name: Upload docs
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v7
         with:
           name: docs-html
-          path: docs/_build/html
+          path: doc/_build/html
+          include-hidden-files: true
 
+  # A job of its own, so only this one can write to the repository.
+  # Only main is published, also when the workflow is started by hand.
   publish:
-    if: github.event_name == 'push'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-26.04
     permissions:
