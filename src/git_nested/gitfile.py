@@ -115,7 +115,7 @@ def update_gitrepo_file(
     if head_commit and nested_commit_ref and git.check_output(['rev-parse', nested_commit_ref]) == upstream_head_commit:
         nested['parent'] = head_commit
 
-    yamlio._write_yaml_config(gitnested, data)
+    yamlio._write_yaml_config(gitnested, data, mark_defaults=initial)
     git.run(['add', '-f', '--', gitnested])
 
 

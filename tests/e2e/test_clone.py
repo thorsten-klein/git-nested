@@ -259,3 +259,26 @@ def test_clone_adopt_says_to_use_init_when_no_upstream_commit_matches(foo_bar_cl
         "git-nested: vendor/bar: no upstream commit matches its current content; "
         "use 'git nested init -r <url> --commit <sha> <subdir>' if you know it"
     )
+
+
+def test_clone_marks_the_default_lines(foo_bar_cloned):
+    """A new .gitnested says which lines only repeat the default."""
+    env = foo_bar_cloned
+    foo = env.workspace / 'foo'
+    gitnested = foo / 'bar' / '.gitnested'
+
+    cmd_git_nested(['clone', (env.upstream / 'bar').as_posix()], foo)
+    assert '  method: merge  # optional: this is the default\n' in gitnested.read_text()
+    assert gitnested.read_text().count('optional') == 1
+
+    env.add_new_files('Bar2', cwd=env.workspace / 'bar')
+    env.run(['git', 'push'], cwd=env.workspace / 'bar')
+    cmd_git_nested('pull bar', cwd=foo)
+    assert '  method: merge  # optional: this is the default\n' in gitnested.read_text()
+
+
+def test_clone_rebase_has_no_default_lines(foo_bar_cloned):
+    env = foo_bar_cloned
+    foo = env.workspace / 'foo'
+    cmd_git_nested(['clone', '-M', 'rebase', (env.upstream / 'bar').as_posix()], foo)
+    assert 'optional' not in (foo / 'bar' / '.gitnested').read_text()

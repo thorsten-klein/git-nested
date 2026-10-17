@@ -223,6 +223,30 @@ def test_gitnested_is_written_with_lf(tmp_path):
     assert b'\r\n' not in gitnested.read_bytes()
 
 
+def test_gitnested_marks_the_default_lines(tmp_path):
+    gitnested = tmp_path / '.gitnested'
+    data = {'nested': {'remote': 'x', 'method': 'merge', 'squash': True, 'filter': ['method: merge']}}
+    yamlio._write_yaml_config(gitnested, data, mark_defaults=True)
+    assert gitnested.read_text().splitlines()[3:] == [
+        'nested:',
+        '  remote: x',
+        '  method: merge  # optional: this is the default',
+        '  squash: true  # optional: this is the default',
+        '  filter:',
+        "  - 'method: merge'",
+    ]
+
+
+def test_gitnested_keeps_marking_the_default_lines(tmp_path):
+    gitnested = tmp_path / '.gitnested'
+    yamlio._write_yaml_config(gitnested, {'nested': {'method': 'merge'}}, mark_defaults=True)
+    yamlio._write_yaml_config(gitnested, {'nested': {'method': 'merge', 'readonly': 'false'}})
+    assert gitnested.read_text().count('optional') == 2
+    yamlio._write_yaml_config(gitnested, {'nested': {'method': 'rebase'}})
+    yamlio._write_yaml_config(gitnested, {'nested': {'method': 'merge'}})
+    assert 'optional' not in gitnested.read_text()
+
+
 @pytest.mark.parametrize(
     ('url', 'base', 'resolved'),
     [

@@ -76,7 +76,7 @@ b2dfdc7 Start app
 #
 nested:
   commit: 401b344cd6917389538657fa06cd5f007dfb664c
-  method: merge
+  method: merge  # optional: this is the default
   cmdver: 1.1.1
   remote: ../lib.git
   branch: main

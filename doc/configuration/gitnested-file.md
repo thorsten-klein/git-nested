@@ -18,7 +18,7 @@ hand.
 #
 nested:
   commit: 401b344cd6917389538657fa06cd5f007dfb664c
-  method: merge
+  method: merge  # optional: this is the default
   cmdver: 1.1.1
   remote: https://github.com/user/lib
   branch: main
@@ -27,7 +27,10 @@ nested:
 
 ## Fields
 
-Fields that are not set take their default.
+Fields that are not set take their default. A new `.gitnested` marks the
+lines that only repeat the default with `# optional: this is the default`.
+You can delete these lines. git-nested keeps the marks while the file has
+any.
 
 | Field | Default | Set by | Writable with `config` |
 |---|---|---|---|
