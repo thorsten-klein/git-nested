@@ -282,6 +282,8 @@ If upstream rewrote its history (a force-push), `pull` stops. `pull -M rebase`
 then moves your local changes onto the new history. `pull --force` takes
 upstream as it is and drops them.
 
+Its commit message lists the upstream commits it brings in, up to 20.
+
 ```bash
 git nested pull --help
 ```
