@@ -15,7 +15,22 @@ dependencies = [
 authors = [
     {name = "Thorsten Klein", email = "thorsten.klein.git@gmail.com"}
 ]
-keywords = ["git", "submodule", "subtree", "subrepo", "monorepo", "nested", "vendoring"]
+keywords = [
+    "git",
+    "git-submodule",
+    "git-subtree",
+    "git-subrepo",
+    "submodule",
+    "subtree",
+    "subrepo",
+    "monorepo",
+    "multi-repo",
+    "nested",
+    "vendoring",
+    "git-extension",
+    "version-control",
+    "dependency-management",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
