@@ -13,6 +13,7 @@
 | [Standalone executable](#standalone-executable) | Machines without Python |
 | [From source, with shell setup](#from-source-with-shell-setup) | Working on git-nested |
 | [From source, by hand](#from-source-by-hand) | Full control |
+| [From source, editable mode](#from-source-editable-mode) | Using your own changes everywhere |
 
 After the install, `git nested` works like any git command. git finds it
 because the program is called `git-nested` and is on your `PATH`.
@@ -105,6 +106,22 @@ export PATH="/path/to/git-nested/bin:$PATH"
 
 Add the `export` line to your shell profile (`~/.bashrc`, `~/.zshrc`) to
 keep it.
+
+### From source, editable mode
+
+This installs git-nested from your clone. Changes to the code work right
+away. You do not have to install again.
+
+```bash
+git clone https://github.com/thorsten-klein/git-nested /path/to/git-nested
+pip install -e /path/to/git-nested
+```
+
+Or as a tool of its own, with `uv`:
+
+```bash
+uv tool install --editable /path/to/git-nested
+```
 
 ## Shell completion
 
