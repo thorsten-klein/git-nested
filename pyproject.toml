@@ -16,20 +16,26 @@ authors = [
     {name = "Thorsten Klein", email = "thorsten.klein.git@gmail.com"}
 ]
 keywords = [
+    "cli",
+    "dependency-management",
+    "developer-tools",
     "git",
+    "git-extension",
     "git-submodule",
-    "git-subtree",
+    "git-submodules",
     "git-subrepo",
-    "submodule",
-    "subtree",
-    "subrepo",
+    "git-subtree",
+    "git-tools",
     "monorepo",
     "multi-repo",
-    "nested",
+    "nested-repositories",
+    "python",
+    "repository-management",
+    "submodules",
+    "subrepo",
+    "subtree",
     "vendoring",
-    "git-extension",
     "version-control",
-    "dependency-management",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
