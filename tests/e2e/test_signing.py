@@ -5,9 +5,12 @@ import sys
 import pytest
 from conftest import cmd_git_nested
 
-# git asks gpg.program for a signature; this one makes a fake one.
+# git asks gpg.program for a signature; this one makes a fake one. Like gpg, it
+# prints another status line before SIG_CREATED: older git (e.g. 2.34) only finds
+# SIG_CREATED after a newline.
 FAKE_GPG = """#!/bin/sh
 cat > /dev/null
+echo '[GNUPG:] BEGIN_SIGNING H8' >&2
 echo '[GNUPG:] SIG_CREATED D 1 8 00 0 FAKE' >&2
 printf -- '-----BEGIN PGP SIGNATURE-----\\nfake\\n-----END PGP SIGNATURE-----\\n'
 """
