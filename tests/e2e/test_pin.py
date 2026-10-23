@@ -49,3 +49,29 @@ def test_clone_pin_must_be_on_the_branch(foo_bar_cloned):
 
     assert result.returncode == 1
     assert result.output.strip() == f"git-nested: {side} is not on master of {(env.upstream / 'bar').as_posix()}"
+
+
+def test_pull_conflict_keeps_the_pin(foo_bar_cloned):
+    """A pull with --pin that conflicts records the pin once it is finished as printed."""
+    env = foo_bar_cloned
+    foo, bar = env.workspace / 'foo', env.workspace / 'bar'
+    cmd_git_nested(['clone', '-b', 'master', '--pin', 'A', (env.upstream / 'bar').as_posix()], foo)
+    env.modify_files('bar/Bar', text='foo', cwd=foo)
+    env.modify_files('Bar', text='bar', cwd=bar)
+    pin = git_rev_parse(['HEAD'], cwd=bar)
+    env.add_new_files('Newer', cwd=bar)
+    env.run(['git', 'push', '-q'], cwd=bar)
+
+    result = cmd_git_nested(['pull', '--pin', pin, 'bar'], foo, check=False)
+    assert result.returncode == 1
+    worktree = foo / '.git' / 'tmp' / 'nested' / 'bar'
+    (worktree / 'Bar').write_text('merged\n')
+    env.run(['git', 'add', 'Bar'], cwd=worktree)
+    env.run(['git', 'commit', '-q', '--no-edit'], cwd=worktree)
+    # the last step the pull printed
+    commit_step = result.output.split('7. ')[1].splitlines()[0]
+    cmd_git_nested(commit_step.removeprefix('git nested '), foo)
+
+    assert _nested(foo, 'pin') == pin
+    assert _nested(foo, 'commit') == pin
+    assert "already up to date" in cmd_git_nested('pull bar', cwd=foo).output

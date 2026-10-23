@@ -31,7 +31,7 @@ VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
         'recurse_submodules',
         'signoff',
     ],
-    'commit': ['fetch', 'force', 'gpg_sign', 'message', 'msg_file', 'signoff'],
+    'commit': ['fetch', 'force', 'gpg_sign', 'message', 'msg_file', 'pin', 'signoff'],
     'completion': [],
     'config': [],
     'diff': ['all', 'branch', 'remote'],

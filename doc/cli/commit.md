@@ -31,6 +31,7 @@ It needs a clean working tree, and a worktree of the nested branch.
 | `-f`, `--force` | commit even if the branch does not contain the fetched upstream commit |
 | `-m`, `--message <message>` | the commit message |
 | `--file <file>` | read the commit message from a file |
+| `--pin <commit>` | record this pin in `.gitnested`. The help of a conflicted `pull --pin` passes it |
 | `-S`, `--gpg-sign` | GPG-sign the commit |
 | `--signoff` | add a `Signed-off-by:` trailer to the commit |
 
