@@ -41,6 +41,9 @@ git nested commit ext/lib
 `git nested commit` puts the result into `ext/lib`, updates `.gitnested` and
 makes one commit. It also removes the worktree.
 
+After `pull --pin <commit>`, step 7 is `git nested commit --pin=<commit> ext/lib`.
+The pin then goes into `.gitnested` as well.
+
 ### With the rebase method
 
 Step 4 is `git rebase --continue`. Repeat steps 2 to 4 until the rebase is

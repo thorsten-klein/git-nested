@@ -70,7 +70,9 @@ def branch_exists(subdir: Path, branch: str, facts: list[tuple[str, str | None]]
     return "\n".join(lines)
 
 
-def pull_conflict_help(subdir: Path, worktree: Path, method: str, message_file: str | None, subref: str) -> str:
+def pull_conflict_help(
+    subdir: Path, worktree: Path, method: str, message_file: str | None, pin: str | None, subref: str
+) -> str:
     """How to finish a pull by hand after its merge or rebase hit conflicts.
 
     git-nested has already left the half-finished operation in a worktree of
@@ -78,11 +80,11 @@ def pull_conflict_help(subdir: Path, worktree: Path, method: str, message_file: 
     handing the result back -- which is what the numbered steps spell out.
     """
     resume = "git rebase --continue" if method == 'rebase' else "git commit"
-    commit = (
-        f"git nested commit --file={message_file} {subdir.as_posix()}"
-        if message_file
-        else f"git nested commit {subdir.as_posix()}"
-    )
+    options = [f'--file={message_file}'] if message_file else []
+    if pin:
+        # Only the pull got it: without it, commit would not record the pin in .gitnested
+        options.append(f'--pin={pin}')
+    commit = ' '.join(['git nested commit', *options, subdir.as_posix()])
     text = textwrap.dedent(f"""\
 
         The conflicts are in a worktree of their own at {worktree.as_posix()}.
