@@ -233,7 +233,17 @@ lint = "ruff check ."
 mypy = "mypy"
 pyright = "pyright"
 bandit = "bandit -c pyproject.toml -r src"
-"pip-audit" = "pip-audit --skip-editable"
+# Audits only what ships: the locked runtime dependencies, no dependency
+# groups. A CVE in a dev tool (e.g. filelock via pre-commit, whose fix needed a
+# newer Python than we support) must not fail the build. Markers in the export
+# are evaluated for the running Python, so each CI version audits its own set.
+"pip-audit" = {shell = """
+set -e
+req="$(mktemp)"
+trap 'rm -f "$req"' EXIT
+uv export --frozen --no-emit-project --no-default-groups --quiet --output-file "$req" > /dev/null
+pip-audit --disable-pip --requirement "$req"
+"""}
 complexity = "complexipy"
 # Fast inner loop: the unit tests only, and deliberately WITHOUT --cov --
 # `fail_under = 100` would otherwise fail every partial run.
