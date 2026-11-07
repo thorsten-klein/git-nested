@@ -76,7 +76,7 @@ def check_worktree_clean(git: GitRunner, command: str) -> None:
 
 def warn_uncommitted_subdir_changes(git: GitRunner, command: str, flags: Flags, subdir: Path) -> None:
     """Warn when `command` ignores uncommitted changes in `subdir`."""
-    if command not in ['branch', 'diff', 'push'] or (command == 'push' and flags.commit):
+    if command not in ['branch', 'diff', 'push', 'verify'] or (command == 'push' and flags.commit):
         return
 
     git.run(['update-index', '-q', '--ignore-submodules', '--refresh'], may_fail=True)

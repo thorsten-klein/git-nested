@@ -46,6 +46,8 @@ class Flags:
     upstream_commit: str | None = None
 
     no_squash: bool = False
+    keep: bool = False
+    output_dir: str | None = None
     tag: str | None = None
     update: bool = False
     quiet: bool = False
@@ -118,6 +120,8 @@ class CommandContext:
     config_key: str | None = None
     config_value: str | None = None
     git_args: list[str] | None = None
+    patches: list[str] | None = None
+    verify_mode: str | None = None
     git_tmp: Path | None = None
     head_commit: str | None = None
 

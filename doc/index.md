@@ -75,6 +75,7 @@ The full reference of the command line. There is one page per command.
 | [`fetch`](cli/fetch.md) | Download upstream changes, change no file |
 | [`status`](cli/status.md) | Show all nested repositories |
 | [`diff`](cli/diff.md) | Compare a nested repository with upstream |
+| [`verify`](cli/verify.md) | Check local changes against patch files |
 | [`branch`](cli/branch.md) | Build a branch with the nested history |
 | [`run`](cli/run.md) | Run git in that branch's worktree |
 | [`commit`](cli/commit.md) | Add that branch back as one commit |
@@ -99,6 +100,7 @@ cli/push
 cli/fetch
 cli/status
 cli/diff
+cli/verify
 cli/branch
 cli/run
 cli/commit

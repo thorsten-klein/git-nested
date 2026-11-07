@@ -49,6 +49,8 @@ def at_top_level(git: GitRunner, command: str, ctx: CommandContext) -> AbstractC
     # Path options are made absolute, so moving to the top level does not change what they name.
     ctx.flags.dir = _absolute(ctx.flags.dir)
     ctx.flags.message_file = _absolute(ctx.flags.message_file)
+    ctx.flags.output_dir = _absolute(ctx.flags.output_dir)
+    ctx.patches = _all_absolute(ctx.patches)
     # Remotes given as relative paths are rebased onto the top level instead.
     # Relative rather than absolute: a remote ends up in .gitnested, and a
     # relative one keeps working in every clone of the parent repository.
@@ -71,6 +73,11 @@ def _absolute(path: str | None) -> str | None:
     longer be the one the user typed (on macOS /var turns into /private/var).
     """
     return os.path.abspath(path) if path else None  # noqa: PTH100
+
+
+def _all_absolute(paths: list[str] | None) -> list[str] | None:
+    """Each of `paths` made absolute."""
+    return [os.path.abspath(path) for path in paths] if paths else paths  # noqa: PTH100
 
 
 def _remote_from(prefix: str, remote: str | None) -> str | None:
