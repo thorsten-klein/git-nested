@@ -770,6 +770,62 @@ sequenceDiagram
 
 ---
 
+## verify
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant git-nested
+    participant Git
+
+    User->>git-nested: git nested verify <subdir> patches <patch>...
+    git-nested->>Git: rev-parse --show-prefix
+    Note over git-nested: Below the top level: rev-parse --show-toplevel,<br/>paths rebased, then run from there
+    git-nested->>Git: rev-parse --git-dir
+    git-nested->>Git: rev-parse --git-dir
+    git-nested->>Git: symbolic-ref --short --quiet HEAD
+    git-nested->>Git: rev-parse --is-inside-work-tree
+    git-nested->>Git: rev-parse HEAD
+    Note over git-nested: Read .gitnested config
+
+    git-nested->>Git: rev-parse HEAD:<subdir>
+    git-nested->>Git: rev-list <commit>^{commit} -1
+    opt upstream commit not here
+        git-nested->>Git: fetch --no-tags --quiet <remote> <branch>
+        git-nested->>Git: rev-parse FETCH_HEAD^0
+        git-nested->>Git: update-ref refs/nested/<subref>/fetch FETCH_HEAD^0
+    end
+    opt path, filter or exclude configured
+        Note over git-nested: Build a commit with only the nested part of upstream
+        git-nested->>Git: commit-tree -p <commit> <tree>
+    end
+
+    git-nested->>Git: worktree add --detach --no-checkout .git/tmp/verify/<subref> <base>
+    git-nested->>Git: reset -q --hard (in the worktree)
+    loop For each patch or diff
+        git-nested->>Git: apply --index <file> (in the worktree)
+    end
+    git-nested->>Git: commit --allow-empty --no-verify (in the worktree)
+    git-nested->>Git: diff --quiet HEAD <local tree> -- . ':(exclude,glob)**/.gitnested*'
+
+    opt it differs
+        git-nested->>Git: diff --stat HEAD <local tree>
+        alt patches
+            git-nested->>Git: diff --binary --full-index HEAD <local tree> | apply --index
+            git-nested->>Git: commit -m 'TODO: title' -m 'TODO: description'
+            git-nested->>Git: format-patch -1 --start-number=<n> -o <dir> HEAD
+        else diff with --output
+            git-nested->>Git: diff --binary <base> <local tree>
+            Note over git-nested: Written to the --output file
+        end
+    end
+
+    git-nested->>Git: worktree prune
+    Note over git-nested: The worktree is removed, unless --keep
+```
+
+---
+
 ## clean
 
 ```mermaid

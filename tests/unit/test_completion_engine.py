@@ -200,12 +200,12 @@ def test_an_unreadable_prefix_offers_no_directories(git, tmp_path, monkeypatch):
 
 
 def test_dunder_complete_prints_one_candidate_per_line(git, capsys):
-    assert completion.handle_dunder_complete(git, ['__complete', 'git-nested', 'ver']) is True
+    assert completion.handle_dunder_complete(git, ['__complete', 'git-nested', 'vers']) is True
     assert capsys.readouterr().out == 'version\n'
 
 
 def test_dunder_complete_describes_when_asked(git, capsys):
-    completion.handle_dunder_complete(git, ['__complete', '--describe', 'git-nested', 'ver'])
+    completion.handle_dunder_complete(git, ['__complete', '--describe', 'git-nested', 'vers'])
     assert capsys.readouterr().out == "version\tprint version information\n"
 
 

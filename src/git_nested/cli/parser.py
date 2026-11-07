@@ -79,6 +79,7 @@ def _flags_from_args(args: argparse.Namespace) -> Flags:
         no_squash=getattr(args, 'no_squash', False),
         squash=getattr(args, 'squash', False),
         update=getattr(args, 'update', False),
+        keep=getattr(args, 'keep', False),
         quiet=getattr(args, 'quiet', False),
         # argparse's `count` action leaves the attribute at None when the flag
         # is absent, and the output layer wants a real count.
@@ -150,5 +151,7 @@ def parse_args(git: GitRunner, args_list: list[str]) -> tuple[str, CommandContex
         config_key=getattr(args, 'key', None),
         config_value=getattr(args, 'value', None),
         git_args=getattr(args, 'git_args', None),
+        patches=getattr(args, 'patches', None),
+        verify_mode=getattr(args, 'verify_mode', None),
     )
     return args.command, context

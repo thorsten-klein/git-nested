@@ -8,7 +8,7 @@ reason about the CLI -- shell completion, `git nested config`, the man page
 
 from __future__ import annotations
 
-from ..constants import COMPLETION_SHELLS
+from ..constants import COMPLETION_SHELLS, VERIFY_MODES
 
 # Which flags each command accepts. The keys are also the command list:
 # the subparsers, and the completion candidates, are built from them.
@@ -76,6 +76,7 @@ VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
         'update',
     ],
     'status': ['ALL', 'all', 'fetch', 'short'],
+    'verify': ['keep', 'output_dir'],
     'version': [],
 }
 
@@ -96,6 +97,7 @@ COMMAND_HELP: dict[str, str] = {
     'repair': "point a nested repository's sync point back into the current history",
     'run': "run a git command in the worktree of a nested repository",
     'status': "report on the nested repositories of this repository",
+    'verify': "check that a nested repository is its upstream commit plus patches or diffs",
     'version': "print version information",
 }
 
@@ -136,6 +138,11 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
         {'action': 'store_true', 'help': "record the pushed commit in .gitnested; needs a push to the tracked branch"},
     ),
     ('dry_run', ('--dry-run',), {'action': 'store_true', 'dest': 'dry_run', 'help': "show what would be pushed"}),
+    (
+        'keep',
+        ('-k', '--keep'),
+        {'action': 'store_true', 'help': "keep the temporary worktree"},
+    ),
     ('force', ('-f', '--force'), {'action': 'store_true', 'help': "force the operation"}),
     (
         'from_submodule',
@@ -190,6 +197,14 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
     ('pin', ('--pin',), {'dest': 'pin', 'help': "nest this commit or tag of the branch, not its newest commit"}),
     ('msg_file', ('--file',), {'dest': 'msg_file', 'help': "file to read the commit message from"}),
     ('tag', ('--tag',), {'dest': 'tag', 'help': "tag the pushed upstream commit with this name"}),
+    (
+        'output_dir',
+        ('-o', '--output'),
+        {
+            'dest': 'output_dir',
+            'help': "patches: folder for the missing patch; diff: file for the whole diff",
+        },
+    ),
     ('remote', ('-r', '--remote'), {'dest': 'remote', 'help': "upstream remote to push/pull/fetch"}),
     (
         'short',
@@ -226,6 +241,7 @@ SUPPORTED_OPT_ATTRS: list[tuple[str, str]] = [
     ('path', 'path'),
     ('pin', 'pin'),
     ('tag', 'tag'),
+    ('output_dir', 'output_dir'),
 ]
 
 # Most commands take the same first positional, so it gets the same text.
@@ -266,6 +282,11 @@ POSITIONALS: dict[str, list[tuple[str, dict]]] = {
         # argparse.REMAINDER, spelled out to keep this module free of argparse:
         # everything after <subdir> goes to git untouched, options included.
         ('git_args', {'nargs': '...', 'help': "the git command to run, with its arguments"}),
+    ],
+    'verify': [
+        ('subdir', {'help': _SUBDIR_HELP}),
+        ('verify_mode', {'choices': list(VERIFY_MODES), 'help': "what the files are: numbered patches, or diffs"}),
+        ('patches', {'nargs': '*', 'help': "the patches or diffs to apply, in order"}),
     ],
 }
 
@@ -348,6 +369,13 @@ COMMAND_DESCRIPTION: dict[str, str] = {
         "Report every nested repository in this repository: where it comes from, and whether it has local changes. "
         "With -q, just the paths, one per line."
     ),
+    'verify': (
+        "Apply the files to the upstream commit in .gitnested, in a temporary worktree, and compare "
+        "the result with <subdir>. The files can be git patches or plain diffs. "
+        "Without files, check that <subdir> has no local changes. "
+        "If it differs, the command fails. 'patches' then writes the missing patch next to the last one "
+        "(or into --output); 'diff' writes the whole diff to --output."
+    ),
     'version': "Print the git-nested version, and the versions of git and Python it is running on.",
 }
 
@@ -423,6 +451,12 @@ COMMAND_EXAMPLES: dict[str, list[str]] = {
     'status': [
         "git nested status",
         "git nested status -q",
+    ],
+    'verify': [
+        "git nested verify ext/lib patches -- patches/lib/*.patch",
+        "git nested verify -o patches/lib ext/lib patches",
+        "git nested verify ext/lib diff lib.diff",
+        "git nested verify -o lib.diff ext/lib diff lib.diff",
     ],
     'version': [
         "git nested version",
