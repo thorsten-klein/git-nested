@@ -130,7 +130,7 @@ def _report_difference(ctx: CommandContext, path: Path, base: str, local_tree: s
     if ctx.verify_mode == 'diff':
         return _diff_hint(git, path, base, local_tree, message, out)
 
-    directory = Path(out) if out else files[-1].parent if files else None
+    directory = _patch_directory(out, files)
     if directory is None:
         return f"{message}\nname the patches, or use --output to have the missing one written"
     patch = _write_missing_patch(git, path, local_tree, directory)
@@ -138,6 +138,13 @@ def _report_difference(ctx: CommandContext, path: Path, base: str, local_tree: s
         f"{message}\nwrote the missing patch {_shown(patch)}\n"
         f"replace '{TODO_TITLE}' and '{TODO_DESCRIPTION}' in it, rename it to match, and commit it"
     )
+
+
+def _patch_directory(out: str | None, files: list[Path]) -> Path | None:
+    """Where the missing patch goes: --output, else next to the last patch."""
+    if out:
+        return Path(out)
+    return files[-1].parent if files else None
 
 
 def _diff_hint(git: GitRunner, path: Path, base: str, local_tree: str, message: str, out: str | None) -> str:
