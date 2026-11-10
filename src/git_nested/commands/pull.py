@@ -49,6 +49,7 @@ def do_pull(
     )
 
     merge_target = _merge_target(git, config, subdir_worktree, subref, upstream_head_commit)
+    merge_target = _without_ignored(git, flags, config, subdir, subdir_worktree, merge_target)
 
     method = flags.method or config.method
     cmd = _join_command(method, config, merge_target, branch)
@@ -66,6 +67,20 @@ def do_pull(
 
     refs.create_nested_ref(git, subref, 'branch', branch)
     return branch, subdir_worktree
+
+
+def _without_ignored(
+    git: GitRunner, flags: Flags, config: NestedConfig, subdir: Path, worktree_dir: Path, merge_target: str
+) -> str:
+    """`merge_target`, but with the --ignore paths from the recorded commit.
+
+    So upstream's changes there do not come in.
+    """
+    ignored = filters.ignored_paths(flags, subdir)
+    if not ignored:
+        return merge_target
+    prefixed = [f'{config.path}/{path}' if config.path else path for path in ignored]
+    return filters.with_paths_from(git, worktree_dir, merge_target, config.commit, prefixed)
 
 
 def _join_command(method: str, config: NestedConfig, merge_target: str, branch: str) -> list[str]:
@@ -218,11 +233,23 @@ def _check_no_squash(flags: Flags, config: NestedConfig, subdir: Path) -> None:
         )
 
 
+def _check_ignore(flags: Flags, config: NestedConfig, subdir: Path) -> None:
+    """Refuse --ignore where it can't work."""
+    if not flags.ignore:
+        return
+    if flags.force:
+        output.usage_error("--ignore can't be combined with --force")
+    if not config.commit:
+        raise GitNestedError(f"{subdir.as_posix()}: --ignore needs the upstream commit in .gitnested")
+    filters.ignored_paths(flags, subdir)  # check the paths early
+
+
 def cmd_pull(ctx: CommandContext) -> None:
     """Pull upstream changes to the nested repo."""
     git, flags = ctx.git, ctx.flags
     subdir, gitnested, subref, config = setup.setup_command(git, 'pull', flags, ctx.subdir, ctx.upstream)
     _check_no_squash(flags, config, subdir)
+    _check_ignore(flags, config, subdir)
     if fetch.skip_missing_branch(git, flags, config, subdir):
         return
 

@@ -107,6 +107,7 @@ class _Replay:
     sign: bool = False
     gitlinked: tuple[str, ...] = ()
     keep: tuple[list[str], list[str]] | None = None
+    ignored: tuple[str, ...] = ()
     path: str = ''
     nested: dict[str, str] = field(default_factory=dict)
     joined: dict[str, str | None] = field(default_factory=dict)
@@ -183,6 +184,7 @@ class _Replay:
         self.git.run(['rm', '--cached', '-r', '-q', '-f', '--ignore-unmatch', '--', *removed], env=self.index_env)
         for path in self.gitlinked:
             self._as_gitlink(commit, path, prefix)
+        self._keep_upstream(commit, [f'{prefix}{path}' for path in self.ignored])
         if self.keep:
             self._keep_unmanaged(commit, *self.keep)
         return self.git.check_output(['write-tree'], env=self.index_env)
@@ -198,6 +200,19 @@ class _Replay:
             entry = f'{prefix}{path}'
             self.git.run(['rm', '--cached', '-r', '-q', '-f', '--ignore-unmatch', '--', entry], env=self.index_env)
             self.git.run(['update-index', '--add', '--cacheinfo', f'160000,{pinned},{entry}'], env=self.index_env)
+
+    def _keep_upstream(self, commit: str, paths: list[str]) -> None:
+        """Set `paths` to what the recorded upstream commit has.
+
+        Without one, they are dropped.
+        """
+        if not paths:
+            return
+        upstream = _recorded_commit(self.git, commit, self.subdir / GITNESTED_FILENAME)
+        if upstream:
+            filters.replace_paths(self.git, upstream, paths, self.index_env)
+        else:
+            self.git.run(['rm', '--cached', '-r', '-q', '-f', '--ignore-unmatch', '--', *paths], env=self.index_env)
 
     def _keep_unmanaged(self, commit: str, entries: list[str], exclude: list[str]) -> None:
         """Put back the upstream files git-nested does not manage, so a push does not delete them.
@@ -292,6 +307,8 @@ def create_branch(
             flags.gpg_sign,
             gitlinked,
             keep=keep,
+            # A push leaves the --ignore paths as upstream has them.
+            ignored=tuple(filters.ignored_paths(flags, subdir)) if command == 'push' else (),
             path=config.path,
         )
         if parent:

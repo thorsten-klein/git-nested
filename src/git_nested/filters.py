@@ -9,13 +9,16 @@ filter entry means through `_classify`.
 from __future__ import annotations
 
 import os
+import posixpath
 import re
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
+from . import output
 from .errors import GitNestedError
 from .git import GitRunner
+from .models import Flags
 
 
 def _classify(
@@ -115,3 +118,48 @@ def place_filtered_content(
     info = ''.join(f'{meta}\t{target}\0' for (meta, _), target in zip(meta_and_paths, targets, strict=True))
     git.run(['update-index', '-z', '--index-info'], input=info)
     git.run(['checkout-index', '-f', '-z', '--stdin'], input=''.join(f'{target}\0' for target in targets))
+
+
+def ignored_paths(flags: Flags, subdir: Path) -> list[str]:
+    """The --ignore paths, relative to subdir.
+
+    With --all, paths outside subdir are skipped.
+    """
+    top = posixpath.normpath(subdir.as_posix())
+    paths = []
+    for given in flags.ignore or []:
+        path = posixpath.normpath(Path(given).as_posix())
+        if path.startswith(f'{top}/'):
+            paths.append(path.removeprefix(f'{top}/'))
+        elif path == top:
+            output.usage_error(f"--ignore {given}: that is all of {top}")
+        elif not flags.all:
+            output.usage_error(f"--ignore {given}: not inside {top}")
+    return paths
+
+
+def with_paths_from(git: GitRunner, cwd: Path, commit: str, source: str, paths: list[str]) -> str:
+    """A new commit on top of `commit`, with `paths` taken from `source`.
+
+    Returns:
+        sha of the new commit
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        env = {**os.environ, 'GIT_INDEX_FILE': str(Path(tmp) / 'index')}
+        git.run(['read-tree', commit], cwd=cwd, env=env)
+        replace_paths(git, source, paths, env, cwd)
+        tree = git.check_output(['write-tree'], cwd=cwd, env=env)
+        return git.check_output(['commit-tree', '-p', commit, '-m', 'git-nested: ignored paths kept', tree], cwd=cwd)
+
+
+def replace_paths(git: GitRunner, source: str, paths: list[str], env: dict[str, str], cwd: Path | None = None) -> None:
+    """Set `paths` in the index of `env` to what `source` has."""
+    # -f: this index has nothing to do with the working tree
+    git.run(['rm', '--cached', '-r', '-q', '-f', '--ignore-unmatch', '--', *paths], cwd=cwd, env=env)
+    entries = git.check_output(['ls-tree', '-r', '-z', '--full-tree', source, '--', *paths], cwd=cwd)
+    git.run(
+        ['update-index', '-z', '--index-info'],
+        cwd=cwd,
+        env=env,
+        input=''.join(f'{e}\0' for e in entries.split('\0') if e),
+    )
