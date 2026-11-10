@@ -69,6 +69,7 @@ def _flags_from_args(args: argparse.Namespace) -> Flags:
         dry_run=getattr(args, 'dry_run', False),
         filter=getattr(args, 'filter', []),
         force=getattr(args, 'force', False),
+        ignore=getattr(args, 'ignore', None),
         from_submodule=getattr(args, 'from_submodule', False),
         recurse_submodules=getattr(args, 'recurse_submodules', False),
         gpg_sign=getattr(args, 'gpg_sign', False),

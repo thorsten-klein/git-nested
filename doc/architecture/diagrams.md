@@ -265,6 +265,16 @@ sequenceDiagram
             git-nested->>Git: update-ref refs/nested/<subref>/branch nested/<subref>
         end
 
+        opt --ignore
+            Note over git-nested: Upstream, with the ignored paths as the recorded commit has them
+            git-nested->>Git: read-tree <upstream> (temporary index)
+            git-nested->>Git: rm --cached -r -q -f --ignore-unmatch -- <ignored>
+            git-nested->>Git: ls-tree -r -z --full-tree <recorded commit> -- <ignored>
+            git-nested->>Git: update-index -z --index-info
+            git-nested->>Git: commit-tree -p <upstream> <tree>
+            Note over git-nested: The merge and rebase below use this commit
+        end
+
         alt method = merge
             git-nested->>Git: merge --ff --no-edit refs/nested/<subref>/fetch
             Note over git-nested: (in worktree)
@@ -379,6 +389,7 @@ sequenceDiagram
         Note over git-nested: (Same branch creation as in pull — see pull diagram)
         git-nested->>Git: ls-tree -r -z --name-only HEAD -- <subdir>
         Note over git-nested: Also drop .gitnested.levelN files and inner nested repos upstream does not have
+        Note over git-nested: With --ignore: each tree takes the ignored paths<br/>from the upstream commit it records (ls-tree, update-index)
         git-nested->>Git: branch nested/<subref> <tip>
         git-nested->>Git: worktree add --no-checkout <worktree_path> nested/<subref>
         git-nested->>Git: reset -q --hard (in the worktree)
