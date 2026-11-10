@@ -41,9 +41,8 @@ Move the pin back the same way:
 git nested pull --pin v1.1 ext/lib
 ```
 
-Your local changes stay, on top of `v1.1`. A merge can't go back, so this
-pull always rebases. Conflicts are possible if your changes depend on
-something newer.
+Your local changes stay. This pull always rebases. If your changes need
+something newer, it can conflict.
 
 Change the pin without pulling:
 

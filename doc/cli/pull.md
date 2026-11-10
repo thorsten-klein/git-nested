@@ -112,9 +112,8 @@ git nested pull --pin v1.3 ext/lib
 This is a normal pull to `v1.3`. Your local changes stay. See
 [Pin a release](../guides/pin.md).
 
-`--pin` can also go back to an older commit. Your local changes stay on
-top of it. Such a pull always rebases. Without `--pin`, a merge pull does
-not go back: if upstream moved its branch back, it stops.
+`--pin` can also go back to an older commit. Your local changes stay.
+This pull always rebases. Without `--pin`, a merge pull never goes back.
 
 ## Notes
 

@@ -54,7 +54,7 @@ def _check_rebase_safety(
     """Raise if a pull would silently accept a rewritten/unreachable upstream history.
 
     With the rebase method a rewritten upstream is fine: the pull rebases
-    the local commits onto it. So is a pin to an older commit.
+    the local commits onto it. A pin to an older commit is fine too.
     """
     refs_fetch = f'refs/nested/{subref}/fetch'
     if not (git.rev_exists(refs_fetch) and command == 'pull'):
@@ -131,7 +131,7 @@ class _Replay:
     def _join(self, commit: str, known: list[str], upstream: str, last: str | None) -> None:
         """Replay `commit`, which records `upstream`, on its `known` parents."""
         if known and self._restarts(upstream, last):
-            # Only the local changes on top of `upstream` are in this commit.
+            # This commit holds only the local changes.
             self.joined[commit] = upstream
             self.nested[commit] = self._commit(commit, [upstream])
             return
@@ -142,12 +142,10 @@ class _Replay:
         self.nested[commit] = self._commit(commit, self._independent(nested_parents))
 
     def _restarts(self, upstream: str, last: str | None) -> bool:
-        """Whether the chain starts again on `upstream`, newly recorded after `last`.
+        """Whether the chain starts again on `upstream`, recorded after `last`.
 
-        It does when it goes back to an older commit. A merge cannot undo
-        upstream's changes, and a replay would bring them back. A pull with
-        rebase also starts again on each new one: otherwise its rebase
-        would see upstream's changes as local ones.
+        It does when `upstream` is older. A pull with rebase does it on
+        each new `upstream`. Else upstream's changes count as local ones.
         """
         if upstream == last:
             return False

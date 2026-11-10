@@ -50,7 +50,7 @@ def do_pull(
 
     merge_target = _merge_target(git, config, subdir_worktree, subref, upstream_head_commit)
 
-    # A merge can't go back to an older commit; a rebase can.
+    # Only a rebase can go back to an older commit.
     method = 'rebase' if _goes_back(git, config, upstream_head_commit) else flags.method or config.method
     cmd = _join_command(method, config, merge_target, branch)
     try:
