@@ -45,6 +45,7 @@ The command fails and lists the changed files.
 |---|---|
 | `-o`, `--output <path>` | `patches`: folder for the missing patch. `diff`: file for the whole diff |
 | `-k`, `--keep` | keep the temporary worktree |
+| `--ignore <path>` | do not compare this path. Can be repeated |
 
 ## Examples
 
@@ -53,7 +54,17 @@ git nested verify ext/lib patches -- patches/lib/*.patch
 git nested verify -o patches/lib ext/lib patches
 git nested verify ext/lib diff lib.diff
 git nested verify -o lib.diff ext/lib diff lib.diff
+git nested verify --ignore ext/lib/build ext/lib patches
 ```
+
+### Skip a folder
+
+```bash
+git nested verify --ignore ext/lib/build ext/lib patches -- patches/lib/*.patch
+```
+
+Changes in `ext/lib/build` do not count. They are not in the written patch
+or diff either. Give the path like `<subdir>`.
 
 ## See also
 

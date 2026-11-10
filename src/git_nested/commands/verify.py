@@ -94,14 +94,20 @@ def _next_number(directory: Path) -> int:
     return max(numbers, default=0) + 1
 
 
-def _diff(git: GitRunner, path: Path, base: str, local_tree: str, *options: str) -> str:
-    """The diff from `base` to `local_tree`, without .gitnested files."""
-    return git.run(['diff', *options, base, local_tree, '--', '.', GITNESTED_EXCLUDE], cwd=path).stdout
+def _pathspec(ignored: list[str]) -> list[str]:
+    """All paths but .gitnested files and the `ignored` ones."""
+    return ['.', GITNESTED_EXCLUDE, *(f':(exclude,literal){path}' for path in ignored)]
 
 
-def _write_missing_patch(git: GitRunner, path: Path, local_tree: str, directory: Path) -> Path:
+def _diff(git: GitRunner, path: Path, base: str, local_tree: str, pathspec: list[str], *options: str) -> str:
+    """The diff from `base` to `local_tree`, for `pathspec`."""
+    return git.run(['diff', *options, base, local_tree, '--', *pathspec], cwd=path).stdout
+
+
+def _write_missing_patch(git: GitRunner, path: Path, local_tree: str, pathspec: list[str], directory: Path) -> Path:
     """Write the missing patch into `directory`."""
-    git.run(['apply', '--index'], cwd=path, input=_diff(git, path, 'HEAD', local_tree, '--binary', '--full-index'))
+    missing = _diff(git, path, 'HEAD', local_tree, pathspec, '--binary', '--full-index')
+    git.run(['apply', '--index'], cwd=path, input=missing)
     _commit(git, path, TODO_TITLE, TODO_DESCRIPTION)
     directory.mkdir(parents=True, exist_ok=True)
     number = _next_number(directory)
@@ -112,28 +118,32 @@ def _write_missing_patch(git: GitRunner, path: Path, local_tree: str, directory:
     )
 
 
-def _write_diff(git: GitRunner, path: Path, base: str, local_tree: str, file: Path) -> Path:
+def _write_diff(git: GitRunner, path: Path, base: str, local_tree: str, pathspec: list[str], file: Path) -> Path:
     """Write the whole diff from upstream to `file`."""
     file.parent.mkdir(parents=True, exist_ok=True)
-    file.write_text(_diff(git, path, base, local_tree, '--binary'), encoding='utf-8', errors='surrogateescape')
+    file.write_text(
+        _diff(git, path, base, local_tree, pathspec, '--binary'), encoding='utf-8', errors='surrogateescape'
+    )
     return file
 
 
-def _report_difference(ctx: CommandContext, path: Path, base: str, local_tree: str, subdir: Path) -> str:
+def _report_difference(
+    ctx: CommandContext, path: Path, base: str, local_tree: str, pathspec: list[str], subdir: Path
+) -> str:
     """The error message when `subdir` differs; writes the missing file if it can."""
     git, files, out = ctx.git, [Path(file) for file in ctx.patches or []], ctx.flags.output_dir
-    stat = _diff(git, path, 'HEAD', local_tree, '--stat').rstrip()
+    stat = _diff(git, path, 'HEAD', local_tree, pathspec, '--stat').rstrip()
     message = (
         f"{subdir.as_posix()}: differs from its upstream commit with {_counted(len(files), ctx.verify_mode)}\n{stat}"
     )
 
     if ctx.verify_mode == 'diff':
-        return _diff_hint(git, path, base, local_tree, message, out)
+        return _diff_hint(git, path, base, local_tree, pathspec, message, out)
 
     directory = _patch_directory(out, files)
     if directory is None:
         return f"{message}\nname the patches, or use --output to have the missing one written"
-    patch = _write_missing_patch(git, path, local_tree, directory)
+    patch = _write_missing_patch(git, path, local_tree, pathspec, directory)
     return (
         f"{message}\nwrote the missing patch {_shown(patch)}\n"
         f"replace '{TODO_TITLE}' and '{TODO_DESCRIPTION}' in it, rename it to match, and commit it"
@@ -147,11 +157,14 @@ def _patch_directory(out: str | None, files: list[Path]) -> Path | None:
     return files[-1].parent if files else None
 
 
-def _diff_hint(git: GitRunner, path: Path, base: str, local_tree: str, message: str, out: str | None) -> str:
+def _diff_hint(
+    git: GitRunner, path: Path, base: str, local_tree: str, pathspec: list[str], message: str, out: str | None
+) -> str:
     """`message` for 'diff' mode, after writing the whole diff to `out` if given."""
     if not out:
         return f"{message}\nuse --output to have the whole diff written"
-    return f"{message}\nwrote the whole diff to {_shown(_write_diff(git, path, base, local_tree, Path(out)))}"
+    written = _write_diff(git, path, base, local_tree, pathspec, Path(out))
+    return f"{message}\nwrote the whole diff to {_shown(written)}"
 
 
 def _shown(path: Path) -> str:
@@ -173,6 +186,7 @@ def cmd_verify(ctx: CommandContext) -> None:
 
     local_tree = git.check_output(['rev-parse', f'HEAD:{subdir.as_posix()}'])
     base = _upstream_base(git, config, subref, subdir)
+    pathspec = _pathspec(filters.ignored_paths(ctx.flags, subdir))
 
     path = ctx.tmp / 'verify' / subref
     worktree.remove_worktree(git, path)
@@ -181,11 +195,9 @@ def cmd_verify(ctx: CommandContext) -> None:
     try:
         git.run(['reset', '-q', '--hard'], cwd=path)
         _apply(git, path, files)
-        differs = git.run(
-            ['diff', '--quiet', 'HEAD', local_tree, '--', '.', GITNESTED_EXCLUDE], cwd=path, may_fail=True
-        )
+        differs = git.run(['diff', '--quiet', 'HEAD', local_tree, '--', *pathspec], cwd=path, may_fail=True)
         if differs.returncode != 0:
-            raise GitNestedError(_report_difference(ctx, path, base, local_tree, subdir))
+            raise GitNestedError(_report_difference(ctx, path, base, local_tree, pathspec, subdir))
     finally:
         if ctx.flags.keep:
             output.say(f"kept the worktree at {path.as_posix()}")
