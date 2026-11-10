@@ -123,8 +123,7 @@ def place_filtered_content(
 def ignored_paths(flags: Flags, subdir: Path) -> list[str]:
     """The --ignore paths, relative to subdir.
 
-    They are given like subdir. With --all, a path outside subdir belongs
-    to another nested repository and is skipped.
+    With --all, paths outside subdir are skipped.
     """
     top = posixpath.normpath(subdir.as_posix())
     paths = []
@@ -140,9 +139,7 @@ def ignored_paths(flags: Flags, subdir: Path) -> list[str]:
 
 
 def with_paths_from(git: GitRunner, cwd: Path, commit: str, source: str, paths: list[str]) -> str:
-    """A commit on top of `commit`, with `paths` as `source` has them.
-
-    A path `source` does not have is left out.
+    """A new commit on top of `commit`, with `paths` taken from `source`.
 
     Returns:
         sha of the new commit
@@ -156,7 +153,7 @@ def with_paths_from(git: GitRunner, cwd: Path, commit: str, source: str, paths: 
 
 
 def replace_paths(git: GitRunner, source: str, paths: list[str], env: dict[str, str], cwd: Path | None = None) -> None:
-    """Make `paths` in the index of `env` what they are in `source`."""
+    """Set `paths` in the index of `env` to what `source` has."""
     # -f: this index has nothing to do with the working tree
     git.run(['rm', '--cached', '-r', '-q', '-f', '--ignore-unmatch', '--', *paths], cwd=cwd, env=env)
     entries = git.check_output(['ls-tree', '-r', '-z', '--full-tree', source, '--', *paths], cwd=cwd)

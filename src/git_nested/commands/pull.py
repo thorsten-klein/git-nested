@@ -72,9 +72,9 @@ def do_pull(
 def _without_ignored(
     git: GitRunner, flags: Flags, config: NestedConfig, subdir: Path, worktree_dir: Path, merge_target: str
 ) -> str:
-    """`merge_target` with the --ignore paths as the recorded upstream commit has them.
+    """`merge_target`, but with the --ignore paths from the recorded commit.
 
-    Upstream's changes to them do not come in, so the local ones stay.
+    So upstream's changes there do not come in.
     """
     ignored = filters.ignored_paths(flags, subdir)
     if not ignored:
@@ -234,14 +234,14 @@ def _check_no_squash(flags: Flags, config: NestedConfig, subdir: Path) -> None:
 
 
 def _check_ignore(flags: Flags, config: NestedConfig, subdir: Path) -> None:
-    """Refuse --ignore when there is nothing to keep the ignored paths as."""
+    """Refuse --ignore where it can't work."""
     if not flags.ignore:
         return
     if flags.force:
-        output.usage_error("--ignore can't be combined with --force, which takes upstream as it is")
+        output.usage_error("--ignore can't be combined with --force")
     if not config.commit:
         raise GitNestedError(f"{subdir.as_posix()}: --ignore needs the upstream commit in .gitnested")
-    filters.ignored_paths(flags, subdir)  # checks the paths now, also when there is nothing to pull
+    filters.ignored_paths(flags, subdir)  # check the paths early
 
 
 def cmd_pull(ctx: CommandContext) -> None:

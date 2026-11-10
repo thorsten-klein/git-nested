@@ -250,7 +250,7 @@ def _check_push_flags(flags: Flags, subdir: Path, branch: str | None) -> None:
         raise GitNestedError("--squash can't be combined with an explicit branch")
     if branch and flags.ignore:
         raise GitNestedError("--ignore can't be combined with an explicit branch")
-    filters.ignored_paths(flags, subdir)  # checks the paths now, also when there is nothing to push
+    filters.ignored_paths(flags, subdir)  # check the paths early
 
 
 def _default_target(git: GitRunner, config: NestedConfig) -> str:
