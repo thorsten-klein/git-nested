@@ -202,9 +202,9 @@ class _Replay:
             self.git.run(['update-index', '--add', '--cacheinfo', f'160000,{pinned},{entry}'], env=self.index_env)
 
     def _keep_upstream(self, commit: str, paths: list[str]) -> None:
-        """Make `paths` what they are in the upstream commit `commit` records.
+        """Set `paths` to what the recorded upstream commit has.
 
-        Without one, they are left out.
+        Without one, they are dropped.
         """
         if not paths:
             return

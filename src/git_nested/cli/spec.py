@@ -162,7 +162,7 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
         {
             'action': 'append',
             'metavar': 'PATH',
-            'help': "leave this path in <subdir> out, just this time; give it like <subdir>",
+            'help': "skip this path of <subdir>, just this time",
         },
     ),
     ('exclude', ('--exclude',), {'action': 'append', 'help': "leave this path of the upstream repository out"}),

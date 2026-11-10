@@ -63,7 +63,7 @@ git nested push -b main --commit ext/lib
 | `-m`, `--message <message>` | the message for `--squash` or `--commit` |
 | `--file <file>` | read that message from a file |
 | `--tag <name>` | also tag the pushed upstream commit |
-| `--ignore <path>` | do not push the changes in this path of `<subdir>`. Can be repeated |
+| `--ignore <path>` | do not push this path. Can be repeated |
 | `-M`, `--method <merge\|rebase>` | the join method, just this time |
 | `--merge`, `--rebase` | short for `-M merge` and `-M rebase` |
 | `-f`, `--force` | force-push, even if upstream has commits you do not have |
@@ -117,10 +117,8 @@ has. With `--all` it tags each one.
 git nested push --ignore ext/lib/local ext/lib
 ```
 
-Your changes in `ext/lib/local` are not pushed. Upstream keeps what it has
-there. Give the path like `<subdir>`.
-
-`--ignore` does not work with `<nested-branch>`.
+Your changes in `ext/lib/local` are not pushed. Upstream keeps its copy.
+Give the path like `<subdir>`. It does not work with `<nested-branch>`.
 
 ### Push a branch you fixed by hand
 
