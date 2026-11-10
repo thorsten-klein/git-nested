@@ -107,7 +107,7 @@ def test_error_subdir_is_absolute_path(foo_bar_cloned):
 def test_error_command_requires_subdir(foo_bar_cloned, cmd):
     """Test error when command is called without required subdir argument"""
     env = foo_bar_cloned
-    cp = env.run(f'git nested {cmd}', check=False, cwd=env.workspace / 'bar')
+    cp = cmd_git_nested(cmd, check=False, cwd=env.workspace / 'bar')
     assert_error(cp, "git-nested: no subdir given, and none could be guessed", returncode=1)
 
 
@@ -144,7 +144,7 @@ def test_error_working_tree_has_changes(foo_bar_cloned):
     env = foo_bar_cloned
     (env.workspace / 'bar' / 'me').touch()
     env.run(['git', 'add', 'me'], cwd=env.workspace / 'bar')
-    cp = env.run(f'git nested clone {env.upstream.as_posix()}/foo', check=False, cwd=env.workspace / 'bar')
+    cp = cmd_git_nested(f'clone {env.upstream.as_posix()}/foo', check=False, cwd=env.workspace / 'bar')
     assert_error(
         cp, f"git-nested: {env.workspace.as_posix()}/bar: can't clone, the working tree has changes", returncode=1
     )

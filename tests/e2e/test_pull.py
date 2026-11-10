@@ -99,14 +99,14 @@ def test_pull_all(foo_bar_cloned):
     env = foo_bar_cloned
 
     # Clone two nesteds
-    env.run(['git', 'nested', 'clone', '../bar', 'bar1'], cwd=env.workspace / 'foo')
-    env.run(['git', 'nested', 'clone', '../bar', 'bar2'], cwd=env.workspace / 'foo')
+    cmd_git_nested(['clone', '../bar', 'bar1'], cwd=env.workspace / 'foo')
+    cmd_git_nested(['clone', '../bar', 'bar2'], cwd=env.workspace / 'foo')
 
     # Make changes in bar repository
     env.modify_files('Bar', text="some changes xyz", cwd=env.workspace / 'bar')
 
     # Pull all nested repositories
-    env.run(['git', 'nested', 'pull', '--all'], cwd=env.workspace / 'foo')
+    cmd_git_nested(['pull', '--all'], cwd=env.workspace / 'foo')
 
     # Check that both nested repositories were updated
     bar1_content = (env.workspace / 'foo' / 'bar1' / 'Bar').read_text()

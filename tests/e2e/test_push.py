@@ -414,7 +414,7 @@ def test_push_no_changes(foo_bar_cloned_and_nested):
     env = foo_bar_cloned_and_nested
 
     # Try to push with no changes
-    cp = env.run('git nested push bar --branch=master', check=False, cwd=env.workspace / 'foo')
+    cp = cmd_git_nested('push bar --branch=master', check=False, cwd=env.workspace / 'foo')
     assert cp.output.strip() == "bar: nothing to push"
 
 
