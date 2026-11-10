@@ -128,9 +128,9 @@ def test_verify_ignore_skips_the_path(foo_bar_cloned_and_nested):
     env = foo_bar_cloned_and_nested
     foo = env.workspace / 'foo'
     env.modify_files('bar/bard/Bard', text='local', cwd=foo)
-    assert cmd_git_nested('verify bar patches', cwd=foo, check=False).returncode == 1
+    assert cmd_git_nested('verify bar', cwd=foo, check=False).returncode == 1
 
-    result = cmd_git_nested('verify --ignore bar/bard bar patches', cwd=foo)
+    result = cmd_git_nested('verify --ignore bar/bard bar', cwd=foo)
 
     assert result.output.strip().startswith("bar: matches upstream ")
 
@@ -140,7 +140,7 @@ def test_verify_ignore_leaves_the_path_out_of_the_patch(foo_bar_cloned_and_neste
     foo = env.workspace / 'foo'
     env.modify_files('bar/Bar', 'bar/bard/Bard', text='local', cwd=foo)
 
-    result = cmd_git_nested('verify --ignore bar/bard -o patches bar patches', cwd=foo, check=False)
+    result = cmd_git_nested('verify --ignore bar/bard -o patches bar', cwd=foo, check=False)
 
     assert result.returncode == 1
     assert "Bard" not in result.output

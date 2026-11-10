@@ -11,6 +11,3 @@ GIT_LOG_DATE_DEFAULT_FLAG = '--date=default'
 
 # The shells `git nested completion` can emit a script for.
 COMPLETION_SHELLS = ('bash', 'zsh', 'fish')
-
-# What `git nested verify` checks a subdir against: numbered patches, or diffs.
-VERIFY_MODES = ('patches', 'diff')

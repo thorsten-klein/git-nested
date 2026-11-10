@@ -8,7 +8,7 @@ reason about the CLI -- shell completion, `git nested config`, the man page
 
 from __future__ import annotations
 
-from ..constants import COMPLETION_SHELLS, VERIFY_MODES
+from ..constants import COMPLETION_SHELLS
 
 # Which flags each command accepts. The keys are also the command list:
 # the subparsers, and the completion candidates, are built from them.
@@ -78,7 +78,7 @@ VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
         'update',
     ],
     'status': ['ALL', 'all', 'fetch', 'short'],
-    'verify': ['ignore', 'keep', 'output_dir'],
+    'verify': ['diffs', 'ignore', 'keep', 'output_dir', 'patches'],
     'version': [],
 }
 
@@ -140,6 +140,11 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
         {'action': 'store_true', 'help': "record the pushed commit in .gitnested; needs a push to the tracked branch"},
     ),
     ('dry_run', ('--dry-run',), {'action': 'store_true', 'dest': 'dry_run', 'help': "show what would be pushed"}),
+    (
+        'diffs',
+        ('--diffs',),
+        {'nargs': '*', 'metavar': 'DIFF', 'help': "check against these diffs, in order"},
+    ),
     (
         'keep',
         ('-k', '--keep'),
@@ -204,6 +209,11 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
         {'dest': 'name', 'help': "name of the nested branch; defaults to nested/<subdir>"},
     ),
     ('message', ('-m', '--message'), {'dest': 'message', 'help': "commit message"}),
+    (
+        'patches',
+        ('--patches',),
+        {'nargs': '*', 'metavar': 'PATCH', 'help': "check against these patches, in order (the default)"},
+    ),
     ('path', ('--path',), {'dest': 'path', 'help': "nest only this directory of upstream, at the root of <subdir>"}),
     ('pin', ('--pin',), {'dest': 'pin', 'help': "nest this commit or tag of the branch, not its newest commit"}),
     ('msg_file', ('--file',), {'dest': 'msg_file', 'help': "file to read the commit message from"}),
@@ -294,11 +304,7 @@ POSITIONALS: dict[str, list[tuple[str, dict]]] = {
         # everything after <subdir> goes to git untouched, options included.
         ('git_args', {'nargs': '...', 'help': "the git command to run, with its arguments"}),
     ],
-    'verify': [
-        ('subdir', {'help': _SUBDIR_HELP}),
-        ('verify_mode', {'choices': list(VERIFY_MODES), 'help': "what the files are: numbered patches, or diffs"}),
-        ('patches', {'nargs': '*', 'help': "the patches or diffs to apply, in order"}),
-    ],
+    'verify': [('subdir', {'help': _SUBDIR_HELP})],
 }
 
 # The paragraph `git nested <command> --help` opens with. COMMAND_HELP is
@@ -384,8 +390,8 @@ COMMAND_DESCRIPTION: dict[str, str] = {
         "Apply the files to the upstream commit in .gitnested, in a temporary worktree, and compare "
         "the result with <subdir>. The files can be git patches or plain diffs. "
         "Without files, check that <subdir> has no local changes. "
-        "If it differs, the command fails. 'patches' then writes the missing patch next to the last one "
-        "(or into --output); 'diff' writes the whole diff to --output."
+        "If it differs, the command fails. With patches, it then writes the missing patch next to the last one "
+        "(or into --output). With --diffs, it writes the whole diff to --output."
     ),
     'version': "Print the git-nested version, and the versions of git and Python it is running on.",
 }
@@ -466,11 +472,11 @@ COMMAND_EXAMPLES: dict[str, list[str]] = {
         "git nested status -q",
     ],
     'verify': [
-        "git nested verify ext/lib patches -- patches/lib/*.patch",
-        "git nested verify -o patches/lib ext/lib patches",
-        "git nested verify ext/lib diff lib.diff",
-        "git nested verify -o lib.diff ext/lib diff lib.diff",
-        "git nested verify --ignore ext/lib/build ext/lib patches",
+        "git nested verify ext/lib --patches patches/lib/*.patch",
+        "git nested verify -o patches/lib ext/lib",
+        "git nested verify ext/lib --diffs lib.diff",
+        "git nested verify -o lib.diff ext/lib --diffs lib.diff",
+        "git nested verify --ignore ext/lib/build ext/lib",
     ],
     'version': [
         "git nested version",
