@@ -70,6 +70,7 @@ class NestedConfig:
     method: str = 'merge'
     squash: bool = True
     readonly: bool = False
+    patches: str = ''
 
     @classmethod
     def from_file(cls, filepath: str | Path) -> NestedConfig:
@@ -90,12 +91,30 @@ class NestedConfig:
             method='rebase' if nested.get('method') == 'rebase' else 'merge',
             squash=str(nested.get('squash', 'true')).lower() != 'false',
             readonly=str(nested.get('readonly')).lower() == 'true',
+            patches=nested.get('patches') or '',
         )
         if not config.remote:
             raise GitNestedError(f"{path.as_posix()} has no 'remote'")
         if not config.branch:
             raise GitNestedError(f"{path.as_posix()} has no 'branch'")
         return config
+
+    def patches_folder(self, subdir: Path) -> Path | None:
+        """The folder with the patches, or None if there is none."""
+        return subdir / self.patches if self.patches else None
+
+    def patches_inside(self, subdir: Path) -> str | None:
+        """The patches folder relative to subdir, if it is inside it.
+
+        Such a folder is not part of the upstream content.
+        """
+        folder = self.patches_folder(subdir)
+        if folder is None:
+            return None
+        try:
+            return folder.resolve().relative_to(subdir.resolve()).as_posix()
+        except ValueError:
+            return None
 
 
 @dataclass

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .. import content, discovery, filters, gitfile, output, refs, worktree
+from .. import content, discovery, filters, gitfile, output, patches, refs, worktree
 from ..cli import setup
 from ..constants import FETCH_HEAD_REV
 from ..errors import GitNestedError
@@ -211,6 +211,8 @@ def _record_push_commit(
         head_commit=head_commit,
         command='push',
     )
+    # Upstream has the local changes now
+    patches.write(git, config, subdir, new_commit, new_commit, [])
     msg = flags.message or discovery.build_commit_message(git, config, new_commit, new_commit, subdir, 'push')
     content.commit_gitnested_update(git, flags, subdir, msg)
 

@@ -69,6 +69,7 @@ Fields that are not set take their default.
 | [`path`](#path) | the whole upstream | clone `--path` | no |
 | [`pin`](#pin) | empty | clone `--pin`, pull `--pin` | yes |
 | [`readonly`](#readonly) | `false` | you | yes |
+| [`patches`](#patches) | empty | you | yes |
 | [`cmdver`](#cmdver) | | every write | no |
 
 ### `remote`
@@ -146,6 +147,18 @@ newest commit. `pull --pin <new>` moves it. See
 
 `true` makes `push` refuse. With `--all` the repository is skipped. Use it
 for code you only take from upstream.
+
+### `patches`
+
+A folder with your local changes as patch files. The path is relative to
+the nested folder. Inside it, the folder is never pushed.
+
+```yaml
+nested:
+  patches: .gitnested.patches
+```
+
+See [Keep local changes as patches](../guides/patches.md).
 
 ### `cmdver`
 

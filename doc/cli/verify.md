@@ -23,6 +23,13 @@ The files can be git patches (`git format-patch`) or plain diffs
 
 Your working tree and branches are not touched.
 
+With [`patches`](../configuration/gitnested-file.md#patches) set in
+`.gitnested`, the files default to the patches in that folder. The missing
+patch is written there too.
+
+Nested repositories inside `<subdir>` are not compared. They are not
+upstream content.
+
 ### When it differs
 
 The command fails and lists the changed files.
@@ -73,3 +80,4 @@ or diff either. Give the path like `<subdir>`.
 ## See also
 
 - [`diff`](diff.md)
+- [Keep local changes as patches](../guides/patches.md)

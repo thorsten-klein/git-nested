@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
 
-from .. import content, discovery, gitfile, output, refs, submodules
+from .. import content, discovery, gitfile, output, patches, refs, submodules
 from ..cli import setup
 from ..errors import GitNestedError
 from ..git import GitRunner
@@ -72,6 +73,19 @@ def _prepare_reclone(
     output.verbose("removing the existing subdir")
     git.run(['rm', '-r', '--', subdir])
     return config, fetched, False, False
+
+
+def _with_patches(git: GitRunner, config: NestedConfig, subdir: Path, upstream: str) -> str:
+    """`upstream` with the patches HEAD has applied.
+
+    From HEAD: a reclone has removed the folder already.
+    """
+    if not config.patches:
+        return upstream
+    patches.check(config, subdir)
+    with tempfile.TemporaryDirectory() as tmp:
+        files = patches.files_at(git, config, subdir, 'HEAD', Path(tmp) / 'patches')
+        return patches.apply_on(git, upstream, files, Path(tmp) / 'patched', subdir) if files else upstream
 
 
 def _is_up_to_date(git: GitRunner, config: NestedConfig, recorded: NestedConfig, subdir: Path, fetched: str) -> bool:
@@ -171,7 +185,7 @@ def _clone_into(
         config=config,
         subdir=subdir,
         gitnested=gitnested,
-        nested_commit_ref=upstream_head_commit,
+        nested_commit_ref=_with_patches(git, config, subdir, upstream_head_commit),
         upstream_head_commit=upstream_head_commit,
         head_commit=head_commit,
         subdir_worktree=None,

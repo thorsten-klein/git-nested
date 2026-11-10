@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .. import content, output, refs, worktree
+from .. import content, output, patches, refs, worktree
 from ..cli import setup
 from ..models import CommandContext
 from . import fetch
@@ -12,6 +12,7 @@ def cmd_commit(ctx: CommandContext) -> None:
     """Commit a merged nested branch."""
     git, flags = ctx.git, ctx.flags
     subdir, gitnested, subref, config = setup.setup_command(git, 'commit', flags, ctx.subdir, ctx.upstream)
+    patches.check(config, subdir)
 
     if flags.fetch:
         fetch.do_fetch(git, config, subref)

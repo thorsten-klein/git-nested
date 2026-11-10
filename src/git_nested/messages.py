@@ -79,7 +79,7 @@ def pull_conflict_help(
     its own, so the recovery is an ordinary conflict resolution followed by
     handing the result back -- which is what the numbered steps spell out.
     """
-    resume = "git rebase --continue" if method == 'rebase' else "git commit"
+    resume = {'rebase': "git rebase --continue", 'am': "git am --continue"}.get(method, "git commit")
     options = [f'--file={message_file}'] if message_file else []
     if pin:
         # Only the pull got it: without it, commit would not record the pin in .gitnested

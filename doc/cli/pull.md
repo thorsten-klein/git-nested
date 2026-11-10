@@ -143,9 +143,13 @@ This pull always rebases. Without `--pin`, a merge pull never goes back.
   nests new ones.
 - A worktree left from an earlier pull blocks a new one. Finish it, or run
   [`clean`](clean.md).
+- With [`patches`](../configuration/gitnested-file.md#patches) set, a pull
+  takes upstream and applies the patches on top. See
+  [Keep local changes as patches](../guides/patches.md).
 
 ## See also
 
 - [`fetch`](fetch.md): only download, change nothing.
 - [Resolve conflicts](../guides/conflicts.md)
+- [Keep local changes as patches](../guides/patches.md)
 - [How it works](../concepts/how-it-works.md#pull)

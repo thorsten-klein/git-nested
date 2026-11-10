@@ -25,7 +25,9 @@ def cmd_diff(ctx: CommandContext) -> None:
     elif config.filter or config.exclude:
         upstream = filters.build_filtered_commit(git, Path.cwd(), config.filter or [], config.exclude or [], upstream)
     local_tree = git.check_output(['rev-parse', f'HEAD:{subdir.as_posix()}'])
-    diff = git.check_output(['diff', local_tree, upstream, '--', ':(exclude,glob)**/.gitnested*'])
+    folder = config.patches_inside(subdir)
+    skip = [':(exclude,glob)**/.gitnested*', *([f':(exclude,literal){folder}'] if folder else [])]
+    diff = git.check_output(['diff', local_tree, upstream, '--', *skip])
 
     if diff:
         output.payload(diff)

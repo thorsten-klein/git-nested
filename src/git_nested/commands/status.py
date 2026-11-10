@@ -120,7 +120,9 @@ def _against_upstream(
         upstream = filters.build_filtered_commit(
             git, Path.cwd(), config.filter or [], config.exclude or [], config.commit
         )
-    return behind, 'same' if content.matches_upstream(git, subdir, upstream, inner) else 'changed'
+    folder = config.patches_inside(subdir)
+    skipped = (*inner, *([folder] if folder else []))
+    return behind, 'same' if content.matches_upstream(git, subdir, upstream, skipped) else 'changed'
 
 
 def _short(git: GitRunner, rev: str) -> str:

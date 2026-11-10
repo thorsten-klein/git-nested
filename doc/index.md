@@ -137,6 +137,7 @@ Step by step help for one task each.
 - [Resolve conflicts](guides/conflicts.md)
 - [Nest only a part of upstream](guides/partial.md)
 - [Pin a release](guides/pin.md)
+- [Keep local changes as patches](guides/patches.md)
 - [Upstream submodules](guides/submodules.md)
 - [Adopt an existing folder](guides/adopt.md)
 - [Many nested repositories at once](guides/many.md)
@@ -152,6 +153,7 @@ Step by step help for one task each.
 guides/conflicts
 guides/partial
 guides/pin
+guides/patches
 guides/submodules
 guides/adopt
 guides/many

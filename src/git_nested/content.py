@@ -6,7 +6,7 @@ import dataclasses
 from pathlib import Path, PurePosixPath
 from typing import cast
 
-from . import discovery, filters, gitfile, history, output, refs, worktree
+from . import discovery, filters, gitfile, history, output, patches, refs, worktree
 from .constants import GITNESTED_FILENAME
 from .errors import GitNestedError
 from .git import GitRunner
@@ -71,7 +71,7 @@ def commit_nested_branch(
     if not flags.force and not git.commit_in_rev_list(upstream_head_commit, nested_commit_ref):
         raise GitNestedError(f"can't commit: {nested_commit_ref} does not contain the upstream HEAD")
 
-    _place_content(git, config, subdir, nested_commit_ref)
+    local = place_with_patches(git, config, subdir, nested_commit_ref)
     gitfile.create_level_gitnested_files(git, subdir)
 
     # A level file has the regular .gitnested next to it, which is kept in
@@ -89,6 +89,8 @@ def commit_nested_branch(
             head_commit=head_commit,
             command=command,
         )
+    if local is not None:
+        patches.write(git, config, subdir, upstream_head_commit, nested_commit_ref, local)
 
     if git.run(['diff', '--cached', '--quiet'], may_fail=True).returncode == 0:
         output.verbose("nothing to commit for the .gitnested update")
@@ -100,6 +102,22 @@ def commit_nested_branch(
 
     worktree.remove_worktree(git, subdir_worktree)
     refs.create_nested_ref(git, refs.sanitize_subref(git, subdir.as_posix()), 'commit', nested_commit_ref)
+
+
+def place_with_patches(git: GitRunner, config: NestedConfig, subdir: Path, nested_commit_ref: str) -> list[str] | None:
+    """Place the content, and keep the inner nested repos if the patches are used.
+
+    Returns:
+        the paths the patches leave out, or None without patches.
+    """
+    if not config.patches:
+        _place_content(git, config, subdir, nested_commit_ref)
+        return None
+    local = patches.local_paths(git, config, subdir)
+    added_here = set(history.inner_repos(git, config, subdir)) - set(history.gitlinked_inner(git, config, subdir))
+    _place_content(git, config, subdir, nested_commit_ref)
+    patches.restore_inner_repos(git, subdir, sorted(added_here))
+    return local
 
 
 def _place_content(git: GitRunner, config: NestedConfig, subdir: Path, nested_commit_ref: str) -> None:

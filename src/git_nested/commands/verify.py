@@ -2,39 +2,31 @@
 
 from __future__ import annotations
 
+import contextlib
 import re
+from collections.abc import Iterator
 from pathlib import Path
 
-from .. import filters, output, worktree
+from .. import filters, output, patches, worktree
 from ..cli import setup
 from ..errors import GitNestedError
 from ..git import GitRunner
 from ..models import CommandContext, NestedConfig
 from . import fetch
 
-# .gitnested files are not part of the upstream content.
-GITNESTED_EXCLUDE = ':(exclude,glob)**/.gitnested*'
-
 # Placeholders in a written patch, for the user to fill in.
 TODO_TITLE = "TODO: title"
 TODO_DESCRIPTION = "TODO: description"
 
-# `git commit` needs an identity; CI often has none.
-_FALLBACK_IDENTITY = ['-c', 'user.name=git-nested', '-c', 'user.email=git-nested@localhost']
-
 _LEADING_NUMBER = re.compile(r'^(\d+)-')
-
-
-def _identity(git: GitRunner) -> list[str]:
-    """A stand-in identity if git has none."""
-    return [] if git.check_output(['config', 'user.email'], may_fail=True) else _FALLBACK_IDENTITY
 
 
 def _commit(git: GitRunner, path: Path, *message: str) -> None:
     """Commit in the worktree at `path`, without hooks or signing."""
     paragraphs = [arg for paragraph in message for arg in ('-m', paragraph)]
     git.run(
-        [*_identity(git), 'commit', '--quiet', '--allow-empty', '--no-verify', '--no-gpg-sign', *paragraphs], cwd=path
+        [*patches.identity(git), 'commit', '--quiet', '--allow-empty', '--no-verify', '--no-gpg-sign', *paragraphs],
+        cwd=path,
     )
 
 
@@ -73,13 +65,13 @@ def _fetch_commit(git: GitRunner, config: NestedConfig, subref: str, subdir: Pat
         output.error(f"{subdir.as_posix()}: upstream commit {commit} is not on {config.remote} ({config.branch})")
 
 
-def _apply(git: GitRunner, path: Path, files: list[Path]) -> None:
+def _apply(git: GitRunner, path: Path, files: list[Path], quiet: bool = False) -> None:
     """Apply `files` in order in the worktree at `path`, then commit.
 
     `git apply`, not `git am`: it takes plain diffs too.
     """
     for file in files:
-        output.say(f"applying {_shown(file)}")
+        (output.verbose if quiet else output.say)(f"applying {_shown(file)}")
         result = git.run(['apply', '--index', '--whitespace=nowarn', file.resolve()], may_fail=True, cwd=path)
         if result.returncode != 0:
             raise GitNestedError(f"{_shown(file)}: does not apply\n{(result.stderr or '').strip()}")
@@ -92,11 +84,6 @@ def _next_number(directory: Path) -> int:
         int(match.group(1)) for patch in directory.glob('*.patch') if (match := _LEADING_NUMBER.match(patch.name))
     ]
     return max(numbers, default=0) + 1
-
-
-def _pathspec(ignored: list[str]) -> list[str]:
-    """All paths but .gitnested files and the `ignored` ones."""
-    return ['.', GITNESTED_EXCLUDE, *(f':(exclude,literal){path}' for path in ignored)]
 
 
 def _diff(git: GitRunner, path: Path, base: str, local_tree: str, pathspec: list[str], *options: str) -> str:
@@ -175,34 +162,75 @@ def _shown(path: Path) -> str:
         return path.as_posix()
 
 
-def cmd_verify(ctx: CommandContext) -> None:
-    """Check that a nested repo is its upstream commit plus the given files."""
-    git = ctx.git
-    subdir, _, subref, config = setup.setup_command(git, 'verify', ctx.flags, ctx.subdir, ctx.upstream)
-    files = [Path(file) for file in ctx.patches or []]
-    for file in files:
-        if not file.is_file():
-            output.usage_error(f"{file.as_posix()}: no such file")
-
-    local_tree = git.check_output(['rev-parse', f'HEAD:{subdir.as_posix()}'])
-    base = _upstream_base(git, config, subref, subdir)
-    pathspec = _pathspec(filters.ignored_paths(ctx.flags, subdir))
-
-    path = ctx.tmp / 'verify' / subref
+@contextlib.contextmanager
+def _worktree_at(git: GitRunner, path: Path, base: str, keep: bool = False) -> Iterator[None]:
+    """A temporary worktree at `base`, removed afterwards unless `keep`."""
     worktree.remove_worktree(git, path)
     # --no-checkout and reset: skip the parent's post-checkout hook
     git.run(['worktree', 'add', '--quiet', '--detach', '--no-checkout', path, base])
     try:
         git.run(['reset', '-q', '--hard'], cwd=path)
-        _apply(git, path, files)
-        differs = git.run(['diff', '--quiet', 'HEAD', local_tree, '--', *pathspec], cwd=path, may_fail=True)
-        if differs.returncode != 0:
-            raise GitNestedError(_report_difference(ctx, path, base, local_tree, pathspec, subdir))
+        yield
     finally:
-        if ctx.flags.keep:
+        if keep:
             output.say(f"kept the worktree at {path.as_posix()}")
         else:
             worktree.remove_worktree(git, path)
+
+
+def _differs(git: GitRunner, path: Path, local_tree: str, pathspec: list[str]) -> bool:
+    """Whether the worktree at `path` differs from `local_tree`."""
+    return git.run(['diff', '--quiet', 'HEAD', local_tree, '--', *pathspec], cwd=path, may_fail=True).returncode != 0
+
+
+def check_patches(git: GitRunner, config: NestedConfig, subref: str, subdir: Path, tmp: Path) -> None:
+    """Refuse if subdir has changes that are not in its patches."""
+    local_tree = git.check_output(['rev-parse', f'HEAD:{subdir.as_posix()}'])
+    base = _upstream_base(git, config, subref, subdir)
+    pathspec = patches.pathspec(patches.local_paths(git, config, subdir))
+    path = tmp / 'verify' / subref
+    with _worktree_at(git, path, base):
+        _apply(git, path, patches.files(config, subdir), quiet=True)
+        if _differs(git, path, local_tree, pathspec):
+            raise GitNestedError(
+                f"{subdir.as_posix()}: has changes that are not in its patches; "
+                f"'git nested verify {subdir.as_posix()}' writes the missing one"
+            )
+
+
+def _files(ctx: CommandContext, config: NestedConfig, subdir: Path) -> list[Path]:
+    """The files to apply: the given ones, else the patches folder from .gitnested."""
+    patches.check(config, subdir)
+    if config.patches and ctx.verify_mode != 'diff' and not ctx.patches:
+        _use_patches_folder(ctx, config, subdir)
+    files = [Path(file) for file in ctx.patches or []]
+    missing = next((file for file in files if not file.is_file()), None)
+    if missing:
+        output.usage_error(f"{missing.as_posix()}: no such file")
+    return files
+
+
+def _use_patches_folder(ctx: CommandContext, config: NestedConfig, subdir: Path) -> None:
+    """Take the patches from the folder, and write the missing one there too."""
+    ctx.patches = [file.as_posix() for file in patches.files(config, subdir)]
+    ctx.flags.output_dir = ctx.flags.output_dir or (subdir / config.patches).as_posix()
+
+
+def cmd_verify(ctx: CommandContext) -> None:
+    """Check that a nested repo is its upstream commit plus the given files."""
+    git = ctx.git
+    subdir, _, subref, config = setup.setup_command(git, 'verify', ctx.flags, ctx.subdir, ctx.upstream)
+    files = _files(ctx, config, subdir)
+
+    local_tree = git.check_output(['rev-parse', f'HEAD:{subdir.as_posix()}'])
+    base = _upstream_base(git, config, subref, subdir)
+    pathspec = patches.pathspec(patches.local_paths(git, config, subdir), filters.ignored_paths(ctx.flags, subdir))
+
+    path = ctx.tmp / 'verify' / subref
+    with _worktree_at(git, path, base, keep=ctx.flags.keep):
+        _apply(git, path, files)
+        if _differs(git, path, local_tree, pathspec):
+            raise GitNestedError(_report_difference(ctx, path, base, local_tree, pathspec, subdir))
 
     output.say(
         f"{subdir.as_posix()}: matches upstream {config.commit[:9]} with {_counted(len(files), ctx.verify_mode)}"
