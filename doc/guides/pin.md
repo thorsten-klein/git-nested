@@ -35,6 +35,15 @@ git nested pull --pin v1.3 ext/lib
 
 This is a normal pull to `v1.3`, with a merge. Your local changes stay.
 
+Move the pin back the same way:
+
+```bash
+git nested pull --pin v1.1 ext/lib
+```
+
+Your local changes stay. This pull always rebases. If your changes need
+something newer, it can conflict.
+
 Change the pin without pulling:
 
 ```bash
