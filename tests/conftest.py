@@ -389,8 +389,36 @@ def update_env(env_vars: dict[str, str]):
         os.environ.update(original_env)
 
 
+def _git_nested_under_test() -> Path:
+    """The git-nested executable the tests should reach"""
+    return GIT_NESTED_EXE or Path(__file__).parent.parent / 'bin' / 'git-nested'
+
+
+@pytest.fixture(scope='session')
+def git_exec_path(tmp_path_factory) -> Path | None:
+    """A git exec path without an installed git-nested, or None if not needed
+
+    git looks up `git nested` in its exec path before PATH. A git-nested
+    installed there (e.g. /usr/lib/git-core) would hide the one under test.
+    So copy the exec path as links and put the git-nested under test into it.
+    """
+    real = Path(subprocess.run(['git', '--exec-path'], capture_output=True, text=True, check=True).stdout.strip())
+    if not any((real / name).exists() for name in ('git-nested', 'git-nested.exe')):
+        return None
+
+    if sys.platform == 'win32':
+        pytest.exit(f"{real} has a git-nested, which hides the one under test. Remove it to run the tests.", 1)
+
+    shadow = tmp_path_factory.mktemp('git-exec-path')
+    for entry in real.iterdir():
+        if not entry.name.startswith('git-nested'):
+            (shadow / entry.name).symlink_to(entry)
+    (shadow / 'git-nested').symlink_to(_git_nested_under_test())
+    return shadow
+
+
 @pytest.fixture
-def env(tmp_path):
+def env(tmp_path, git_exec_path):
     """Setup isolated test environment with git repos"""
     root_dir = Path(__file__).parent.parent
     tmp_dir = Path(tmp_path)
@@ -421,6 +449,8 @@ def env(tmp_path):
         # replaced by the directory of the frozen binary when testing that.
         'PATH': os.pathsep.join([*map(str, path_dirs), os.getenv('PATH', '')]),
     }
+    if git_exec_path:
+        env_vars['GIT_EXEC_PATH'] = str(git_exec_path)
 
     with update_env(env_vars):
         # Configure git
