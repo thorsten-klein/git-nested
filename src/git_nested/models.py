@@ -27,6 +27,7 @@ class Flags:
     exclude: list[str] | None = None
     filter: list[str] | None = None
     force: bool = False
+    ignore: list[str] | None = None
     from_submodule: bool = False
     recurse_submodules: bool = False
     gpg_sign: bool = False

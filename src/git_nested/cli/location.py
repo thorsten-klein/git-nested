@@ -59,6 +59,8 @@ def at_top_level(git: GitRunner, command: str, ctx: CommandContext) -> AbstractC
     if ctx.config_key == 'remote':
         ctx.config_value = _remote_from(prefix, ctx.config_value)
 
+    # --ignore paths are given like <subdir>.
+    ctx.flags.ignore = [_joined(prefix, Path(path)) for path in ctx.flags.ignore or []]
     if ctx.subdir is not None:
         ctx.subdir = _joined(prefix, Path(ctx.subdir))
     elif command not in _NO_IMPLIED_SUBDIR and not ctx.flags.all:

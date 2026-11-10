@@ -42,6 +42,7 @@ It needs a clean working tree.
 | `--no-squash` | keep the upstream commits as the second parent of the pull commit |
 | `--pin <commit\|tag>` | move the pin to this commit or tag |
 | `--recurse-submodules` | also nest submodules upstream added |
+| `--ignore <path>` | skip this path, just this time. Can be repeated |
 | `-f`, `--force` | take upstream as it is and drop local changes |
 | `-m`, `--message <message>` | the commit message. Default: a generated one |
 | `-S`, `--gpg-sign` | GPG-sign the commits git-nested makes, nested ones too |
@@ -102,6 +103,22 @@ If upstream was force-pushed, a normal pull stops. Then pick one:
 git nested pull --rebase ext/lib   # move your local changes onto the new history
 git nested pull --force ext/lib    # take upstream as it is, drop your local changes
 ```
+
+### Skip a path, just this time
+
+```bash
+git nested pull --ignore ext/lib/tests ext/lib
+```
+
+Upstream's changes in `ext/lib/tests` do not come in. Your copy stays.
+The rest is pulled as usual.
+
+Give the path like `<subdir>`. It must be inside `<subdir>`.
+
+Afterwards, `diff`, `status` and `push` show the path as changed. Use
+`push --ignore` too, or the push sends your old copy.
+
+To skip a path for good, use [`clone --exclude`](clone.md).
 
 ### Move a pin
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .. import content, discovery, gitfile, output, refs, worktree
+from .. import content, discovery, filters, gitfile, output, refs, worktree
 from ..cli import setup
 from ..constants import FETCH_HEAD_REV
 from ..errors import GitNestedError
@@ -244,6 +244,15 @@ def _skip_read_only(flags: Flags, subdir: Path) -> None:
     output.say(f"{subdir.as_posix()}: skipped, it is read-only")
 
 
+def _check_push_flags(flags: Flags, subdir: Path, branch: str | None) -> None:
+    """Refuse the flags that need a branch built for the push."""
+    if branch and flags.squash:
+        raise GitNestedError("--squash can't be combined with an explicit branch")
+    if branch and flags.ignore:
+        raise GitNestedError("--ignore can't be combined with an explicit branch")
+    filters.ignored_paths(flags, subdir)  # check the paths early
+
+
 def _default_target(git: GitRunner, config: NestedConfig) -> str:
     """'<repo>-<branch>', or the tracked branch itself while upstream does not have it yet."""
     if discovery.has_branch(git, config.remote, config.branch) is False:
@@ -259,8 +268,7 @@ def cmd_push(ctx: CommandContext) -> None:
     if config.readonly and not flags.dry_run:
         _skip_read_only(flags, subdir)
         return
-    if branch and flags.squash:
-        raise GitNestedError("--squash can't be combined with an explicit branch")
+    _check_push_flags(flags, subdir, branch)
 
     output.verbose(f"pushing {subdir.as_posix()} upstream")
     branch_name = flags.branch or _default_target(git, config)

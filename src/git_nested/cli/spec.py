@@ -42,6 +42,7 @@ VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
         'branch',
         'force',
         'gpg_sign',
+        'ignore',
         'merge',
         'message',
         'method',
@@ -63,6 +64,7 @@ VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
         'dry_run',
         'force',
         'gpg_sign',
+        'ignore',
         'merge',
         'message',
         'method',
@@ -153,6 +155,15 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
         'recurse_submodules',
         ('--recurse-submodules',),
         {'action': 'store_true', 'help': "nest the submodules of upstream too, at the commits it pins"},
+    ),
+    (
+        'ignore',
+        ('--ignore',),
+        {
+            'action': 'append',
+            'metavar': 'PATH',
+            'help': "skip this path of <subdir>, just this time",
+        },
     ),
     ('exclude', ('--exclude',), {'action': 'append', 'help': "leave this path of the upstream repository out"}),
     (
@@ -430,6 +441,7 @@ COMMAND_EXAMPLES: dict[str, list[str]] = {
         "git nested pull --no-squash ext/lib",
         "git nested pull -M rebase ext/lib",
         "git nested pull --rebase ext/lib",
+        "git nested pull --ignore ext/lib/tests ext/lib",
         "git nested pull --all",
         "git nested pull --all -b release/2.0",
     ],
@@ -438,6 +450,7 @@ COMMAND_EXAMPLES: dict[str, list[str]] = {
         "git nested push --dry-run ext/lib",
         "git nested push --rebase ext/lib",
         "git nested push --squash -m 'one commit upstream' ext/lib",
+        "git nested push --ignore ext/lib/local ext/lib",
         "git nested push --all -b release/2.0",
     ],
     'repair': [
