@@ -789,7 +789,7 @@ sequenceDiagram
     participant git-nested
     participant Git
 
-    User->>git-nested: git nested verify <subdir> patches <patch>...
+    User->>git-nested: git nested verify <subdir> --patches <patch>...
     git-nested->>Git: rev-parse --show-prefix
     Note over git-nested: Below the top level: rev-parse --show-toplevel,<br/>paths rebased, then run from there
     git-nested->>Git: rev-parse --git-dir

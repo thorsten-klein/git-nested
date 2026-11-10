@@ -116,6 +116,16 @@ def _check_flags(flags: Flags) -> None:
         output.usage_error("--update needs --branch or --remote to have something to update")
 
 
+def _verify_files(args: argparse.Namespace) -> tuple[list[str] | None, str]:
+    """The files of --patches or --diffs, and which of the two it is."""
+    patches, diffs = getattr(args, 'patches', None), getattr(args, 'diffs', None)
+    if patches is not None and diffs is not None:
+        output.usage_error("--patches and --diffs can't be used together")
+    if diffs is not None:
+        return diffs, 'diff'
+    return patches, 'patches'
+
+
 def parse_args(git: GitRunner, args_list: list[str]) -> tuple[str, CommandContext]:
     """Parse command line arguments into a command name and the context to run it with.
 
@@ -135,6 +145,7 @@ def parse_args(git: GitRunner, args_list: list[str]) -> tuple[str, CommandContex
     if flags.single_commit and not flags.all:
         output.usage_error("--single-commit needs --all")
 
+    patches, verify_mode = _verify_files(args)
     upstream = getattr(args, 'upstream', None)
     subdir = getattr(args, 'subdir', None)
     if upstream and not subdir:
@@ -152,7 +163,7 @@ def parse_args(git: GitRunner, args_list: list[str]) -> tuple[str, CommandContex
         config_key=getattr(args, 'key', None),
         config_value=getattr(args, 'value', None),
         git_args=getattr(args, 'git_args', None),
-        patches=getattr(args, 'patches', None),
-        verify_mode=getattr(args, 'verify_mode', None),
+        patches=patches,
+        verify_mode=verify_mode,
     )
     return args.command, context
