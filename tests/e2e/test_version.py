@@ -1,6 +1,6 @@
 import sys
 
-from conftest import VERSION, cmd_git_nested
+from conftest import VERSION, cmd_git_nested, cmd_git_nested_subprocess
 
 import git_nested
 
@@ -26,3 +26,9 @@ def test_python_m_git_nested_runs(env):
     # with tags, while the module here may come from one without.
     result = env.run([sys.executable, '-m', 'git_nested', '--version'], cwd=env.tmp)
     assert f"git-nested Version: {git_nested.VERSION}" in result.stdout
+
+
+def test_git_nested_reaches_version_under_test(env):
+    """`git nested` runs the git-nested under test, not an installed one."""
+    result = cmd_git_nested_subprocess('version', cwd=env.tmp)
+    assert f'git-nested Version: {VERSION}' in result.stdout
