@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import os
 import shutil
+from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
 from .. import content, discovery, filters, gitfile, history, messages, output, patches, refs, submodules, worktree
 from ..cli import setup
+from ..constants import GITNESTED_FILENAME
 from ..errors import GitNestedError
 from ..git import GitRunner
 from ..models import CommandContext, Flags, NestedConfig
@@ -204,6 +206,8 @@ def _commit_without_squash(
     git.run(['merge', '--no-commit', '--no-ff', '-s', 'ours', '--allow-unrelated-histories', rewritten])
     content._place_content(git, config, subdir, nested_commit_ref)
     gitfile.create_level_gitnested_files(git, subdir)
+    # After the level files: an inner nested repo of our own needs none
+    content.keep_inner_nested(git, flags, config, subdir, head_commit)
 
     regular = gitnested.parent / '.gitnested'
     for path in [gitnested] + ([regular] if regular != gitnested and regular.exists() else []):
@@ -306,16 +310,55 @@ def cmd_pull(ctx: CommandContext) -> None:
         output.say(f"{subdir.as_posix()}: {verb} {config.remote} ({config.branch})")
         return
 
-    # Submodules of upstream that are nested now stay nested, at the commit upstream pins after the pull
-    nested_before = {f'{subdir.as_posix()}/{path}' for path in history.gitlinked_inner(git, config, subdir)}
     pulled = do_pull(git, flags, config, subdir, gitnested, ctx.tmp, subref)
     if pulled is None:
+        # An inner nested repo may still lag behind, if an earlier pull stopped there
+        follow_inner(ctx, config, subdir)
         output.say(f"{subdir.as_posix()}: already up to date with {config.remote} ({config.branch})")
         return
 
     branch, subdir_worktree = pulled
     output.verbose(f"committing the new {branch} content")
     _commit_pull(ctx, config, subdir, gitnested, subref, branch, subdir_worktree)
-    clone.nest_submodules(git, flags, subdir, config.remote, None if flags.recurse_submodules else nested_before)
+    follow_inner(ctx, config, subdir)
+    if flags.recurse_submodules:
+        clone.nest_submodules(git, flags, config, subdir)
     submodules.warn_if_any(git, subdir)
     output.say(f"{subdir.as_posix()}: pulled from {config.remote} ({config.branch})")
+
+
+def follow_inner(ctx: CommandContext, config: NestedConfig, subdir: Path) -> None:
+    """Pull each inner nested repo to the commit that upstream pins now. Local changes stay.
+
+    If one stops on conflicts, a new pull of subdir does the rest.
+    """
+    git = ctx.git
+    for relative, pin in sorted(submodules.gitlinks_at(git, content.nested_tree(git, config, subdir)).items()):
+        path = subdir / relative
+        if not (path / GITNESTED_FILENAME).is_file():
+            continue
+        try:
+            pull_to(ctx, path, submodules.url_of(git, subdir / '.gitmodules', relative, config.remote), pin)
+        except GitNestedError as e:
+            raise GitNestedError(
+                f"{e.message.rstrip()}\n\nThen run 'git nested pull {subdir.as_posix()}' for the other inner repositories."
+            ) from None
+
+
+def pull_to(ctx: CommandContext, subdir: Path, url: str | None, pin: str) -> None:
+    """Pull subdir to `pin`, and from `url` if that is new. Local changes stay."""
+    current = NestedConfig.from_file(subdir / GITNESTED_FILENAME)
+    if current.commit == pin:
+        return
+    inner = Flags(
+        branch=pin,
+        remote=url if url and url != current.remote else None,
+        update=True,
+        recurse_submodules=True,
+        gpg_sign=ctx.flags.gpg_sign,
+        signoff=ctx.flags.signoff,
+        quiet=ctx.flags.quiet,
+        verbose=ctx.flags.verbose,
+    )
+    head = ctx.git.check_output(['rev-parse', 'HEAD'])
+    cmd_pull(replace(ctx, flags=inner, subdir=subdir, head_commit=head))

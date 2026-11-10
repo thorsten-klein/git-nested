@@ -6,7 +6,7 @@ import dataclasses
 from pathlib import Path, PurePosixPath
 from typing import cast
 
-from . import discovery, filters, gitfile, history, output, patches, refs, worktree
+from . import discovery, filters, gitfile, history, output, patches, refs, submodules, worktree
 from .constants import GITNESTED_FILENAME
 from .errors import GitNestedError
 from .git import GitRunner
@@ -79,6 +79,8 @@ def commit_nested_branch(
 
     local = place_with_patches(git, config, subdir, nested_commit_ref)
     gitfile.create_level_gitnested_files(git, subdir)
+    # After the level files: an inner nested repo of our own needs none
+    keep_inner_nested(git, flags, config, subdir, head_commit)
 
     # A level file has the regular .gitnested next to it, which is kept in
     # step so that operating on the nested repo directly still sees current info.
@@ -125,6 +127,40 @@ def place_with_patches(git: GitRunner, config: NestedConfig, subdir: Path, neste
     patches.restore_inner_repos(git, subdir, sorted(added_here))
     patches.restore_ignored(git, config, subdir)
     return local
+
+
+def keep_inner_nested(git: GitRunner, flags: Flags, config: NestedConfig, subdir: Path, head: str | None) -> None:
+    """Do not commit a gitlink where a nested repo belongs.
+
+    An inner nested repo comes back from `head`, with its local changes.
+    Not with --force: that takes upstream as it is.
+    With --recurse-submodules a new submodule is left out. It is nested next.
+    """
+    drop_new = flags.recurse_submodules and not (config.filter or config.exclude)
+    for path, _ in submodules.gitlinks(git, subdir):
+        if not flags.force and _was_nested(git, head, path):
+            git.run(['update-index', '--force-remove', '--', path])
+            git.run(['checkout', cast('str', head), '--', path])
+        elif drop_new:
+            _drop_gitlink(git, Path(path))
+
+
+def _was_nested(git: GitRunner, head: str | None, path: str) -> bool:
+    return (
+        bool(head) and git.run(['cat-file', '-e', f'{head}:{path}/{GITNESTED_FILENAME}'], may_fail=True).returncode == 0
+    )
+
+
+def _drop_gitlink(git: GitRunner, path: Path) -> None:
+    git.run(['update-index', '--force-remove', '--', path])
+    if path.is_dir() and not any(path.iterdir()):
+        path.rmdir()
+
+
+def nested_tree(git: GitRunner, config: NestedConfig, subdir: Path) -> str:
+    """The tree that subdir got its content from in the last clone, pull or commit."""
+    tree = f'refs/nested/{refs.sanitize_subref(git, subdir.as_posix())}/commit'
+    return f'{tree}:{config.path}' if config.path else tree
 
 
 def _place_content(git: GitRunner, config: NestedConfig, subdir: Path, nested_commit_ref: str) -> None:
