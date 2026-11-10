@@ -129,11 +129,15 @@ git nested pull --pin v1.3 ext/lib
 This is a normal pull to `v1.3`. Your local changes stay. See
 [Pin a release](../guides/pin.md).
 
+`--pin` can also go back to an older commit. Your local changes stay.
+This pull always rebases. Without `--pin`, a merge pull never goes back.
+
 ## Notes
 
 - `-b` without `-u` does not change `.gitnested`. Only the upstream commit
   is recorded.
-- A pin stays where it is on a normal pull. Only `--pin` moves it.
+- A pin stays where it is on a normal pull. Only `--pin` moves it,
+  forward or back.
 - Submodules of upstream that are nested already stay nested. Each one moves
   to the commit upstream pins after the pull. `--recurse-submodules` also
   nests new ones.
