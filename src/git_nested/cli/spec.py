@@ -78,7 +78,7 @@ VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
         'update',
     ],
     'status': ['ALL', 'all', 'fetch', 'short'],
-    'verify': ['keep', 'output_dir'],
+    'verify': ['ignore', 'keep', 'output_dir'],
     'version': [],
 }
 
@@ -470,6 +470,7 @@ COMMAND_EXAMPLES: dict[str, list[str]] = {
         "git nested verify -o patches/lib ext/lib patches",
         "git nested verify ext/lib diff lib.diff",
         "git nested verify -o lib.diff ext/lib diff lib.diff",
+        "git nested verify --ignore ext/lib/build ext/lib patches",
     ],
     'version': [
         "git nested version",
