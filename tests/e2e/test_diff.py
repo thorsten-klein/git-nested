@@ -111,8 +111,8 @@ def test_diff_all(foo_bar_cloned):
     """Test that diff --all runs diff for every nested repo"""
     env = foo_bar_cloned
 
-    env.run(['git', 'nested', 'clone', '../bar', 'bar1'], cwd=env.workspace / 'foo')
-    env.run(['git', 'nested', 'clone', '../bar', 'bar2'], cwd=env.workspace / 'foo')
+    cmd_git_nested(['clone', '../bar', 'bar1'], cwd=env.workspace / 'foo')
+    cmd_git_nested(['clone', '../bar', 'bar2'], cwd=env.workspace / 'foo')
 
     # Push a new upstream commit, then only bring 'bar1' up to date so 'bar2' lags behind
     env.add_new_files('Bar2', cwd=env.workspace / 'bar')

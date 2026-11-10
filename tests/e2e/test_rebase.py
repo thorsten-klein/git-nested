@@ -34,7 +34,7 @@ def test_rebase(foo_bar_cloned):
 
     # The recorded sync point was rewritten; the one in this history is found
     cmd_git_nested('clean --force --all', cwd=env.workspace / 'foo')
-    cp = env.run('git nested branch bar', check=False, cwd=env.workspace / 'foo')
+    cp = cmd_git_nested('branch bar', check=False, cwd=env.workspace / 'foo')
     assert cp.returncode == 0
     lines = cp.output.strip().splitlines()
     assert lines[0].startswith("git-nested: bar: the recorded sync point is not in this history; using ")
