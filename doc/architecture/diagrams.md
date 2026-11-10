@@ -818,7 +818,7 @@ sequenceDiagram
     end
     git-nested->>Git: commit --allow-empty --no-verify (in the worktree)
     git-nested->>Git: diff --quiet HEAD <local tree> -- . ':(exclude,glob)**/.gitnested*' [':(exclude,literal)<ignored>']
-    Note over git-nested: All diffs below use the same pathspec
+    Note over git-nested: The diffs below use the same paths
 
     opt it differs
         git-nested->>Git: diff --stat HEAD <local tree>

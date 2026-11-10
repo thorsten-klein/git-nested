@@ -95,12 +95,12 @@ def _next_number(directory: Path) -> int:
 
 
 def _pathspec(ignored: list[str]) -> list[str]:
-    """What is compared: all but .gitnested files and the `ignored` paths."""
+    """All paths but .gitnested files and the `ignored` ones."""
     return ['.', GITNESTED_EXCLUDE, *(f':(exclude,literal){path}' for path in ignored)]
 
 
 def _diff(git: GitRunner, path: Path, base: str, local_tree: str, pathspec: list[str], *options: str) -> str:
-    """The diff from `base` to `local_tree`, limited to `pathspec`."""
+    """The diff from `base` to `local_tree`, for `pathspec`."""
     return git.run(['diff', *options, base, local_tree, '--', *pathspec], cwd=path).stdout
 
 
