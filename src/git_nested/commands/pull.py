@@ -50,7 +50,8 @@ def do_pull(
 
     merge_target = _merge_target(git, config, subdir_worktree, subref, upstream_head_commit)
 
-    method = flags.method or config.method
+    # A merge can't go back to an older commit; a rebase can.
+    method = 'rebase' if _goes_back(git, config, upstream_head_commit) else flags.method or config.method
     cmd = _join_command(method, config, merge_target, branch)
     try:
         git.run(cmd, cwd=subdir_worktree)
@@ -66,6 +67,11 @@ def do_pull(
 
     refs.create_nested_ref(git, subref, 'branch', branch)
     return branch, subdir_worktree
+
+
+def _goes_back(git: GitRunner, config: NestedConfig, upstream: str) -> bool:
+    """Whether `upstream` is older than the recorded commit."""
+    return bool(config.commit) and upstream != config.commit and git.commit_in_rev_list(upstream, config.commit)
 
 
 def _join_command(method: str, config: NestedConfig, merge_target: str, branch: str) -> list[str]:

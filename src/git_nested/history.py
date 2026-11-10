@@ -49,12 +49,12 @@ def find_sync_point(git: GitRunner, gitnested: Path) -> str | None:
 
 
 def _check_rebase_safety(
-    git: GitRunner, command: str, subdir: Path, subref: str, gitrepo_commit: str, rebase: bool
+    git: GitRunner, command: str, subdir: Path, subref: str, gitrepo_commit: str, rebase: bool, pinned: bool = False
 ) -> None:
     """Raise if a pull would silently accept a rewritten/unreachable upstream history.
 
     With the rebase method a rewritten upstream is fine: the pull rebases
-    the local commits onto it.
+    the local commits onto it. So is a pin to an older commit.
     """
     refs_fetch = f'refs/nested/{subref}/fetch'
     if not (git.rev_exists(refs_fetch) and command == 'pull'):
@@ -64,7 +64,7 @@ def _check_rebase_safety(
     force = f"run 'git nested pull --force {subdir.as_posix()}' to take upstream as it is. This drops local changes that are not pushed."
     if not git.rev_exists(gitrepo_commit):
         raise GitNestedError(f"upstream commit {gitrepo_commit} is missing locally; {force}")
-    if rebase:
+    if rebase or (pinned and git.commit_in_rev_list(refs_fetch, gitrepo_commit)):
         return
     raise GitNestedError(
         f"upstream history was rewritten: {gitrepo_commit} is no longer part of it; {force} "
@@ -105,6 +105,7 @@ class _Replay:
     index_env: dict[str, str]
     removed: list[str]
     sign: bool = False
+    pinned: bool = False
     gitlinked: tuple[str, ...] = ()
     keep: tuple[list[str], list[str]] | None = None
     path: str = ''
@@ -122,12 +123,37 @@ class _Replay:
             if known:
                 self.nested[commit], self.joined[commit] = self.nested[known[0]], last
             return
-        _check_rebase_safety(self.git, self.command, self.subdir, self.subref, upstream, rebase=not self.merge)
+        _check_rebase_safety(
+            self.git, self.command, self.subdir, self.subref, upstream, rebase=not self.merge, pinned=self.pinned
+        )
+        self._join(commit, known, upstream, last)
+
+    def _join(self, commit: str, known: list[str], upstream: str, last: str | None) -> None:
+        """Replay `commit`, which records `upstream`, on its `known` parents."""
+        if known and self._restarts(upstream, last):
+            # Only the local changes on top of `upstream` are in this commit.
+            self.joined[commit] = upstream
+            self.nested[commit] = self._commit(commit, [upstream])
+            return
         # An upstream commit joins the first time, and with merge each time a new one is recorded.
         joins = upstream != last if self.merge else not known
         self.joined[commit] = upstream if joins else last
         nested_parents = [*dict.fromkeys(self.nested[parent] for parent in known), *([upstream] if joins else [])]
         self.nested[commit] = self._commit(commit, self._independent(nested_parents))
+
+    def _restarts(self, upstream: str, last: str | None) -> bool:
+        """Whether the chain starts again on `upstream`, newly recorded after `last`.
+
+        It does when it goes back to an older commit. A merge cannot undo
+        upstream's changes, and a replay would bring them back. A pull with
+        rebase also starts again on each new one: otherwise its rebase
+        would see upstream's changes as local ones.
+        """
+        if upstream == last:
+            return False
+        if self.command == 'pull' and not self.merge:
+            return True
+        return last is not None and self.git.commit_in_rev_list(upstream, last)
 
     def add_plain(self, commit: str, parents: list[str]) -> None:
         """Replay one commit as it is, with no upstream commit to join."""
@@ -290,6 +316,7 @@ def create_branch(
             index_env,
             removed,
             flags.gpg_sign,
+            bool(config.pin),
             gitlinked,
             keep=keep,
             path=config.path,

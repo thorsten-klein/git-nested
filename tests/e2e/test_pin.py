@@ -1,5 +1,6 @@
 """Tests for --pin: nest a commit or tag of the tracked branch"""
 
+import pytest
 import yaml
 from conftest import cmd_git_nested, git_rev_parse
 
@@ -75,3 +76,67 @@ def test_pull_conflict_keeps_the_pin(foo_bar_cloned):
     assert _nested(foo, 'pin') == pin
     assert _nested(foo, 'commit') == pin
     assert "already up to date" in cmd_git_nested('pull bar', cwd=foo).output
+
+
+def _upstream_commit(env, text):
+    """Upstream adds a commit that changes bard/Bard."""
+    bar = env.workspace / 'bar'
+    env.modify_files('bard/Bard', text=text, cwd=bar)
+    env.run(['git', 'push', '-q'], cwd=bar)
+    return git_rev_parse(['HEAD'], cwd=bar)
+
+
+@pytest.mark.parametrize('method', ['merge', 'rebase'])
+def test_pull_pin_goes_back_and_forth_with_local_changes(foo_bar_cloned_and_nested, method):
+    """A pin to an older commit goes back to it. The local changes stay, also on the way forward again."""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    first = git_rev_parse(['master'], cwd=env.upstream / 'bar')
+    env.modify_files('bar/Bar', text='local', cwd=foo)
+    second = _upstream_commit(env, 'second')
+    cmd_git_nested(['pull', f'--{method}', 'bar'], foo)
+
+    cmd_git_nested(['pull', f'--{method}', '--pin', first, 'bar'], foo)
+
+    assert 'second' not in (foo / 'bar' / 'bard' / 'Bard').read_text()
+    assert 'local' in (foo / 'bar' / 'Bar').read_text()
+    assert _nested(foo, 'commit') == first
+
+    env.modify_files('bar/Bar', text='more', cwd=foo)
+    third = _upstream_commit(env, 'third')
+    cmd_git_nested(['pull', f'--{method}', '--pin', third, 'bar'], foo)
+
+    bard = (foo / 'bar' / 'bard' / 'Bard').read_text()
+    assert 'second' in bard
+    assert 'third' in bard
+    assert 'local' in (foo / 'bar' / 'Bar').read_text()
+    assert 'more' in (foo / 'bar' / 'Bar').read_text()
+    assert _nested(foo, 'commit') == third != second
+
+
+@pytest.mark.parametrize('method', ['merge', 'rebase'])
+def test_pull_pin_goes_back_to_before_a_file_existed(foo_bar_cloned_and_nested, method):
+    """Tag A has no bard yet, so going back removes it."""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    env.modify_files('bar/Bar', text='local', cwd=foo)
+
+    cmd_git_nested(['pull', f'--{method}', '--pin', 'A', 'bar'], foo)
+
+    assert not (foo / 'bar' / 'bard').exists()
+    assert 'local' in (foo / 'bar' / 'Bar').read_text()
+
+
+def test_pull_without_a_pin_does_not_go_back(foo_bar_cloned_and_nested):
+    """An upstream branch reset to an older commit is still refused with merge."""
+    env = foo_bar_cloned_and_nested
+    foo, bar = env.workspace / 'foo', env.workspace / 'bar'
+    _upstream_commit(env, 'second')
+    cmd_git_nested('pull bar', cwd=foo)
+    env.run(['git', 'reset', '-q', '--hard', 'HEAD~1'], cwd=bar)
+    env.run(['git', 'push', '-q', '--force'], cwd=bar)
+
+    result = cmd_git_nested('pull bar', cwd=foo, check=False)
+
+    assert result.returncode == 1
+    assert "upstream history was rewritten" in result.output
