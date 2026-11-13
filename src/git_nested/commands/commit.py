@@ -22,6 +22,7 @@ def cmd_commit(ctx: CommandContext) -> None:
 
     branch = refs.nested_branch(git, subref)
     nested_commit_ref = ctx.nested_commit_ref or branch
+    subdir_worktree = worktree.find_worktree(git, branch) or ctx.tmp / branch
     content.commit_nested_branch(
         git=git,
         flags=flags,
@@ -31,7 +32,8 @@ def cmd_commit(ctx: CommandContext) -> None:
         nested_commit_ref=nested_commit_ref,
         upstream_head_commit=git.check_output(['rev-parse', refs_fetch]),
         head_commit=ctx.head,
-        subdir_worktree=worktree.find_worktree(git, branch) or ctx.tmp / branch,
-        command='commit',
+        subdir_worktree=subdir_worktree,
+        # After a pull that stopped on a conflict, this commit finishes it
+        command=worktree.stopped(git, subdir_worktree) or 'commit',
     )
     output.say(f"{subdir.as_posix()}: committed {nested_commit_ref}")

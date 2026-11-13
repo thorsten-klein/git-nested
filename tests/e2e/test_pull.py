@@ -213,8 +213,10 @@ def test_pull_conflict(prepare_pull_test):
     foo_new_commit_message = git_get_commit_msg(env.workspace / 'foo').strip()
     expected_nested_merged_commit = git_rev_parse(['--short', 'nested/bar'], cwd=env.workspace / 'foo')
     expected_upstream_commit = git_rev_parse(['--short', 'HEAD'], cwd=env.workspace / 'bar')
+    upstream_log = env.run(['git', 'log', '-1', '--format=%h %s'], cwd=env.workspace / 'bar').stdout.strip()
+    # The commit finishes the pull, so its message is the pull's
     assert foo_new_commit_message == textwrap.dedent(f'''\
-        git nested commit
+        git nested pull
 
         nested:
           subdir:   "bar"
@@ -224,7 +226,10 @@ def test_pull_conflict(prepare_pull_test):
           branch:   "master"
           commit:   "{expected_upstream_commit}"
         git-nested:
-          version:  "{VERSION}"''')
+          version:  "{VERSION}"
+
+        Upstream commits:
+        - {upstream_log}''')
 
     # Test foo/bar/.gitnested file contents
     bar_head_commit = git_rev_parse(['HEAD'], cwd=env.workspace / 'bar')
@@ -629,6 +634,42 @@ def test_pull_rebase_conflict(prepare_pull_test):
     assert result.returncode == 1
     assert 'bar: the pull is unfinished, git rebase failed:' in result.output
     assert "command failed: git rebase --onto refs/nested/bar/fetch " in result.output
+
+
+def test_commit_after_a_rebase_conflict_says_pull(prepare_pull_test):
+    """The commit that finishes a pull stopped on a rebase conflict has the pull's message"""
+    env = prepare_pull_test
+    foo = env.workspace / 'foo'
+    cmd_git_nested('pull -M rebase bar', cwd=foo)
+    env.modify_files('bar/Bar2', text='bar/Bar2 from foo', cwd=foo)
+    env.modify_files('Bar2', text='Bar2 from bar', cwd=env.workspace / 'bar')
+    env.run(['git', 'push'], cwd=env.workspace / 'bar')
+    assert cmd_git_nested('pull bar', cwd=foo, check=False).returncode == 1
+
+    worktree_dir = foo / '.git' / 'tmp' / 'nested' / 'bar'
+    (worktree_dir / 'Bar2').write_text('Merged Bar2\n')
+    env.run(['git', 'add', 'Bar2'], cwd=worktree_dir)
+    env.run(['git', '-c', 'core.editor=true', 'rebase', '--continue'], cwd=worktree_dir)
+    cmd_git_nested('commit bar', cwd=foo)
+
+    message = git_get_commit_msg(foo)
+    assert message.startswith("git nested pull\n")
+    upstream_log = env.run(['git', 'log', '-1', '--format=%h %s'], cwd=env.workspace / 'bar').stdout.strip()
+    assert f"Upstream commits:\n- {upstream_log}" in message
+
+
+def test_commit_without_a_stopped_pull_says_commit(prepare_pull_test):
+    """A nested branch committed by hand, with no pull before, keeps its own message"""
+    env = prepare_pull_test
+    foo = env.workspace / 'foo'
+    cmd_git_nested('branch bar', cwd=foo)
+    worktree_dir = foo / '.git' / 'tmp' / 'nested' / 'bar'
+    (worktree_dir / 'Local').write_text('added in the branch\n')
+    env.run(['git', 'add', 'Local'], cwd=worktree_dir)
+    env.run(['git', 'commit', '-qm', 'add Local'], cwd=worktree_dir)
+    cmd_git_nested('commit bar', cwd=foo)
+
+    assert git_get_commit_msg(foo).startswith("git nested commit\n")
 
 
 def test_pull_with_force(prepare_pull_test):
