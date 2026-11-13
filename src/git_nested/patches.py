@@ -23,6 +23,9 @@ from .models import NestedConfig
 # `git commit` and `git am` need an identity; CI often has none.
 _FALLBACK_IDENTITY = ['-c', 'user.name=git-nested', '-c', 'user.email=git-nested@localhost']
 
+# The patch files in the patches folder.
+PATCH_GLOB = '*.patch'
+
 # .gitnested files are not part of the upstream content.
 GITNESTED_EXCLUDE = ':(exclude,glob)**/.gitnested*'
 
@@ -35,7 +38,7 @@ def identity(git: GitRunner) -> list[str]:
 def files(config: NestedConfig, subdir: Path) -> list[Path]:
     """The patch files, in order."""
     folder = config.patches_folder(subdir)
-    return sorted(folder.glob('*.patch')) if folder and folder.is_dir() else []
+    return sorted(folder.glob(PATCH_GLOB)) if folder and folder.is_dir() else []
 
 
 def files_at(git: GitRunner, config: NestedConfig, subdir: Path, rev: str, out: Path) -> list[Path]:
@@ -47,7 +50,7 @@ def files_at(git: GitRunner, config: NestedConfig, subdir: Path, rev: str, out: 
     env = {**os.environ, 'GIT_INDEX_FILE': str(out.parent / f'{out.name}.index')}
     git.run(['read-tree', f'{rev}:{folder.as_posix()}'], env=env)
     git.run(['checkout-index', '-a', f'--prefix={out.as_posix()}/'], env=env)
-    return sorted(out.glob('*.patch'))
+    return sorted(out.glob(PATCH_GLOB))
 
 
 def local_paths(git: GitRunner, config: NestedConfig, subdir: Path) -> list[str]:
@@ -81,7 +84,7 @@ def in_use(git: GitRunner, config: NestedConfig, subdir: Path) -> bool:
     if folder is None:
         return False
     listed = git.check_output(['ls-tree', '-r', '--name-only', 'HEAD', '--', f'{folder.as_posix()}/'], may_fail=True)
-    return any(path.endswith('.patch') for path in listed.splitlines())
+    return any(path.endswith(PATCH_GLOB[1:]) for path in listed.splitlines())
 
 
 def supported(config: NestedConfig) -> bool:
@@ -231,7 +234,7 @@ def write(git: GitRunner, config: NestedConfig, subdir: Path, base: str, tip: st
     folder = config.patches_folder(subdir)
     if folder is None:
         return
-    for old in folder.glob('*.patch'):
+    for old in folder.glob(PATCH_GLOB):
         old.unlink()
 
     tip = _linear(git, base, tip, subdir)

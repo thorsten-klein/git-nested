@@ -334,10 +334,7 @@ def create_branch(
             bool(config.pin),
             gitlinked,
             keep=keep,
-            # A push leaves the --ignore and patches-ignore paths as upstream has them.
-            ignored=(*filters.ignored_paths(flags, subdir), *(config.patches_ignore if config.patches else ()))
-            if command == 'push'
-            else (),
+            ignored=_ignored_on_push(flags, config, subdir, command),
             path=config.path,
         )
         if parent:
@@ -350,6 +347,13 @@ def create_branch(
         raise GitNestedError(
             f"{subdir.as_posix()}: no commit{since} touches it, so there is no nested history to rebuild"
         )
+
+
+def _ignored_on_push(flags: Flags, config: NestedConfig, subdir: Path, command: str) -> tuple[str, ...]:
+    """The paths a push leaves as upstream has them: --ignore and patches-ignore."""
+    if command != 'push':
+        return ()
+    return (*filters.ignored_paths(flags, subdir), *(config.patches_ignore if config.patches else ()))
 
 
 def gitlinked_inner(git: GitRunner, config: NestedConfig, subdir: Path) -> tuple[str, ...]:
