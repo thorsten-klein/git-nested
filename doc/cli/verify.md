@@ -15,8 +15,7 @@ git nested verify [<options>] <subdir> --diffs [<diff>...]
 3. Compares the result with `<subdir>` in `HEAD`. `.gitnested` files are
    left out.
 
-Without files, it checks that `<subdir>` has no local changes. Without
-`--diffs`, the files are patches.
+Without `--diffs`, the files are patches.
 
 The files can be git patches (`git format-patch`) or plain diffs
 (`git diff`, `diff -u`). Paths are relative to `<subdir>`.
@@ -29,6 +28,9 @@ folder, `.gitnested.patches` by default. The missing patch is written there
 too. The [`patches-ignore`](../configuration/gitnested-file.md#patches-ignore)
 paths are not compared.
 
+With the patches off, or a setup they do not work with yet, no files
+means: check that `<subdir>` has no local changes.
+
 Nested repositories inside `<subdir>` are not compared. They are not
 upstream content.
 
@@ -36,8 +38,9 @@ upstream content.
 
 The command fails and lists the changed files.
 
-- Patches: it writes the missing patch, numbered after the others, next
-  to the last patch or into `--output`. Fill in its TODO title and
+- Patches: it writes the missing patch, numbered after the others. It goes
+  into `--output`, else next to the last patch. Without `--patches`, that
+  is the patches folder. Fill in its TODO title and
   description, rename it, and commit it.
 - `--diffs`: with `--output`, it writes the whole diff to that file.
 

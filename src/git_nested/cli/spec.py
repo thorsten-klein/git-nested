@@ -389,9 +389,10 @@ COMMAND_DESCRIPTION: dict[str, str] = {
     'verify': (
         "Apply the files to the upstream commit in .gitnested, in a temporary worktree, and compare "
         "the result with <subdir>. The files can be git patches or plain diffs. "
-        "Without files, check that <subdir> has no local changes. "
-        "If it differs, the command fails. With patches, it then writes the missing patch next to the last one "
-        "(or into --output). With --diffs, it writes the whole diff to --output."
+        "Without files, they are the patches in the patches folder of <subdir>. "
+        "With the patches off, no files means: check that <subdir> has no local changes. "
+        "If it differs, the command fails. With patches, it then writes the missing patch into --output, "
+        "else next to the last one: the patches folder. With --diffs, it writes the whole diff to --output."
     ),
     'version': "Print the git-nested version, and the versions of git and Python it is running on.",
 }
