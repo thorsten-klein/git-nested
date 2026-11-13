@@ -74,13 +74,15 @@ def check_worktree_clean(git: GitRunner, command: str) -> None:
         raise GitNestedError(f"{pwd}: can't {command}, the index has changes")
 
 
-def warn_uncommitted_subdir_changes(git: GitRunner, command: str, flags: Flags, subdir: Path) -> None:
-    """Warn when `command` ignores uncommitted changes in `subdir`."""
-    if command not in ['branch', 'diff', 'push', 'verify'] or (command == 'push' and flags.commit):
+def warn_uncommitted_subdir_changes(
+    git: GitRunner, command: str, flags: Flags, subdir: Path, skip: str | None = None
+) -> None:
+    """Warn when `command` ignores uncommitted changes in `subdir`, but not in `skip` inside it."""
+    if command not in ['branch', 'diff', 'patches', 'push', 'verify'] or (command == 'push' and flags.commit):
         return
 
     git.run(['update-index', '-q', '--ignore-submodules', '--refresh'], may_fail=True)
-    pathspec = ['--', subdir.as_posix()]
+    pathspec = ['--', subdir.as_posix(), *([f':(exclude,literal){subdir.as_posix()}/{skip}'] if skip else [])]
     if git.run(['diff-files', '--quiet', '--ignore-submodules', *pathspec], may_fail=True).returncode != 0:
         output.warn(f"{subdir.as_posix()}: has uncommitted changes; {command} uses only committed content")
         return

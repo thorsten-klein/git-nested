@@ -64,6 +64,8 @@ One module per command, for example `commands/pull.py`. Each has one
 | `history.py` | rebuilds the nested history: the core algorithm |
 | `content.py` | creates the nested branch, places its content, commits |
 | `filters.py` | applies `filter` and `exclude` |
+| `patches.py` | keeps local changes as patch files: reads, applies and writes them |
+| `patchbuild.py` | builds and checks patches in a temporary worktree |
 | `gitfile.py` | reads and writes `.gitnested`, and the level files |
 | `refs.py` | names of the nested branches and refs |
 | `worktree.py` | temporary worktrees and their branches |

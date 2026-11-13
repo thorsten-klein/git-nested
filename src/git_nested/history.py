@@ -314,7 +314,11 @@ def create_branch(
     """
     parent = _usable_parent(git, config.parent, gitnested, subdir) if config.parent else ''
     gitlinked = gitlinked_inner(git, config, subdir)
-    local_only = _local_only_paths(git, config, subdir, gitlinked) if command == 'push' else []
+    local_only = (
+        [*_local_only_paths(git, config, subdir, gitlinked), *_patches_folder(config, subdir)]
+        if command == 'push'
+        else []
+    )
     removed = [GITNESTED_FILENAME, *local_only]
     merge = (flags.method or config.method) != 'rebase'
     with tempfile.TemporaryDirectory() as tmp:
@@ -348,6 +352,12 @@ def create_branch(
         )
 
 
+def _patches_folder(config: NestedConfig, subdir: Path) -> list[str]:
+    """The patches folder, if it is inside subdir: it is not upstream content."""
+    folder = config.patches_inside(subdir)
+    return [folder] if folder else []
+
+
 def gitlinked_inner(git: GitRunner, config: NestedConfig, subdir: Path) -> tuple[str, ...]:
     """The inner nested repositories that are submodules in the recorded upstream commit, relative to subdir."""
     if not config.commit:
@@ -363,6 +373,21 @@ def gitlinked_inner(git: GitRunner, config: NestedConfig, subdir: Path) -> tuple
         for path in inner
         if git.check_output(['ls-tree', config.commit, '--', path], may_fail=True).startswith('160000 ')
     )
+
+
+def inner_repos(git: GitRunner, config: NestedConfig, subdir: Path) -> tuple[str, ...]:
+    """The nested repos inside subdir that are not upstream content, relative to subdir.
+
+    These are the ones upstream has as a submodule, and the ones added here.
+    """
+    gitlinked = gitlinked_inner(git, config, subdir)
+    local = [path for path in _local_only_paths(git, config, subdir, gitlinked) if not _is_level_file(path)]
+    return (*gitlinked, *local)
+
+
+def _is_level_file(path: str) -> bool:
+    """Whether `path` is a .gitnested.levelN file."""
+    return bool(re.fullmatch(r'\.gitnested\.level\d+', PurePosixPath(path).name))
 
 
 def _local_only_paths(git: GitRunner, config: NestedConfig, subdir: Path, gitlinked: tuple[str, ...]) -> list[str]:
