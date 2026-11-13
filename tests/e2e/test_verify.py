@@ -89,6 +89,17 @@ def test_verify_a_patch_that_does_not_apply(foo_bar_cloned_and_nested):
     assert not (foo / '.git' / 'tmp' / 'verify').exists()
 
 
+def test_verify_a_diff_that_does_not_apply(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    (foo / 'broken.diff').write_text("--- a/none\n+++ b/none\n@@ -1 +1 @@\n-a\n+b\n")
+
+    result = cmd_git_nested('verify bar --diffs broken.diff', cwd=foo, check=False)
+    assert result.returncode == 1
+    assert "broken.diff: does not apply\n" in result.output
+    assert "none" in result.output
+
+
 def test_verify_a_missing_patch_file(foo_bar_cloned_and_nested):
     env = foo_bar_cloned_and_nested
     result = cmd_git_nested('verify bar --patches no-such.patch', cwd=env.workspace / 'foo', check=False)

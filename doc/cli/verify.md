@@ -11,24 +11,33 @@ git nested verify [<options>] <subdir> --diffs [<diff>...]
 
 1. Checks out the upstream commit from `.gitnested` in a temporary
    worktree. Fetches it only if it is missing.
-2. Applies the files there, in order, with `git apply`.
+2. Applies the files there, in order: patches with `git am`, and diffs
+   with `git apply`.
 3. Compares the result with `<subdir>` in `HEAD`. `.gitnested` files are
    left out.
 
-Without files, it checks that `<subdir>` has no local changes. Without
-`--diffs`, the files are patches.
+Without `--diffs`, the files are patches.
 
-The files can be git patches (`git format-patch`) or plain diffs
-(`git diff`, `diff -u`). Paths are relative to `<subdir>`.
+Patches are `git format-patch` files: a header with author and subject,
+then the diff. Diffs can be plain (`git diff`, `diff -u`). Paths are
+relative to `<subdir>`. A plain diff given as a patch is refused: `git am`
+needs the header.
 
 Your working tree and branches are not touched.
+
+Without files, it checks that `<subdir>` has no local changes. For the
+[patches](../configuration/gitnested-file.md#patches) folder of
+`.gitnested`, use [`patches`](patches.md).
+
+Nested repositories inside `<subdir>` and the patches folder are not
+compared. They are not upstream content.
 
 ### When it differs
 
 The command fails and lists the changed files.
 
-- Patches: it writes the missing patch, numbered after the others, next
-  to the last patch or into `--output`. Fill in its TODO title and
+- Patches: it writes the missing patch, numbered after the others. It goes
+  into `--output`, else next to the last patch. Fill in its TODO title and
   description, rename it, and commit it.
 - `--diffs`: with `--output`, it writes the whole diff to that file.
 
@@ -73,3 +82,5 @@ or diff either. Give the path like `<subdir>`.
 ## See also
 
 - [`diff`](diff.md)
+- [`patches`](patches.md)
+- [Make your changes to nested repositories visible](../guides/patches.md)

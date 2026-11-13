@@ -55,6 +55,12 @@ class Flags:
     verbose: int = 0
 
 
+def _patches(value: object) -> str:
+    """The patches folder from .gitnested: '' if not set or false."""
+    text = '' if value is None else str(value)
+    return '' if text.lower() in ('', 'false') else text
+
+
 @dataclass
 class NestedConfig:
     """Nested configuration from .gitnested file."""
@@ -70,6 +76,7 @@ class NestedConfig:
     method: str = 'merge'
     squash: bool = True
     readonly: bool = False
+    patches: str = ''
 
     @classmethod
     def from_file(cls, filepath: str | Path) -> NestedConfig:
@@ -90,12 +97,30 @@ class NestedConfig:
             method='rebase' if nested.get('method') == 'rebase' else 'merge',
             squash=str(nested.get('squash', 'true')).lower() != 'false',
             readonly=str(nested.get('readonly')).lower() == 'true',
+            patches=_patches(nested.get('patches')),
         )
         if not config.remote:
             raise GitNestedError(f"{path.as_posix()} has no 'remote'")
         if not config.branch:
             raise GitNestedError(f"{path.as_posix()} has no 'branch'")
         return config
+
+    def patches_folder(self, subdir: Path) -> Path | None:
+        """The folder with the patches, or None if they are off."""
+        return subdir / self.patches if self.patches else None
+
+    def patches_inside(self, subdir: Path) -> str | None:
+        """The patches folder relative to subdir, if it is inside it.
+
+        Such a folder is not part of the upstream content.
+        """
+        folder = self.patches_folder(subdir)
+        if folder is None:
+            return None
+        try:
+            return folder.resolve().relative_to(subdir.resolve()).as_posix()
+        except ValueError:
+            return None
 
 
 @dataclass
@@ -122,6 +147,7 @@ class CommandContext:
     config_value: str | None = None
     git_args: list[str] | None = None
     patches: list[str] | None = None
+    patches_action: str | None = None
     verify_mode: str | None = None
     git_tmp: Path | None = None
     head_commit: str | None = None

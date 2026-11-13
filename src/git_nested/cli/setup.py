@@ -48,7 +48,7 @@ def _check_existing_worktree(git: GitRunner, command: str, subdir: Path, gitnest
         output.error(
             f"{subdir.as_posix()}: no worktree to commit from; run 'git nested branch {subdir.as_posix()}' first"
         )
-    elif command not in ['branch', 'clean', 'commit', 'push', 'run', 'verify'] and worktree_path is not None:
+    elif command not in ['branch', 'clean', 'commit', 'patches', 'push', 'run', 'verify'] and worktree_path is not None:
         output.error(messages.worktree_exists(subdir, worktree_path, prunable=gitnested.exists()))
 
 
@@ -76,5 +76,7 @@ def setup_command(
     else:
         config = gitfile.read_config(gitnested, flags)
 
-    checks.warn_uncommitted_subdir_changes(git, command, flags, subdir)
+    # `patches` reads the patches folder as it is, committed or not
+    skip = config.patches_inside(subdir) if command == 'patches' else None
+    checks.warn_uncommitted_subdir_changes(git, command, flags, subdir, skip)
     return subdir, gitnested, subref, config

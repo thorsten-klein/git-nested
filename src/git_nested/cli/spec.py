@@ -37,6 +37,7 @@ VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
     'diff': ['all', 'branch', 'remote'],
     'fetch': ['all', 'branch', 'force', 'remote'],
     'init': ['branch', 'from_submodule', 'gpg_sign', 'remote', 'method', 'signoff', 'upstream_commit'],
+    'patches': ['all'],
     'pull': [
         'all',
         'branch',
@@ -94,6 +95,7 @@ COMMAND_HELP: dict[str, str] = {
     'diff': "show a nested repository's local changes against upstream",
     'fetch': "fetch upstream content for a nested repository",
     'init': "turn an existing subdirectory into a nested repository",
+    'patches': "write the patches of a nested repository",
     'pull': "update a nested repository from its upstream",
     'push': "push a nested repository's local changes upstream",
     'repair': "point a nested repository's sync point back into the current history",
@@ -292,6 +294,10 @@ POSITIONALS: dict[str, list[tuple[str, dict]]] = {
     'diff': [('subdir', {'nargs': '?', 'help': _SUBDIR_HELP})],
     'fetch': [('subdir', {'nargs': '?', 'help': _SUBDIR_HELP})],
     'init': [('subdir', {'nargs': '?', 'help': "subdirectory to turn into a nested repository"})],
+    'patches': [
+        ('action', {'choices': ['create'], 'help': "create: write the patches"}),
+        ('subdir', {'nargs': '?', 'help': _SUBDIR_HELP}),
+    ],
     'pull': [('subdir', {'nargs': '?', 'help': _SUBDIR_HELP})],
     'push': [
         ('subdir', {'nargs': '?', 'help': _SUBDIR_HELP}),
@@ -359,6 +365,11 @@ COMMAND_DESCRIPTION: dict[str, str] = {
         "The files are left as they are. Without --remote the subdirectory has no upstream yet, "
         "which you can add later with 'git nested config'."
     ),
+    'patches': (
+        "Keep the local changes of <subdir> as patch files, in the patches folder of .gitnested. "
+        "create writes the changes that are not in a patch yet as a new patch, with a TODO title, "
+        "and writes all patches again in the one form git-nested uses."
+    ),
     'pull': (
         "Fetch the upstream of <subdir> and join the new commits into it, by merge or by rebase. "
         "By default the result is one parent commit; --no-squash keeps the upstream commits as a merged second-parent history. "
@@ -388,10 +399,11 @@ COMMAND_DESCRIPTION: dict[str, str] = {
     ),
     'verify': (
         "Apply the files to the upstream commit in .gitnested, in a temporary worktree, and compare "
-        "the result with <subdir>. The files can be git patches or plain diffs. "
+        "the result with <subdir>. Patches go in with git am; plain diffs need --diffs. "
         "Without files, check that <subdir> has no local changes. "
         "If it differs, the command fails. With patches, it then writes the missing patch next to the last one "
-        "(or into --output). With --diffs, it writes the whole diff to --output."
+        "(or into --output). With --diffs, it writes the whole diff to --output. "
+        "For the patches folder of .gitnested, use 'git nested patches'."
     ),
     'version': "Print the git-nested version, and the versions of git and Python it is running on.",
 }
@@ -441,6 +453,10 @@ COMMAND_EXAMPLES: dict[str, list[str]] = {
         "git nested init doc",
         "git nested init -r https://github.com/user/lib --commit abc123 ext/lib",
         "git nested init -r https://github.com/user/lib -b main ext/lib",
+    ],
+    'patches': [
+        "git nested patches create ext/lib",
+        "git nested patches create --all",
     ],
     'pull': [
         "git nested pull ext/lib",
