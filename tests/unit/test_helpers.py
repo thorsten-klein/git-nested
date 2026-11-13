@@ -277,6 +277,7 @@ def test_gitnested_is_written_with_lf(tmp_path):
         ('./foo.git', '/srv/git/bar.git', '/srv/git/bar.git/foo.git'),
         ('../foo.git', 'https://example.com/group/bar.git', 'https://example.com/group/foo.git'),
         ('https://example.com/x.git', '/srv/git/bar.git', 'https://example.com/x.git'),
+        ('../foo', 'D:\\a\\upstream\\bar', 'D:/a/upstream/foo'),
     ],
 )
 def test_a_relative_submodule_url_is_resolved_like_git_does(url, base, resolved):

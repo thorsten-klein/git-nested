@@ -55,6 +55,9 @@ def resolve(url: str, base: str) -> str:
     if not url.startswith(('./', '../')):
         return url
     scheme, sep, rest = base.rpartition('://')
+    if not sep:
+        # A local path. On Windows it may have backslashes, which posixpath takes as part of a name.
+        rest = rest.replace('\\', '/')
     return f'{scheme}{sep}{posixpath.normpath(posixpath.join(rest, url))}'
 
 
