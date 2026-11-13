@@ -72,8 +72,8 @@ def _apply(git: GitRunner, path: Path, files: list[Path], quiet: bool = False) -
     """
     for file in files:
         (output.verbose if quiet else output.say)(f"applying {_shown(file)}")
-        patch = patches.as_written(file, path.parent / 'lf')
-        result = git.run(['apply', '--index', '--whitespace=nowarn', patch], may_fail=True, cwd=path)
+        with patches.as_written(git, file) as patch:
+            result = git.run(['apply', '--index', '--whitespace=nowarn', patch], may_fail=True, cwd=path)
         if result.returncode != 0:
             raise GitNestedError(f"{_shown(file)}: does not apply\n{(result.stderr or '').strip()}")
     _commit(git, path, "the upstream commit with the patches applied")

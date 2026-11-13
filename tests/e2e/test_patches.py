@@ -19,7 +19,8 @@ def _with_patches(env):
     """foo with bar nested, a local change to bar/Bar, and that change as a patch"""
     foo = env.workspace / 'foo'
     cmd_git_nested(['config', 'bar', 'patches', FOLDER], cwd=foo)
-    (foo / 'bar' / 'Bar').write_text("local\n")
+    # bytes: write_text would make it CRLF on Windows
+    (foo / 'bar' / 'Bar').write_bytes(b"local\n")
     _commit(env, foo, 'local change')
     result = cmd_git_nested('verify bar', cwd=foo, check=False)
     assert f"wrote the missing patch bar/{FOLDER}/0001-TODO-title.patch" in result.output
@@ -30,10 +31,7 @@ def _with_patches(env):
 def _upstream_change(env, path, text):
     bar = env.workspace / 'bar'
     (bar / path).parent.mkdir(parents=True, exist_ok=True)
-    if isinstance(text, bytes):
-        (bar / path).write_bytes(text)
-    else:
-        (bar / path).write_text(text)
+    (bar / path).write_bytes(text if isinstance(text, bytes) else text.encode())
     env.run(['git', 'add', path], cwd=bar)
     env.run(['git', 'commit', '-q', '-m', f'upstream {path}'], cwd=bar)
     env.run(['git', 'push', '-q'], cwd=bar)
