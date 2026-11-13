@@ -853,7 +853,7 @@ sequenceDiagram
     participant git-nested
     participant Git
 
-    User->>git-nested: git nested patches create <subdir>
+    User->>git-nested: git nested patches create|verify <subdir>
     git-nested->>Git: rev-parse --show-prefix
     Note over git-nested: Below the top level: rev-parse --show-toplevel,<br/>paths rebased, then run from there
     git-nested->>Git: rev-parse --git-dir
@@ -880,14 +880,18 @@ sequenceDiagram
     git-nested->>Git: diff --stat HEAD <local tree> -- . ':(exclude,glob)**/.gitnested*' [':(exclude,literal)<path>']
     Note over git-nested: Left out: the patches folder and inner nested repos
 
-    opt HEAD has more
+    opt create, and HEAD has more
         git-nested->>Git: diff --binary --full-index --output=<file> HEAD <local tree>
         git-nested->>Git: apply --index <file>
         git-nested->>Git: commit -m 'TODO: title' -m 'TODO: description'
     end
     git-nested->>Git: format-patch --zero-commit --no-signature --no-numbered --no-cover-letter -o <scratch> <commit>..HEAD
     Note over git-nested: Compare with the folder, byte for byte
-    Note over git-nested: Replace the patches in the folder if they differ
+    alt create
+        Note over git-nested: Replace the patches in the folder if they differ
+    else verify
+        Note over git-nested: Fail if a change is not in a patch, or a patch differs
+    end
 
     git-nested->>Git: worktree prune
 ```

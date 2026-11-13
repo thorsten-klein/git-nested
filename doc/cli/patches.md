@@ -1,10 +1,11 @@
 # `git nested patches`
 
-Write the patches of a nested repository.
+Write or check the patches of a nested repository.
 
 ```text
 git nested patches create [<options>] [<subdir>]
-git nested patches create --all
+git nested patches verify [<options>] [<subdir>]
+git nested patches verify --all
 ```
 
 ## What it does
@@ -13,7 +14,7 @@ The [patches](../configuration/gitnested-file.md#patches) are the local
 changes of `<subdir>`, kept as `git format-patch` files in the patches
 folder. `.gitnested` names the folder; they are off without it.
 
-It builds them again in a temporary worktree:
+Both actions build the same thing in a temporary worktree:
 
 1. Check out the upstream commit from `.gitnested`. Fetch it only if it is
    missing.
@@ -32,6 +33,9 @@ It builds them again in a temporary worktree:
 
 It does not commit the folder. Commit it yourself.
 
+`verify` only checks. It fails if a change is not in a patch, or if
+`create` would change a patch. Use it in CI.
+
 The patches folder is read as it is in your working tree. The rest of
 `<subdir>` is taken from `HEAD`.
 
@@ -40,6 +44,7 @@ The patches folder is read as it is in your working tree. The rest of
 | Argument | Meaning |
 |---|---|
 | `create` | write the missing patch, and all patches again |
+| `verify` | check that `create` would change nothing |
 | `<subdir>` | the nested repository. Can be left out inside it |
 
 ## Options
@@ -52,7 +57,8 @@ The patches folder is read as it is in your working tree. The rest of
 
 ```bash
 git nested patches create ext/lib
-git nested patches create --all
+git nested patches verify ext/lib
+git nested patches verify --all
 ```
 
 ## Notes

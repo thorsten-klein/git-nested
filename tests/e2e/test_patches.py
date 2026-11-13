@@ -28,6 +28,12 @@ def _with_patches(env):
     return foo
 
 
+def test_patches_verify_checks_the_folder(foo_bar_cloned_and_nested):
+    foo = _with_patches(foo_bar_cloned_and_nested)
+    result = cmd_git_nested('patches verify bar', cwd=foo)
+    assert result.output.strip().endswith(" with 1 patch")
+
+
 def test_push_leaves_the_patches_folder_out(foo_bar_cloned_and_nested):
     env = foo_bar_cloned_and_nested
     foo = _with_patches(env)
@@ -86,6 +92,24 @@ def test_verify_writes_no_patch_for_a_setup_the_patches_do_not_work_with(foo_bar
     assert not (foo / 'bar' / FOLDER).exists()
 
 
+def test_patches_verify_refuses_a_plain_diff(foo_bar_cloned_and_nested):
+    """A pull applies the patches with git am, so verify does too: a plain diff is not a patch"""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    cmd_git_nested(['config', 'bar', 'patches', FOLDER], cwd=foo)
+    (foo / 'bar' / 'Bar').write_bytes(b"local\n")
+    _commit(env, foo, 'local change')
+    diff = env.run(['git', 'diff', 'HEAD~1', 'HEAD', '--relative=bar'], cwd=foo).stdout
+    (foo / 'bar' / FOLDER).mkdir()
+    (foo / 'bar' / FOLDER / '0001-plain.patch').write_text(diff)
+    _commit(env, foo, 'a plain diff as patch')
+
+    result = cmd_git_nested('patches verify bar', cwd=foo, check=False)
+    assert result.returncode == 1
+    assert f"bar/{FOLDER}/0001-plain.patch: is not a patch" in result.output
+    assert not (foo / '.git' / 'tmp' / 'patches').exists()
+
+
 def test_patches_create_with_nothing_to_do(foo_bar_cloned_and_nested):
     foo = _with_patches(foo_bar_cloned_and_nested)
     result = cmd_git_nested('patches create bar', cwd=foo)
@@ -105,6 +129,19 @@ def test_patches_create_names_a_patch_after_its_title(foo_bar_cloned_and_nested)
     assert cmd_git_nested('patches create bar', cwd=foo).output.strip() == "bar: the patches are up to date"
 
 
+def test_patches_verify_finds_a_patch_create_would_change(foo_bar_cloned_and_nested):
+    foo = _with_patches(foo_bar_cloned_and_nested)
+    patch = foo / 'bar' / FOLDER / '0001-TODO-title.patch'
+    patch.write_bytes(patch.read_bytes().replace(b'TODO: title', b'Change Bar'))
+
+    result = cmd_git_nested('patches verify bar', cwd=foo, check=False)
+    assert result.returncode == 1
+    assert "bar: the patches are not as git-nested writes them: 0001-Change-Bar.patch, 0001-TODO-title.patch" in (
+        result.output
+    )
+    assert "'git nested patches create bar' writes them again" in result.output
+
+
 def test_patches_create_adds_the_next_patch(foo_bar_cloned_and_nested):
     env = foo_bar_cloned_and_nested
     foo = _with_patches(env)
@@ -117,6 +154,12 @@ def test_patches_create_adds_the_next_patch(foo_bar_cloned_and_nested):
     second = (foo / 'bar' / FOLDER / '0002-TODO-title.patch').read_text()
     assert "+more" in second
     assert "+local" not in second
+
+
+def test_patches_verify_all(foo_bar_cloned_and_nested):
+    foo = _with_patches(foo_bar_cloned_and_nested)
+    result = cmd_git_nested('patches verify --all', cwd=foo)
+    assert result.output.strip().endswith(" with 1 patch")
 
 
 @pytest.mark.parametrize(
@@ -138,6 +181,20 @@ def test_patches_refuse_a_setup_without_them(foo_bar_cloned_and_nested, line, me
     result = cmd_git_nested('patches create bar', cwd=foo, check=False)
     assert result.returncode == 1
     assert message in result.output
+
+
+def test_patches_verify_finds_a_change_that_is_not_in_a_patch(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = _with_patches(env)
+    (foo / 'bar' / 'Other').write_bytes(b"more\n")
+    _commit(env, foo, 'more local work')
+
+    result = cmd_git_nested('patches verify bar', cwd=foo, check=False)
+    assert result.returncode == 1
+    assert "bar: has changes that are not in its patches\n" in result.output
+    assert "Other" in result.output
+    assert "'git nested patches create bar' writes the missing one" in result.output
+    assert _patch_names(foo) == ['0001-TODO-title.patch']
 
 
 def test_patches_verify_takes_a_patch_file_the_checkout_made_crlf(foo_bar_cloned_and_nested):

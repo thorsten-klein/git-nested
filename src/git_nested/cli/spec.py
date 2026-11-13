@@ -95,7 +95,7 @@ COMMAND_HELP: dict[str, str] = {
     'diff': "show a nested repository's local changes against upstream",
     'fetch': "fetch upstream content for a nested repository",
     'init': "turn an existing subdirectory into a nested repository",
-    'patches': "write the patches of a nested repository",
+    'patches': "write or check the patches of a nested repository",
     'pull': "update a nested repository from its upstream",
     'push': "push a nested repository's local changes upstream",
     'repair': "point a nested repository's sync point back into the current history",
@@ -295,7 +295,7 @@ POSITIONALS: dict[str, list[tuple[str, dict]]] = {
     'fetch': [('subdir', {'nargs': '?', 'help': _SUBDIR_HELP})],
     'init': [('subdir', {'nargs': '?', 'help': "subdirectory to turn into a nested repository"})],
     'patches': [
-        ('action', {'choices': ['create'], 'help': "create: write the patches"}),
+        ('action', {'choices': ['create', 'verify'], 'help': "create: write the patches; verify: check them"}),
         ('subdir', {'nargs': '?', 'help': _SUBDIR_HELP}),
     ],
     'pull': [('subdir', {'nargs': '?', 'help': _SUBDIR_HELP})],
@@ -368,7 +368,8 @@ COMMAND_DESCRIPTION: dict[str, str] = {
     'patches': (
         "Keep the local changes of <subdir> as patch files, in the patches folder of .gitnested. "
         "create writes the changes that are not in a patch yet as a new patch, with a TODO title, "
-        "and writes all patches again in the one form git-nested uses."
+        "and writes all patches again in the one form git-nested uses. "
+        "verify only checks: it fails if a change is not in a patch, or if create would change a patch."
     ),
     'pull': (
         "Fetch the upstream of <subdir> and join the new commits into it, by merge or by rebase. "
@@ -456,7 +457,8 @@ COMMAND_EXAMPLES: dict[str, list[str]] = {
     ],
     'patches': [
         "git nested patches create ext/lib",
-        "git nested patches create --all",
+        "git nested patches verify ext/lib",
+        "git nested patches verify --all",
     ],
     'pull': [
         "git nested pull ext/lib",

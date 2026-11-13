@@ -1,8 +1,9 @@
-"""`git nested patches`: write the patches of a nested repository.
+"""`git nested patches`: write and check the patches of a nested repository.
 
 `create` brings the patches folder up to date: it writes the local
 changes that are not in a patch yet as a new patch, and writes all patches
-again in the one form git-nested uses.
+again in the one form git-nested uses. `verify` only checks that nothing
+would change.
 """
 
 from __future__ import annotations
@@ -30,6 +31,11 @@ class _Rebuilt:
     missing: str
 
 
+def _count(files: list[Path]) -> str:
+    """'1 patch', '2 patches'."""
+    return f"{len(files)} patch{'' if len(files) == 1 else 'es'}"
+
+
 @contextlib.contextmanager
 def _rebuilt(
     git: GitRunner, config: NestedConfig, subdir: Path, subref: str, tmp: Path, add_missing: bool
@@ -55,6 +61,15 @@ def _changed(git: GitRunner, old: list[Path], new: list[Path]) -> list[str]:
     before = {file.name: patchbuild.stored(git, file) for file in old}
     after = {file.name: file.read_bytes() for file in new}
     return sorted(name for name in before.keys() | after.keys() if before.get(name) != after.get(name))
+
+
+def _missing_message(subdir: Path, missing: str) -> str:
+    """The error for changes that are not in a patch."""
+    name = subdir.as_posix()
+    return (
+        f"{name}: has changes that are not in its patches\n{missing}\n"
+        f"'git nested patches create {name}' writes the missing one"
+    )
 
 
 def _create(ctx: CommandContext, config: NestedConfig, subdir: Path, subref: str) -> None:
@@ -88,6 +103,22 @@ def _replace(folder: Path, old: list[Path], new: list[Path]) -> None:
         shutil.copyfile(file, folder / file.name)
 
 
+def _verify(ctx: CommandContext, config: NestedConfig, subdir: Path, subref: str) -> None:
+    """Check that `create` would change nothing."""
+    git, name = ctx.git, subdir.as_posix()
+    old = patches.files(config, subdir)
+    with _rebuilt(git, config, subdir, subref, ctx.tmp, add_missing=False) as rebuilt:
+        if rebuilt.missing:
+            raise GitNestedError(_missing_message(subdir, rebuilt.missing))
+        changed = _changed(git, old, rebuilt.files)
+    if changed:
+        raise GitNestedError(
+            f"{name}: the patches are not as git-nested writes them: {', '.join(changed)}\n"
+            f"'git nested patches create {name}' writes them again"
+        )
+    output.say(f"{name}: the patches are up to date: upstream {config.commit[:9]} with {_count(old)}")
+
+
 def _check_setup(config: NestedConfig, subdir: Path) -> None:
     """Refuse a setup the patches are off for, or do not work with yet."""
     patches.check(config, subdir, patches.files(config, subdir))
@@ -98,11 +129,11 @@ def _check_setup(config: NestedConfig, subdir: Path) -> None:
         raise GitNestedError(f"{name}: patches do not work with filter, exclude, path or squash: false yet")
 
 
-_ACTIONS = {'create': _create}
+_ACTIONS = {'create': _create, 'verify': _verify}
 
 
 def cmd_patches(ctx: CommandContext) -> None:
-    """Write the patches of a nested repository."""
+    """Write or check the patches of a nested repository."""
     subdir, _, subref, config = setup.setup_command(ctx.git, 'patches', ctx.flags, ctx.subdir, ctx.upstream)
     _check_setup(config, subdir)
-    _ACTIONS[ctx.patches_action or 'create'](ctx, config, subdir, subref)
+    _ACTIONS[ctx.patches_action or 'verify'](ctx, config, subdir, subref)
