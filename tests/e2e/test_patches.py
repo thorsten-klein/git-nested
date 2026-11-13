@@ -871,3 +871,99 @@ def test_patches_drop_refuses_a_dirty_worktree(foo_bar_cloned_and_nested):
     result = cmd_git_nested('patches drop bar 0001-TODO-title.patch', cwd=foo, check=False)
     assert result.returncode == 1
     assert "can't drop a patch" in result.output
+
+
+def _title(foo, name, title):
+    """Give the patch `name` the title `title`, and let `patches create` name it after that"""
+    patch = foo / 'bar' / FOLDER / name
+    patch.write_bytes(patch.read_bytes().replace(b'TODO: title', title.encode()))
+    cmd_git_nested('patches create bar', cwd=foo)
+
+
+def _local_and_pushed(env, local_title):
+    """foo with two patches: one changes Bar and is titled `local_title`, one adds Other"""
+    foo = _with_patches(env)
+    _title(foo, '0001-TODO-title.patch', local_title)
+    (foo / 'bar' / 'Other').write_bytes(b"more\n")
+    _commit(env, foo, 'more local work')
+    cmd_git_nested('patches create bar', cwd=foo)
+    _title(foo, '0002-TODO-title.patch', 'Add Other')
+    _commit(env, foo, 'the patches')
+    return foo
+
+
+def _upstream_file(env, path):
+    return env.run(['git', 'show', f'master:{path}'], cwd=env.upstream / 'bar', check=False).stdout
+
+
+def test_push_leaves_out_a_patch_in_patches_local(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = _local_and_pushed(env, 'Keep Bar local')
+    upstream_bar = _upstream_file(env, 'Bar')
+    _set(env, foo, '  patches-local: Keep-Bar-local\n')
+
+    cmd_git_nested('push --commit -b master bar', cwd=foo)
+    assert _upstream_file(env, 'Other') == "more\n"
+    assert _upstream_file(env, 'Bar') == upstream_bar
+    assert _patch_names(foo) == ['0001-Keep-Bar-local.patch']
+    assert (foo / 'bar' / 'Bar').read_bytes() == b"local\n"
+    assert env.run(['git', 'status', '--porcelain'], cwd=foo).stdout == ''
+    assert cmd_git_nested('patches verify bar', cwd=foo).output.strip().endswith(" with 1 patch")
+
+
+def test_push_leaves_out_a_patch_with_the_local_prefix(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = _local_and_pushed(env, 'git-nested local: Keep Bar')
+    upstream_bar = _upstream_file(env, 'Bar')
+    assert _patch_names(foo) == ['0001-git-nested-local-Keep-Bar.patch', '0002-Add-Other.patch']
+
+    before = env.run(['git', 'rev-parse', 'master'], cwd=env.upstream / 'bar').stdout.strip()
+    cmd_git_nested('push --squash -b master bar', cwd=foo)
+    assert _upstream_file(env, 'Other') == "more\n"
+    assert _upstream_file(env, 'Bar') == upstream_bar
+    assert env.run(['git', 'rev-parse', 'master~1'], cwd=env.upstream / 'bar').stdout.strip() == before
+
+
+def test_local_patches_stay_local_after_a_pull(foo_bar_cloned_and_nested):
+    """The list and the prefix both survive a pull, which writes the patches again"""
+    env = foo_bar_cloned_and_nested
+    foo = _local_and_pushed(env, 'git-nested local: Keep Bar')
+    _upstream_change(env, 'New', "new\n")
+    cmd_git_nested('pull bar', cwd=foo)
+    assert _patch_names(foo) == ['0001-git-nested-local-Keep-Bar.patch', '0002-Add-Other.patch']
+
+    result = cmd_git_nested('push --dry-run -b master bar', cwd=foo)
+    assert "Add Other" in result.output
+    assert "stays local: 0001-git-nested-local-Keep-Bar.patch\n" in result.output
+
+    _set(env, foo, '  patches-local: Add-Other\n')
+    _upstream_change(env, 'Newer', "newer\n")
+    cmd_git_nested('pull bar', cwd=foo)
+    assert cmd_git_nested('push -b master bar', cwd=foo).output.strip() == "bar: nothing to push"
+
+
+def test_push_refuses_a_patch_that_needs_a_local_one(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = _with_patches(env)
+    _title(foo, '0001-TODO-title.patch', 'git-nested local: Keep Bar')
+    (foo / 'bar' / 'Bar').write_bytes(b"local\nand more\n")
+    _commit(env, foo, 'more on Bar')
+    cmd_git_nested('patches create bar', cwd=foo)
+    _commit(env, foo, 'the patches')
+    upstream_head = env.run(['git', 'rev-parse', 'master'], cwd=env.upstream / 'bar').stdout
+
+    result = cmd_git_nested('push -b master bar', cwd=foo, check=False)
+    assert result.returncode == 1
+    assert "the patch 0002-TODO-title.patch does not apply on upstream" in result.output
+    assert "it may need a patch that stays local: 0001-git-nested-local-Keep-Bar.patch" in result.output
+    assert env.run(['git', 'rev-parse', 'master'], cwd=env.upstream / 'bar').stdout == upstream_head
+
+
+def test_patches_local_names_a_patch_that_is_not_there(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = _with_patches(env)
+    _set(env, foo, '  patches-local:\n    - Nope\n')
+
+    result = cmd_git_nested('push -b master bar', cwd=foo, check=False)
+    assert result.returncode == 1
+    assert "bar: patches-local Nope: no such patch" in result.output

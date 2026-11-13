@@ -32,6 +32,7 @@ CONFIG_FIELDS: dict[str, str] = {
     'readonly': "'true' makes push refuse, for a repository that is only pulled",
     'patches': "the folder with the local changes as patches, relative to the subdir",
     'patches-ignore': "paths in the subdir that stay local, so no patch needs their changes",
+    'patches-local': "patches a push leaves out, by name without the number",
 }
 
 # The rest are written by the nested operations themselves; setting one by

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import contextlib
 import posixpath
+import re
 import tempfile
 from collections.abc import Iterator
 from pathlib import Path, PurePosixPath
@@ -21,6 +22,12 @@ from .models import NestedConfig
 
 # `git commit` and `git am` need an identity; CI often has none.
 _FALLBACK_IDENTITY = ['-c', 'user.name=git-nested', '-c', 'user.email=git-nested@localhost']
+
+# A patch with a subject that starts with this stays local: a push leaves it out.
+LOCAL_PREFIX = 'git-nested local:'
+
+_NUMBER = re.compile(r'^\d+-')
+_SUBJECT = re.compile(r'^Subject:\s*(?:\[[^]]*\]\s*)*(.*)$', re.MULTILINE)
 
 # The patch files in the patches folder.
 PATCH_GLOB = '*.patch'
@@ -86,7 +93,7 @@ def check(config: NestedConfig, subdir: Path, patches: list[Path]) -> None:
     """Refuse a patches setup that can't be, and `patches` with a setup they do not work with yet."""
     if not config.patches:
         return
-    problem = _folder_problem(config, subdir) or _ignore_problem(config)
+    problem = _folder_problem(config, subdir) or _ignore_problem(config) or _local_problem(config, patches)
     if not problem and patches and (config.path or config.filter or config.exclude):
         problem = "patches do not work with filter, exclude or path yet"
     if problem:
@@ -106,6 +113,31 @@ def _ignore_problem(config: NestedConfig) -> str | None:
     """What is wrong with the patches-ignore paths, if anything."""
     outside = next((path for path in config.patches_ignore if not _inside(path)), None)
     return None if outside is None else f"patches-ignore {outside}: not a path inside the subdir"
+
+
+def _local_problem(config: NestedConfig, patches: list[Path]) -> str | None:
+    """What is wrong with the patches-local names, if anything: a name with no patch."""
+    names = {name_of(patch) for patch in patches}
+    missing = next((name for name in config.patches_local if patches and name not in names), None)
+    return None if missing is None else f"patches-local {missing}: no such patch"
+
+
+def name_of(patch: Path) -> str:
+    """The name of `patch` without its number and without `.patch`."""
+    return _NUMBER.sub('', patch.stem)
+
+
+def _subject(git: GitRunner, patch: Path) -> str:
+    """The title of `patch`, without `[PATCH]`."""
+    with as_written(git, patch) as plain:
+        found = _SUBJECT.search(plain.read_text(encoding='utf-8', errors='replace'))
+    return found.group(1) if found else ''
+
+
+def local(git: GitRunner, config: NestedConfig, patches: list[Path]) -> list[Path]:
+    """The patches that stay local: listed in patches-local, or with a title that starts with LOCAL_PREFIX."""
+    listed = set(config.patches_local)
+    return [patch for patch in patches if name_of(patch) in listed or _subject(git, patch).startswith(LOCAL_PREFIX)]
 
 
 def _inside(path: str) -> bool:

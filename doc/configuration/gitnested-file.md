@@ -71,6 +71,7 @@ Fields that are not set take their default.
 | [`readonly`](#readonly) | `false` | you | yes |
 | [`patches`](#patches) | no patches | you | yes |
 | [`patches-ignore`](#patches-ignore) | nothing | you | no |
+| [`patches-local`](#patches-local) | nothing | you | no |
 | [`cmdver`](#cmdver) | | every write | no |
 
 ### `remote`
@@ -177,6 +178,22 @@ nested:
     - config/local.yaml
     - build
 ```
+
+### `patches-local`
+
+Patches that stay local: a push leaves them out. Name each patch without
+its number and without `.patch`, so `Fix-the-build` is
+`0003-Fix-the-build.patch`. The names still match when the numbers shift.
+One name, or a list:
+
+```yaml
+nested:
+  patches-local:
+    - Use-our-CI-image
+```
+
+A patch whose title starts with `git-nested local:` stays local too. A
+name with no patch is refused.
 
 ### `cmdver`
 

@@ -87,6 +87,8 @@ class NestedConfig:
     patches: str = ''
     # Paths in subdir, relative to it, that stay local: no patch needs them.
     patches_ignore: tuple[str, ...] = ()
+    # Patches a push leaves out, by name without number: they stay local.
+    patches_local: tuple[str, ...] = ()
 
     @classmethod
     def from_file(cls, filepath: str | Path) -> NestedConfig:
@@ -109,6 +111,7 @@ class NestedConfig:
             readonly=str(nested.get('readonly')).lower() == 'true',
             patches=_patches(nested.get('patches')),
             patches_ignore=_paths(nested.get('patches-ignore')),
+            patches_local=_paths(nested.get('patches-local')),
         )
         if not config.remote:
             raise GitNestedError(f"{path.as_posix()} has no 'remote'")
