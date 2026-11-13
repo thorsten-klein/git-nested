@@ -29,6 +29,7 @@ class Flags:
     force: bool = False
     ignore: list[str] | None = None
     from_submodule: bool = False
+    from_patches: bool = False
     recurse_submodules: bool = False
     gpg_sign: bool = False
     signoff: bool = False

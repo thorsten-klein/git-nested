@@ -71,6 +71,7 @@ def _flags_from_args(args: argparse.Namespace) -> Flags:
         force=getattr(args, 'force', False),
         ignore=getattr(args, 'ignore', None),
         from_submodule=getattr(args, 'from_submodule', False),
+        from_patches=getattr(args, 'from_patches', False),
         recurse_submodules=getattr(args, 'recurse_submodules', False),
         gpg_sign=getattr(args, 'gpg_sign', False),
         signoff=getattr(args, 'signoff', False),
@@ -104,6 +105,7 @@ _EXCLUSIVE_FLAGS = (
     ('all', 'dir', "--dir names one worktree, so it can't be used with --all"),
     ('all', 'name', "--name names one branch, so it can't be used with --all"),
     ('dry_run', 'commit', "--dry-run can't be combined with --commit"),
+    ('from_patches', 'gpg_sign', "--from-patches can't sign the commits, so it can't be used with -S"),
 )
 
 

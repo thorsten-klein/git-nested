@@ -112,6 +112,36 @@ git nested patches drop ext/lib 0002-Old-workaround.patch
 It removes the patch and its changes from `ext/lib`, writes the other
 patches again and commits both.
 
+### Look at the patches as commits
+
+```bash
+git nested branch --from-patches ext/lib
+git nested run ext/lib log --format='%h %an %s'
+```
+
+The branch holds the upstream commit and one commit per patch. It fails if
+the patches do not give what HEAD has in `ext/lib`.
+
+### Offer one patch upstream
+
+Build the branch, put the one patch on upstream, and push it to a new
+branch. The remote has the name of the branch:
+
+```bash
+git nested branch --from-patches ext/lib
+cd .git/tmp/nested/ext%2Flib
+git fetch
+git switch -c fix-build nested/ext%2Flib/main
+git cherry-pick ':/Fix the build'
+git push nested/ext%2Flib fix-build
+cd -
+git nested clean ext/lib
+git branch -D fix-build
+```
+
+Then open a pull request for `fix-build` upstream. Once it is merged, the
+next pull drops the patch.
+
 ## Pull
 
 ```bash
@@ -168,6 +198,9 @@ copy, and upstream's changes there do not come in. A push leaves them out.
 - `push --commit`: upstream now has your changes. The folder is emptied.
 - `clone --force`: takes upstream again, and applies the patches on top.
 - `commit`: writes the patches from the nested branch.
+- `branch --from-patches`: builds the nested branch from upstream and the
+  patches, one commit per patch. It stops if the patches do not give what
+  HEAD has.
 - `diff` and `status`: the folder does not count as a local change.
 
 ## Nested repositories inside

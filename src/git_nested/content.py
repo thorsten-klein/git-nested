@@ -24,8 +24,11 @@ def create_nested_branch(
     subref: str,
     command: str,
     worktree_dir: Path | None = None,
+    start: str | None = None,
 ) -> Path:
     """Create a nested branch, checked out at `worktree_dir` or else in the default place under git_tmp.
+
+    The branch starts at `start` if given. Else it is built from the history of HEAD.
 
     Returns:
         subdir_worktree
@@ -42,8 +45,11 @@ def create_nested_branch(
                 f"rename it, or pick another name with 'git nested branch --name <name> {subdir.as_posix()}'"
             )
 
-    output.verbose(f"nested parent is {config.parent}")
-    history.create_branch(git, flags, config, subdir, gitnested, subref, command, branch)
+    if start:
+        git.run(['branch', branch, start])
+    else:
+        output.verbose(f"nested parent is {config.parent}")
+        history.create_branch(git, flags, config, subdir, gitnested, subref, command, branch)
 
     subdir_worktree = worktree_dir or git_tmp / branch
     # --no-checkout and reset: so the parent's post-checkout hook does not run

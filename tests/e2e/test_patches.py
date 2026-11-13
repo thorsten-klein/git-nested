@@ -576,6 +576,82 @@ def test_a_pull_writes_the_patches_as_they_were(foo_bar_cloned_and_nested):
     assert (folder / '0001-Change-Bar.patch').read_bytes() == before
 
 
+def _recorded_commit(foo):
+    found = re.search(r'commit: (\w+)', (foo / 'bar' / '.gitnested').read_text())
+    assert found
+    return found.group(1)
+
+
+def test_branch_from_patches_has_a_commit_per_patch(foo_bar_cloned_and_nested):
+    """Each commit has the author and message of its patch, on the recorded upstream commit"""
+    env = foo_bar_cloned_and_nested
+    foo = _with_patches(env)
+    patch = foo / 'bar' / FOLDER / '0001-TODO-title.patch'
+    # bytes: write_text would make it CRLF on Windows
+    text = re.sub(rb'(?m)^From: .*$', b'From: Patch Author <author@example.com>', patch.read_bytes())
+    patch.write_bytes(text.replace(b'TODO: title', b'Change Bar'))
+    _commit(env, foo, 'the patch, with an author')
+
+    result = cmd_git_nested('branch --from-patches bar', cwd=foo)
+    assert result.output.strip() == "bar: branch nested/bar created, worktree at .git/tmp/nested/bar"
+    log = env.run(['git', 'log', '-1', '--format=%an <%ae>%n%s', 'nested/bar'], cwd=foo).stdout
+    assert log == "Patch Author <author@example.com>\nChange Bar\n"
+    parent = env.run(['git', 'rev-parse', 'nested/bar^'], cwd=foo).stdout.strip()
+    assert parent == _recorded_commit(foo)
+    assert env.run(['git', 'show', 'nested/bar:Bar'], cwd=foo).stdout == "local\n"
+
+
+def test_branch_from_patches_refuses_a_change_that_is_not_in_a_patch(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = _with_patches(env)
+    (foo / 'bar' / 'Other').write_text("not in a patch\n")
+    _commit(env, foo, 'more local work')
+
+    result = cmd_git_nested('branch --from-patches bar', cwd=foo, check=False)
+    assert result.returncode == 1
+    assert "bar: upstream with the patches differs from HEAD" in result.output
+    assert "Other" in result.output
+    assert "'git nested patches create bar' writes the missing patch" in result.output
+    assert env.run(['git', 'branch', '--list', 'nested/bar'], cwd=foo).stdout == ''
+
+
+def test_branch_from_patches_refuses_a_missing_patch(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = _with_patches(env)
+    (foo / 'bar' / FOLDER / '0001-TODO-title.patch').unlink()
+    _commit(env, foo, 'the patch is gone')
+
+    result = cmd_git_nested('branch --from-patches bar', cwd=foo, check=False)
+    assert result.returncode == 1
+    assert "bar: upstream with the patches differs from HEAD" in result.output
+    assert "Bar" in result.output
+
+
+def test_branch_from_patches_without_any_is_the_upstream_commit(foo_bar_cloned_and_nested):
+    foo = foo_bar_cloned_and_nested.workspace / 'foo'
+    cmd_git_nested(['config', 'bar', 'patches', FOLDER], cwd=foo)
+    cmd_git_nested('branch --from-patches bar', cwd=foo)
+    tip = foo_bar_cloned_and_nested.run(['git', 'rev-parse', 'nested/bar'], cwd=foo).stdout.strip()
+    assert tip == _recorded_commit(foo)
+
+
+def test_branch_from_patches_refuses_a_filter(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    _set(env, foo, '  filter: Bar\n')
+
+    result = cmd_git_nested('branch --from-patches bar', cwd=foo, check=False)
+    assert result.returncode == 1
+    assert "bar: --from-patches needs patches on, without filter, exclude or path" in result.output
+
+
+def test_branch_from_patches_can_not_sign(foo_bar_cloned_and_nested):
+    foo = foo_bar_cloned_and_nested.workspace / 'foo'
+    result = cmd_git_nested('branch --from-patches -S bar', cwd=foo, check=False)
+    assert result.returncode != 0
+    assert "--from-patches can't sign the commits, so it can't be used with -S" in result.output
+
+
 def test_patches_create_with_nothing_to_do(foo_bar_cloned_and_nested):
     foo = _with_patches(foo_bar_cloned_and_nested)
     result = cmd_git_nested('patches create bar', cwd=foo)

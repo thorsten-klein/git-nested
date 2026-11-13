@@ -25,6 +25,13 @@ Use it to:
 - fix up the history before a push,
 - finish a pull by hand. See [Resolve conflicts](../guides/conflicts.md).
 
+With `--from-patches`, the branch is built from the patches instead of the
+history: the upstream commit from `.gitnested`, and one commit per patch on
+top. Each commit has the author, date and message of its patch. Then
+`branch` checks that the result is what HEAD has in `<subdir>`. It stops if
+a change is not in a patch yet, or if a patch is missing. Then
+[`patches create`](patches.md) writes the missing patch.
+
 Other changes in your working tree do not block it. If `<subdir>` has
 uncommitted changes, `branch` warns and ignores them.
 
@@ -43,6 +50,7 @@ uncommitted changes, `branch` warns and ignores them.
 | `-n`, `--name <name>` | name the branch. Default: `nested/<subdir>` |
 | `-F`, `--fetch` | fetch upstream first |
 | `-f`, `--force` | build the branch again if it exists |
+| `--from-patches` | build the branch from upstream and the patches. Stop if they do not give `<subdir>` |
 | `-S`, `--gpg-sign` | GPG-sign the rebuilt nested commits |
 
 ## Examples
@@ -52,6 +60,7 @@ git nested branch ext/lib
 git nested branch -d ../lib ext/lib
 git nested branch --name lib-fixes ext/lib
 git nested branch --all
+git nested branch --from-patches ext/lib
 ```
 
 Then work in the worktree:
@@ -87,6 +96,8 @@ A name from `--name` is stored in `.git/config`, as
   or use `--name`.
 - `--name` can not be the name of a branch git-nested does not own.
 - `--dir` and `--name` can not be used with `--all`.
+- `--from-patches` can not be used with `-S`: the patch commits are not
+  signed. It does not work with `filter`, `exclude` or `path` yet.
 
 ## See also
 
