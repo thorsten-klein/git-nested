@@ -68,7 +68,7 @@ def test_nested_push(foo_bar_cloned_and_nested):
         author_name='PushUser',
         committer_email='push@push',
         committer_name='PushUser',
-        commit_title='git nested pull',
+        commit_title='git nested pull bar',
         changed_files=[],
     )
     assert_commit(

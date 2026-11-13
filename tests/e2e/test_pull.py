@@ -52,7 +52,7 @@ def test_pull(prepare_pull_test):
     # Check commit messages
     foo_new_commit_message = git_get_commit_msg(env.workspace / 'foo').strip()
     assert foo_new_commit_message == textwrap.dedent(f'''\
-        git nested pull
+        git nested pull bar
 
         nested:
           subdir:   "bar"
@@ -216,7 +216,7 @@ def test_pull_conflict(prepare_pull_test):
     upstream_log = env.run(['git', 'log', '-1', '--format=%h %s'], cwd=env.workspace / 'bar').stdout.strip()
     # The commit finishes the pull, so its message is the pull's
     assert foo_new_commit_message == textwrap.dedent(f'''\
-        git nested pull
+        git nested pull bar
 
         nested:
           subdir:   "bar"
@@ -576,7 +576,7 @@ def test_pull_rebase(prepare_pull_test):
     foo_new_commit_message = git_get_commit_msg(env.workspace / 'foo').strip()
     bar_head_commit_short = git_rev_parse(['--short', bar_head_commit], cwd=env.workspace / 'foo')
     assert foo_new_commit_message == textwrap.dedent(f'''\
-        git nested pull
+        git nested pull bar
 
         nested:
           subdir:   "bar"
@@ -653,7 +653,7 @@ def test_commit_after_a_rebase_conflict_says_pull(prepare_pull_test):
     cmd_git_nested('commit bar', cwd=foo)
 
     message = git_get_commit_msg(foo)
-    assert message.startswith("git nested pull\n")
+    assert message.startswith("git nested pull bar\n")
     upstream_log = env.run(['git', 'log', '-1', '--format=%h %s'], cwd=env.workspace / 'bar').stdout.strip()
     assert f"Upstream commits:\n- {upstream_log}" in message
 
@@ -669,7 +669,7 @@ def test_commit_without_a_stopped_pull_says_commit(prepare_pull_test):
     env.run(['git', 'commit', '-qm', 'add Local'], cwd=worktree_dir)
     cmd_git_nested('commit bar', cwd=foo)
 
-    assert git_get_commit_msg(foo).startswith("git nested commit\n")
+    assert git_get_commit_msg(foo).startswith("git nested commit bar\n")
 
 
 def test_pull_with_force(prepare_pull_test):
