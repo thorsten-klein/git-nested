@@ -44,14 +44,17 @@ a header with author and subject, then the diff. Other files are ignored.
 signature, and a name made from the title. So a patch only changes when
 its content changes. A plain diff, without the header, is refused.
 
-## Create
+## Create and check
 
 ```bash
 git nested patches create ext/lib
+git nested patches verify ext/lib
 ```
 
 - `create` applies the patches on the upstream commit, with `git am`. What
   HEAD has on top becomes one more patch. Then it writes all patches again.
+- `verify` only checks. It fails if a change is not in a patch, or if
+  `create` would change a patch.
 
 ## Split a patch
 
@@ -82,6 +85,12 @@ git add ext/lib/.gitnested.patches
 git commit -m "lib: keep the build fix as a patch"
 ```
 
+### Check the patches in CI
+
+```bash
+git nested patches verify --all
+```
+
 ## Other commands
 
 - `push`: pushes your changes as usual. The folder is left out.
@@ -104,4 +113,4 @@ The patches do not work yet with:
   upstream, and the patches would have to be on that part.
 - `squash: false`.
 
-With these, `patches create` stops with a message.
+With these, `patches create` and `patches verify` stop with a message.
