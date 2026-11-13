@@ -117,6 +117,7 @@ def place_with_patches(git: GitRunner, config: NestedConfig, subdir: Path, neste
     added_here = set(history.inner_repos(git, config, subdir)) - set(history.gitlinked_inner(git, config, subdir))
     _place_content(git, config, subdir, nested_commit_ref)
     patches.restore_inner_repos(git, subdir, sorted(added_here))
+    patches.restore_ignored(git, config, subdir)
     return local
 
 

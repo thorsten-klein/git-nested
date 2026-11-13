@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import posixpath
 import tempfile
 from collections.abc import Iterator
 from pathlib import Path, PurePosixPath
@@ -58,10 +59,15 @@ def files_at(git: GitRunner, config: NestedConfig, subdir: Path, rev: str, out: 
 def local_paths(git: GitRunner, config: NestedConfig, subdir: Path) -> list[str]:
     """The paths in subdir the patches leave out.
 
-    The patches folder and the inner nested repos.
+    The patches folder, the inner nested repos and the `patches-ignore` paths.
     """
     inside = config.patches_inside(subdir)
-    return [*([inside] if inside else []), *history.inner_repos(git, config, subdir)]
+    return [*([inside] if inside else []), *history.inner_repos(git, config, subdir), *ignored(config)]
+
+
+def ignored(config: NestedConfig) -> list[str]:
+    """The `patches-ignore` paths, if the patches are on."""
+    return list(config.patches_ignore) if config.patches else []
 
 
 def pathspec(local: list[str], ignored: list[str] | None = None) -> list[str]:
@@ -93,7 +99,7 @@ def check(config: NestedConfig, subdir: Path, patches: list[Path]) -> None:
     """Refuse a patches setup that can't be, and `patches` with a setup they do not work with yet."""
     if not config.patches:
         return
-    problem = _folder_problem(config, subdir)
+    problem = _folder_problem(config, subdir) or _ignore_problem(config)
     if not problem and patches and (config.path or config.filter or config.exclude):
         problem = "patches do not work with filter, exclude or path yet"
     if problem:
@@ -107,6 +113,18 @@ def _folder_problem(config: NestedConfig, subdir: Path) -> str | None:
     if config.patches_inside(subdir) == '.':
         return "patches can't be the subdir itself"
     return None
+
+
+def _ignore_problem(config: NestedConfig) -> str | None:
+    """What is wrong with the patches-ignore paths, if anything."""
+    outside = next((path for path in config.patches_ignore if not _inside(path)), None)
+    return None if outside is None else f"patches-ignore {outside}: not a path inside the subdir"
+
+
+def _inside(path: str) -> bool:
+    """Whether `path`, relative to the subdir, is inside it."""
+    normal = posixpath.normpath(PurePosixPath(path).as_posix())
+    return not (posixpath.isabs(normal) or Path(path).is_absolute() or normal == '.' or normal.startswith('..'))
 
 
 @contextlib.contextmanager
@@ -211,6 +229,15 @@ def restore_inner_repos(git: GitRunner, subdir: Path, inner: list[str]) -> None:
     """Put the `inner` nested repos back, as HEAD has them."""
     for path in inner:
         git.run(['checkout', 'HEAD', '--', f'{subdir.as_posix()}/{path}'])
+
+
+def restore_ignored(git: GitRunner, config: NestedConfig, subdir: Path) -> None:
+    """Put the `patches-ignore` paths back as HEAD has them: upstream's changes there do not come in."""
+    for path in ignored(config):
+        full = f'{subdir.as_posix()}/{path}'
+        git.run(['rm', '-r', '-q', '-f', '--ignore-unmatch', '--', full])
+        if git.check_output(['ls-tree', '--name-only', 'HEAD', '--', full]):
+            git.run(['checkout', 'HEAD', '--', full])
 
 
 def write(git: GitRunner, config: NestedConfig, subdir: Path, base: str, tip: str, local: list[str]) -> None:

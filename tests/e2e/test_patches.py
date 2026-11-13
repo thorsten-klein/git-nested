@@ -493,6 +493,54 @@ def test_verify_writes_no_patch_for_a_setup_the_patches_do_not_work_with(foo_bar
     assert not (foo / 'bar' / FOLDER).exists()
 
 
+def test_patches_ignore_paths_stay_local(foo_bar_cloned_and_nested):
+    """Changes in a patches-ignore path need no patch; a pull and a push leave the local copy alone"""
+    env = foo_bar_cloned_and_nested
+    foo = _with_patches(env)
+    _upstream_change(env, 'Conf', "upstream\n")
+    cmd_git_nested('pull bar', cwd=foo)
+    _set(env, foo, '  patches-ignore:\n    - Conf\n    - Gone\n')
+    (foo / 'bar' / 'Conf').write_bytes(b"mine\n")
+    _commit(env, foo, 'local Conf')
+    assert cmd_git_nested('patches verify bar', cwd=foo).output.strip().endswith(" with 1 patch")
+
+    _upstream_change(env, 'Conf', "upstream again\n")
+    _upstream_change(env, 'Gone', "only upstream\n")
+    cmd_git_nested('pull bar', cwd=foo)
+
+    assert (foo / 'bar' / 'Conf').read_bytes() == b"mine\n"
+    assert not (foo / 'bar' / 'Gone').exists()
+    assert (foo / 'bar' / 'Bar').read_bytes() == b"local\n"
+    assert _patch_names(foo) == ['0001-TODO-title.patch']
+    assert 'Conf' not in (foo / 'bar' / FOLDER / '0001-TODO-title.patch').read_text()
+    assert env.run(['git', 'status', '--porcelain'], cwd=foo).stdout == ''
+    assert cmd_git_nested('patches verify bar', cwd=foo).output.strip().endswith(" with 1 patch")
+
+    cmd_git_nested('push -b master bar', cwd=foo)
+    upstream = env.upstream / 'bar'
+    assert env.run(['git', 'show', 'master:Conf'], cwd=upstream).stdout == "upstream again\n"
+    assert env.run(['git', 'show', 'master:Bar'], cwd=upstream).stdout == "local\n"
+
+
+def test_a_single_patches_ignore_path(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = _with_patches(env)
+    _set(env, foo, '  patches-ignore: Conf\n')
+    (foo / 'bar' / 'Conf').write_bytes(b"mine\n")
+    _commit(env, foo, 'local Conf')
+    assert cmd_git_nested('patches verify bar', cwd=foo).output.strip().endswith(" with 1 patch")
+
+
+@pytest.mark.parametrize('path', ['/abs', '..', '../other', '.'])
+def test_a_patches_ignore_path_outside_the_subdir_is_refused(foo_bar_cloned_and_nested, path):
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    _set(env, foo, f"  patches: .gitnested.patches\n  patches-ignore: '{path}'\n")
+
+    result = cmd_git_nested('patches verify bar', cwd=foo, check=False)
+    assert f"bar: patches-ignore {path}: not a path inside the subdir" in result.output
+
+
 def test_patches_verify_refuses_a_plain_diff(foo_bar_cloned_and_nested):
     """A pull applies the patches with git am, so verify does too: a plain diff is not a patch"""
     env = foo_bar_cloned_and_nested

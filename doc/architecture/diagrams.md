@@ -79,6 +79,7 @@ sequenceDiagram
             Note over git-nested: Write .gitnested
             opt patches in use
                 git-nested->>Git: checkout HEAD -- <inner repos added here>
+                git-nested->>Git: rm -r -f / checkout HEAD -- <patches-ignore paths>
                 git-nested->>Git: format-patch --zero-commit --no-signature -o <folder> <upstream>..<nested_commit_ref> -- <without local paths>
                 git-nested->>Git: add -A -f -- <folder>
             end
@@ -224,7 +225,7 @@ sequenceDiagram
         Note over git-nested: Stop if subdir has changes the patches do not hold
         git-nested->>Git: worktree add --detach .git/tmp/patches/<subref> <recorded commit>
         git-nested->>Git: am -3 --keep-cr <patch>... (in the worktree)
-        git-nested->>Git: diff --quiet HEAD <local tree> -- <without the patches folder and inner repos>
+        git-nested->>Git: diff --quiet HEAD <local tree> -- <without the patches folder, inner repos, patches-ignore>
     end
 
     rect rgb(230, 245, 255)
@@ -321,7 +322,8 @@ sequenceDiagram
                 Note over git-nested: Write .gitnested
                 opt patches in use
                     git-nested->>Git: checkout HEAD -- <inner repos added here>
-                        git-nested->>Git: format-patch --zero-commit --no-signature -o <folder> <upstream>..<nested_commit_ref> -- <without local paths>
+                    git-nested->>Git: rm -r -f / checkout HEAD -- <patches-ignore paths>
+                    git-nested->>Git: format-patch --zero-commit --no-signature -o <folder> <upstream>..<nested_commit_ref> -- <without local paths>
                     git-nested->>Git: add -A -f -- <folder>
                 end
                 git-nested->>Git: add -f -- <subdir>/.gitnested
@@ -421,7 +423,7 @@ sequenceDiagram
         git-nested->>Git: ls-tree -r -z --name-only HEAD -- <subdir>
         Note over git-nested: Also drop .gitnested.levelN files and inner nested repos upstream does not have
         Note over git-nested: With --ignore: the ignored paths come from upstream
-        Note over git-nested: The patches folder is dropped
+        Note over git-nested: The patches folder is dropped. patches-ignore paths come from upstream
         git-nested->>Git: branch nested/<subref> <tip>
         git-nested->>Git: worktree add --no-checkout <worktree_path> nested/<subref>
         git-nested->>Git: reset -q --hard (in the worktree)
@@ -700,6 +702,7 @@ sequenceDiagram
         Note over git-nested: Write .gitnested
         opt patches in use
             git-nested->>Git: checkout HEAD -- <inner repos added here>
+            git-nested->>Git: rm -r -f / checkout HEAD -- <patches-ignore paths>
             git-nested->>Git: format-patch --zero-commit --no-signature -o <folder> <upstream>..<nested_commit_ref> -- <without local paths>
             git-nested->>Git: add -A -f -- <folder>
         end
@@ -862,7 +865,7 @@ sequenceDiagram
     end
     git-nested->>Git: commit --allow-empty --no-verify (in the worktree)
     git-nested->>Git: diff --quiet HEAD <local tree> -- . ':(exclude,glob)**/.gitnested*' [':(exclude,literal)<path>']
-    Note over git-nested: Left out: the patches folder, inner nested repos and --ignore paths
+    Note over git-nested: Left out: the patches folder, inner nested repos, patches-ignore and --ignore paths
     Note over git-nested: The diffs below use the same paths
 
     opt it differs
@@ -916,7 +919,7 @@ sequenceDiagram
         git-nested->>Git: -c core.hooksPath=<empty> am -3 --quiet --no-gpg-sign --keep-cr <patch>... (in the worktree)
     end
     git-nested->>Git: diff --stat HEAD <local tree> -- . ':(exclude,glob)**/.gitnested*' [':(exclude,literal)<path>']
-    Note over git-nested: Left out: the patches folder and inner nested repos
+    Note over git-nested: Left out: the patches folder, inner nested repos and patches-ignore paths
 
     opt create, and HEAD has more
         git-nested->>Git: diff --binary --full-index --output=<file> HEAD <local tree>
