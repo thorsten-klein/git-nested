@@ -321,6 +321,7 @@ def cmd_pull(ctx: CommandContext) -> None:
     branch, subdir_worktree = pulled
     output.verbose(f"committing the new {branch} content")
     _commit_pull(ctx, config, subdir, gitnested, subref, branch, subdir_worktree)
+    content.keep_upstream_bytes(git, flags, subdir)
     follow_inner(ctx, config, subdir)
     if flags.recurse_submodules:
         clone.nest_submodules(git, flags, config, subdir)
