@@ -843,8 +843,11 @@ def test_patches_drop_stops_if_a_later_patch_needs_it(foo_bar_cloned_and_nested)
     ('args', 'message'),
     [
         ('patches drop bar no-such.patch', "bar: no-such.patch is not one of its patches"),
-        ('patches drop bar', "drop needs the patches to drop; create and verify take none"),
-        ('patches create bar 0001-TODO-title.patch', "drop needs the patches to drop; create and verify take none"),
+        ('patches drop bar', "drop and cherry-pick need what to drop or pick; create and verify take nothing"),
+        (
+            'patches create bar 0001-TODO-title.patch',
+            "drop and cherry-pick need what to drop or pick; create and verify take nothing",
+        ),
     ],
 )
 def test_patches_drop_refuses(foo_bar_cloned_and_nested, args, message):
@@ -978,3 +981,133 @@ def test_patches_local_needs_a_patch_even_without_any(foo_bar_cloned_and_nested)
     result = cmd_git_nested('patches create bar', cwd=foo, check=False)
     assert result.returncode == 1
     assert "bar: patches-local 0001-Gone.patch: no such patch" in result.output
+
+
+def _upstream_fix(env, branch='fix'):
+    """A commit on a new branch `branch` of upstream bar that adds Fix, by another author"""
+    bar = env.workspace / 'bar'
+    env.run(['git', 'checkout', '-q', '-b', branch], cwd=bar)
+    (bar / 'Fix').write_bytes(b"fixed\n")
+    env.run(['git', 'add', 'Fix'], cwd=bar)
+    env.run(
+        ['git', '-c', 'user.name=Fix Author', '-c', 'user.email=fix@example.com', 'commit', '-q', '-m', 'Fix it'],
+        cwd=bar,
+    )
+    env.run(['git', 'push', '-q', 'origin', branch], cwd=bar)
+    env.run(['git', 'checkout', '-q', '-'], cwd=bar)
+
+
+def test_patches_cherry_pick_takes_an_upstream_commit(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = _with_patches(env)
+    _upstream_fix(env)
+
+    result = cmd_git_nested('patches cherry-pick bar fix', cwd=foo)
+    assert result.output.strip().endswith("bar: cherry-picked Fix-it")
+    assert _patch_names(foo) == ['0001-TODO-title.patch', '0002-Fix-it.patch']
+    patch = (foo / 'bar' / FOLDER / '0002-Fix-it.patch').read_text()
+    assert "From: Fix Author <fix@example.com>" in patch
+    assert "Subject: [PATCH] Fix it" in patch
+    assert (foo / 'bar' / 'Fix').read_bytes() == b"fixed\n"
+    assert (foo / 'bar' / 'Bar').read_bytes() == b"local\n"
+    assert env.run(['git', 'status', '--porcelain'], cwd=foo).stdout == ''
+    assert env.run(['git', 'log', '-1', '--format=%s'], cwd=foo).stdout.strip() == "bar: cherry-pick Fix-it"
+    assert cmd_git_nested('patches verify bar', cwd=foo).output.strip().endswith(" with 2 patches")
+
+
+def test_patches_cherry_pick_from_another_remote_and_local(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = _with_patches(env)
+    fork = env.upstream / 'fork'
+    env.run(['git', 'clone', '-q', '--bare', (env.upstream / 'bar').as_posix(), fork.as_posix()], cwd=env.upstream)
+    bar = env.workspace / 'bar'
+    env.run(['git', 'remote', 'add', 'fork', fork.as_posix()], cwd=bar)
+    env.run(['git', 'checkout', '-q', '-b', 'pr'], cwd=bar)
+    (bar / 'Fix').write_bytes(b"from the fork\n")
+    env.run(['git', 'add', 'Fix'], cwd=bar)
+    env.run(['git', 'commit', '-q', '-m', 'Fix from the fork'], cwd=bar)
+    env.run(['git', 'push', '-q', 'fork', 'pr'], cwd=bar)
+
+    cmd_git_nested(['patches', 'cherry-pick', 'bar', 'pr', '-r', fork.as_posix(), '--local'], cwd=foo)
+    assert (foo / 'bar' / 'Fix').read_bytes() == b"from the fork\n"
+    assert _patch_names(foo) == ['0001-TODO-title.patch', '0002-Fix-from-the-fork.patch']
+    assert "- 0002-Fix-from-the-fork.patch" in (foo / 'bar' / '.gitnested').read_text()
+    assert env.run(['git', 'status', '--porcelain'], cwd=foo).stdout == ''
+    result = cmd_git_nested('push --dry-run -b master bar', cwd=foo)
+    assert "stays local: 0002-Fix-from-the-fork.patch" in result.output
+
+
+def test_patches_cherry_pick_with_options_between_the_positionals(foo_bar_cloned_and_nested):
+    """`patches cherry-pick -r <url> bar <commit>`: Python before 3.12 can not parse that alone"""
+    env = foo_bar_cloned_and_nested
+    foo = _with_patches(env)
+    _upstream_fix(env)
+    upstream = (env.upstream / 'bar').as_posix()
+    cmd_git_nested(['patches', 'cherry-pick', '-r', upstream, '--local', 'bar', 'fix'], cwd=foo)
+    assert _patch_names(foo) == ['0001-TODO-title.patch', '0002-Fix-it.patch']
+    assert "- 0002-Fix-it.patch" in (foo / 'bar' / '.gitnested').read_text()
+
+
+def test_patches_cherry_pick_takes_a_patch_file(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = _with_patches(env)
+    _upstream_fix(env)
+    bar = env.workspace / 'bar'
+    patch = env.run(['git', 'format-patch', '-1', '-o', (env.workspace / 'out').as_posix(), 'fix'], cwd=bar).stdout
+    env.run(['git', 'branch', '-q', '-D', 'fix'], cwd=bar)
+
+    cmd_git_nested(['patches', 'cherry-pick', 'bar', patch.strip()], cwd=foo)
+    assert _patch_names(foo) == ['0001-TODO-title.patch', '0002-Fix-it.patch']
+    assert (foo / 'bar' / 'Fix').read_bytes() == b"fixed\n"
+
+
+def test_patches_cherry_pick_refuses_a_plain_diff(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = _with_patches(env)
+    diff = env.workspace / 'fix.diff'
+    diff.write_bytes(b"--- /dev/null\n+++ b/Fix\n@@ -0,0 +1 @@\n+fixed\n")
+    head = env.run(['git', 'rev-parse', 'HEAD'], cwd=foo).stdout
+
+    result = cmd_git_nested(['patches', 'cherry-pick', 'bar', diff.as_posix()], cwd=foo, check=False)
+    assert result.returncode == 1
+    assert "fix.diff does not apply" in result.output
+    assert env.run(['git', 'rev-parse', 'HEAD'], cwd=foo).stdout == head
+
+
+def test_a_pull_drops_a_cherry_picked_commit_once_upstream_has_it(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = _with_patches(env)
+    _upstream_fix(env)
+    cmd_git_nested('patches cherry-pick bar fix', cwd=foo)
+    bar = env.workspace / 'bar'
+    env.run(['git', 'merge', '-q', '--ff-only', 'fix'], cwd=bar)
+    env.run(['git', 'push', '-q'], cwd=bar)
+
+    cmd_git_nested('pull bar', cwd=foo)
+    assert _patch_names(foo) == ['0001-TODO-title.patch']
+    assert (foo / 'bar' / 'Fix').read_bytes() == b"fixed\n"
+
+
+@pytest.mark.parametrize(
+    ('args', 'message'),
+    [
+        ('patches cherry-pick bar', "drop and cherry-pick need what to drop or pick"),
+        ('patches verify --local bar', "--local only works with cherry-pick"),
+    ],
+)
+def test_patches_cherry_pick_usage(foo_bar_cloned_and_nested, args, message):
+    foo = _with_patches(foo_bar_cloned_and_nested)
+    result = cmd_git_nested(args, cwd=foo, check=False)
+    assert result.returncode != 0
+    assert message in result.output
+
+
+def test_patches_cherry_pick_a_commit_that_is_here(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = _with_patches(env)
+    _upstream_fix(env)
+    env.run(['git', 'fetch', '-q', (env.upstream / 'bar').as_posix(), 'fix'], cwd=foo)
+    commit = env.run(['git', 'rev-parse', 'FETCH_HEAD'], cwd=foo).stdout.strip()
+
+    cmd_git_nested(['patches', 'cherry-pick', 'bar', commit], cwd=foo)
+    assert _patch_names(foo) == ['0001-TODO-title.patch', '0002-Fix-it.patch']

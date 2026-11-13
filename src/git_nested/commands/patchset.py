@@ -4,6 +4,7 @@
 changes that are not in a patch yet as a new patch, and writes all patches
 again in the one form git-nested uses. `verify` only checks that nothing
 would change. `drop` removes patches, and their changes from the subdir.
+`cherry-pick` adds an upstream commit or a patch file as a patch.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-from .. import checks, content, output, patchbuild, patches
+from .. import checks, content, output, patchbuild, patches, patchpick
 from ..cli import setup
 from ..errors import GitNestedError
 from ..git import GitRunner
@@ -171,16 +172,51 @@ def _drop(ctx: CommandContext, config: NestedConfig, subdir: Path, subref: str, 
     output.say(f"{name}: dropped {names}")
 
 
+def _cherry_pick(ctx: CommandContext, config: NestedConfig, subdir: Path, subref: str, gitnested: Path) -> None:
+    """Add commits or patch files as patches, and their changes to subdir, in one commit."""
+    git, name = ctx.git, subdir.as_posix()
+    checks.check_worktree_clean(git, 'cherry-pick a patch')
+    check_content(git, config, subdir, subref, ctx.tmp)
+    with tempfile.TemporaryDirectory() as scratch:
+        picked = patchpick.as_patches(git, ctx.flags.remote or config.remote, ctx.patch_names or [], Path(scratch))
+        files = [*patches.files(config, subdir), *picked]
+        result = patches.apply_on(git, config.commit, files, ctx.tmp / 'patches' / subref, subdir)
+    added = patchpick.names(git, result, len(picked))
+    flags = dataclasses.replace(ctx.flags, message=f"{name}: cherry-pick {', '.join(added)}")
+    content.commit_nested_branch(
+        git=git,
+        flags=flags,
+        config=config,
+        subdir=subdir,
+        gitnested=gitnested,
+        nested_commit_ref=result,
+        upstream_head_commit=config.commit,
+        head_commit=ctx.head,
+        subdir_worktree=None,
+        command='patches',
+    )
+    if ctx.flags.local:
+        # After the commit: replacing the subdir needs an unchanged .gitnested.
+        # The new patches are the last ones, by file name.
+        new = [file.name for file in patches.files(config, subdir)[-len(picked) :]]
+        patchpick.add_local(git, gitnested, new)
+    output.say(f"{name}: cherry-picked {', '.join(added)}")
+
+
 _ACTIONS = {'create': _create, 'verify': _verify}
+_CHANGING = {'drop': _drop, 'cherry-pick': _cherry_pick}
 
 
 def cmd_patches(ctx: CommandContext) -> None:
-    """Write, check or drop the patches of a nested repository."""
+    """Write, check, drop or cherry-pick the patches of a nested repository."""
     subdir, gitnested, subref, config = setup.setup_command(ctx.git, 'patches', ctx.flags, ctx.subdir, ctx.upstream)
-    if (ctx.patches_action == 'drop') != bool(ctx.patch_names):
-        output.usage_error("drop needs the patches to drop; create and verify take none")
+    action = ctx.patches_action or 'verify'
+    if (action in _CHANGING) != bool(ctx.patch_names):
+        output.usage_error("drop and cherry-pick need what to drop or pick; create and verify take nothing")
+    if ctx.flags.local and action != 'cherry-pick':
+        output.usage_error("--local only works with cherry-pick")
     _check_setup(config, subdir)
-    if ctx.patches_action == 'drop':
-        _drop(ctx, config, subdir, subref, gitnested)
+    if action in _CHANGING:
+        _CHANGING[action](ctx, config, subdir, subref, gitnested)
         return
-    _ACTIONS[ctx.patches_action or 'verify'](ctx, config, subdir, subref)
+    _ACTIONS[action](ctx, config, subdir, subref)

@@ -72,6 +72,7 @@ def _flags_from_args(args: argparse.Namespace) -> Flags:
         ignore=getattr(args, 'ignore', None),
         from_submodule=getattr(args, 'from_submodule', False),
         from_patches=getattr(args, 'from_patches', False),
+        local=getattr(args, 'local', False),
         recurse_submodules=getattr(args, 'recurse_submodules', False),
         gpg_sign=getattr(args, 'gpg_sign', False),
         signoff=getattr(args, 'signoff', False),
@@ -128,6 +129,46 @@ def _verify_files(args: argparse.Namespace) -> tuple[list[str] | None, str]:
     return patches, 'patches'
 
 
+def _options_last(args_list: list[str], command: str) -> list[str]:
+    """For `command`, its options after its positionals: `patches cherry-pick -r X bar c` as `... bar c -r X`.
+
+    Before Python 3.12, argparse can't take a positional after an option
+    once an earlier positional is parsed. Moving the options to the end
+    keeps each option with its value.
+    """
+    start = next((index for index, arg in enumerate(args_list) if not arg.startswith('-')), None)
+    if start is None or args_list[start] != command:
+        return args_list
+    positionals, options = _split_options(args_list[start + 1 :], _taking_a_value(command))
+    return [*args_list[: start + 1], *positionals, *options]
+
+
+def _taking_a_value(command: str) -> set[str]:
+    """The option names of `command` that take a value."""
+    return {
+        name
+        for opt, names, kwargs in SUBPARSER_ARG_SPECS
+        if opt in VALID_COMMAND_OPTIONS[command] and kwargs.get('action') not in ('store_true', 'store_const')
+        for name in names
+    }
+
+
+def _split_options(args: list[str], takes_value: set[str]) -> tuple[list[str], list[str]]:
+    """`args` as positionals and options, each option with its value."""
+    positionals: list[str] = []
+    options: list[str] = []
+    rest = iter(args)
+    for arg in rest:
+        if not arg.startswith('-'):
+            positionals.append(arg)
+            continue
+        options.append(arg)
+        value = next(rest, None) if arg in takes_value else None
+        if value is not None:
+            options.append(value)
+    return positionals, options
+
+
 def parse_args(git: GitRunner, args_list: list[str]) -> tuple[str, CommandContext]:
     """Parse command line arguments into a command name and the context to run it with.
 
@@ -135,7 +176,7 @@ def parse_args(git: GitRunner, args_list: list[str]) -> tuple[str, CommandContex
         tuple: (command, context). The context's git_tmp/head_commit are left
         unset -- only the caller knows whether the command runs in a repository.
     """
-    args = build_arg_parser().parse_args(args_list)
+    args = build_arg_parser().parse_args(_options_last(args_list, 'patches'))
 
     if args.version:
         args.command = 'version'

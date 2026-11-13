@@ -37,7 +37,7 @@ VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
     'diff': ['all', 'branch', 'remote'],
     'fetch': ['all', 'branch', 'force', 'remote'],
     'init': ['branch', 'from_submodule', 'gpg_sign', 'remote', 'method', 'signoff', 'upstream_commit'],
-    'patches': ['all'],
+    'patches': ['all', 'local', 'remote'],
     'pull': [
         'all',
         'branch',
@@ -95,7 +95,7 @@ COMMAND_HELP: dict[str, str] = {
     'diff': "show a nested repository's local changes against upstream",
     'fetch': "fetch upstream content for a nested repository",
     'init': "turn an existing subdirectory into a nested repository",
-    'patches': "write, check or drop the patches of a nested repository",
+    'patches': "write, check, drop or cherry-pick the patches of a nested repository",
     'pull': "update a nested repository from its upstream",
     'push': "push a nested repository's local changes upstream",
     'repair': "point a nested repository's sync point back into the current history",
@@ -157,6 +157,11 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
         'from_submodule',
         ('--from-submodule',),
         {'action': 'store_true', 'help': "turn the submodule at <subdir> into a nested repository"},
+    ),
+    (
+        'local',
+        ('--local',),
+        {'action': 'store_true', 'help': "cherry-pick: add the new patches to patches-local"},
     ),
     (
         'from_patches',
@@ -302,10 +307,20 @@ POSITIONALS: dict[str, list[tuple[str, dict]]] = {
     'patches': [
         (
             'action',
-            {'choices': ['create', 'verify', 'drop'], 'help': "create: write; verify: check; drop: remove patches"},
+            {
+                'choices': ['create', 'verify', 'drop', 'cherry-pick'],
+                'help': "create: write; verify: check; drop: remove patches; cherry-pick: add commits or patch files",
+            },
         ),
         ('subdir', {'nargs': '?', 'help': _SUBDIR_HELP}),
-        ('patch_names', {'nargs': '*', 'metavar': 'patch', 'help': "drop: the patches, by path or file name"}),
+        (
+            'patch_names',
+            {
+                'nargs': '*',
+                'metavar': 'patch',
+                'help': "drop: the patches, by path or file name; cherry-pick: commits or patch files",
+            },
+        ),
     ],
     'pull': [('subdir', {'nargs': '?', 'help': _SUBDIR_HELP})],
     'push': [
@@ -379,7 +394,8 @@ COMMAND_DESCRIPTION: dict[str, str] = {
         "create writes the changes that are not in a patch yet as a new patch, with a TODO title, "
         "and writes all patches again in the one form git-nested uses. "
         "verify only checks: it fails if a change is not in a patch, or if create would change a patch. "
-        "drop removes patches and their changes from <subdir>, writes the other patches again and commits."
+        "drop removes patches and their changes from <subdir>, writes the other patches again and commits. "
+        "cherry-pick adds commits (fetched from the remote if needed) or patch files as patches, and commits."
     ),
     'pull': (
         "Fetch the upstream of <subdir> and join the new commits into it, by merge or by rebase. "
@@ -470,6 +486,9 @@ COMMAND_EXAMPLES: dict[str, list[str]] = {
         "git nested patches verify ext/lib",
         "git nested patches verify --all",
         "git nested patches drop ext/lib 0002-Old-workaround.patch",
+        "git nested patches cherry-pick ext/lib a1b2c3d",
+        "git nested patches cherry-pick -r https://github.com/fork/lib --local ext/lib refs/pull/42/head",
+        "git nested patches cherry-pick ext/lib ~/fix-build.patch",
     ],
     'pull': [
         "git nested pull ext/lib",
