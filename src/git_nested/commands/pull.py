@@ -90,6 +90,8 @@ def _apply_patches(
     refs.create_nested_ref(git, subref, 'branch', branch)
     failed = patches.apply_in_worktree(git, subdir_worktree, patches.files(config, subdir), git_tmp)
     if failed:
+        # `git nested commit` finishes the pull, and says so in its message
+        worktree.note_stopped(git, subdir_worktree, 'pull')
         help_text = messages.pull_conflict_help(subdir, subdir_worktree, 'am', flags.message_file, flags.pin, subref)
         output.error(f"{subdir.as_posix()}: the pull is unfinished, the patch {failed} does not apply\n{help_text}")
     return subdir_worktree

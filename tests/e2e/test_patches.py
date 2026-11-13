@@ -138,6 +138,11 @@ def test_pull_stops_at_a_patch_that_does_not_apply(foo_bar_cloned_and_nested):
     patch = (foo / 'bar' / FOLDER / '0001-TODO-title.patch').read_text()
     assert "+upstream and local" in patch
     assert cmd_git_nested('patches verify bar', cwd=foo).output.strip().endswith(" with 1 patch")
+    # The commit finishes the pull, so its message is the pull's
+    message = env.run(['git', 'log', '-1', '--format=%B'], cwd=foo).stdout
+    assert message.startswith("git nested pull\n")
+    assert "Upstream commits:\n- " in message
+    assert "upstream Bar" in message
 
 
 def test_push_leaves_the_patches_folder_out(foo_bar_cloned_and_nested):
