@@ -55,7 +55,18 @@ def _needs_clean_worktree(command: str, flags: Flags) -> bool:
 
 def check_worktree_clean(git: GitRunner, command: str) -> None:
     """Ensure working copy has no uncommitted changes."""
-    if command not in ['clone', 'init', 'pull', 'push', 'branch', 'commit', 'diff', 'repair', 'drop a patch']:
+    if command not in [
+        'clone',
+        'init',
+        'pull',
+        'push',
+        'branch',
+        'commit',
+        'diff',
+        'repair',
+        'drop a patch',
+        'cherry-pick a patch',
+    ]:
         return
 
     pwd = Path.cwd().as_posix()

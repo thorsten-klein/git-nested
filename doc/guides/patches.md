@@ -103,6 +103,16 @@ git nested pull ext/lib
 The patches go on top of the new version. A patch that upstream has
 merged in the meantime is dropped.
 
+### Take a fix from upstream before it is merged
+
+```bash
+git nested patches cherry-pick ext/lib refs/pull/42/head
+```
+
+The commit becomes the next patch, with its author and message. Once
+upstream has merged it, the next pull drops the patch. A patch file works
+too: `git nested patches cherry-pick ext/lib ~/fix-build.patch`.
+
 ### Drop a patch
 
 ```bash
