@@ -40,6 +40,8 @@ git nested commit ext/lib
 
 `git nested commit` puts the result into `ext/lib`, updates `.gitnested` and
 makes one commit. It also removes the worktree.
+The commit finishes the pull, so it has the pull's message: `git nested
+pull` and the list of upstream commits.
 
 After `pull --pin <commit>`, step 7 is `git nested commit --pin=<commit> ext/lib`.
 The pin then goes into `.gitnested` as well.

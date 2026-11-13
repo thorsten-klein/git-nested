@@ -59,6 +59,8 @@ def do_pull(
     try:
         git.run(cmd, cwd=subdir_worktree)
     except GitNestedError as e:
+        # `git nested commit` finishes the pull, and says so in its message
+        worktree.note_stopped(git, subdir_worktree, 'pull')
         help_text = messages.pull_conflict_help(subdir, subdir_worktree, method, flags.message_file, flags.pin, subref)
         # e.message ends with git's own stderr, and so with however many
         # newlines git felt like; rstrip normalises that, and the one added

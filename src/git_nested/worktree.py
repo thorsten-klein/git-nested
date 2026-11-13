@@ -51,6 +51,21 @@ def branch_at(git: GitRunner, path: Path) -> tuple[bool, str | None]:
     return False, None
 
 
+# A note in the git dir of a worktree: the command that stopped there on a conflict
+_STOPPED = 'nested-stopped'
+
+
+def note_stopped(git: GitRunner, path: Path, command: str) -> None:
+    """Note that `command` stopped in the worktree at `path`. The note goes with the worktree."""
+    (path / git.check_output(['rev-parse', '--git-path', _STOPPED], cwd=path)).write_text(command)
+
+
+def stopped(git: GitRunner, path: Path) -> str | None:
+    """The command that stopped in the worktree at `path`, if one did."""
+    note = path / git.check_output(['rev-parse', '--git-path', _STOPPED], cwd=path)
+    return note.read_text().strip() if note.is_file() else None
+
+
 def remove_worktree(git: GitRunner, worktree: Path | None) -> None:
     """Remove worktree, if there is one."""
     if worktree and worktree.is_dir():
