@@ -13,7 +13,7 @@ from ..constants import COMPLETION_SHELLS
 # Which flags each command accepts. The keys are also the command list:
 # the subparsers, and the completion candidates, are built from them.
 VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
-    'branch': ['all', 'dir', 'fetch', 'force', 'gpg_sign', 'name'],
+    'branch': ['all', 'dir', 'fetch', 'force', 'from_patches', 'gpg_sign', 'name'],
     'clean': ['ALL', 'all', 'force'],
     'clone': [
         'adopt',
@@ -157,6 +157,11 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
         'from_submodule',
         ('--from-submodule',),
         {'action': 'store_true', 'help': "turn the submodule at <subdir> into a nested repository"},
+    ),
+    (
+        'from_patches',
+        ('--from-patches',),
+        {'action': 'store_true', 'help': "build the branch from upstream and the patches; check it gives <subdir>"},
     ),
     (
         'recurse_submodules',

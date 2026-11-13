@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .. import content, messages, output, refs, worktree
+from .. import content, messages, output, patches, refs, worktree
 from ..cli import setup
+from ..errors import GitNestedError
 from ..git import GitRunner
 from ..models import CommandContext, NestedConfig
-from . import fetch
+from . import fetch, verify
 
 
 def cmd_branch(ctx: CommandContext) -> None:
@@ -18,6 +19,7 @@ def cmd_branch(ctx: CommandContext) -> None:
 
     if flags.fetch:
         fetch.do_fetch(git, config, subref)
+    start = _start(git, flags.from_patches, config, subdir, subref, git_tmp)
 
     # `current` is this nested repository's branch as things stand; `branch`
     # the one to build, which differs only when --name renames it.
@@ -45,11 +47,41 @@ def cmd_branch(ctx: CommandContext) -> None:
         subref=subref,
         command='branch',
         worktree_dir=target,
+        start=start,
     )
     refs.record_nested_branch(git, subref, branch)
     refs.untrack_upstream(git, current)
     refs.track_upstream(git, branch, config.remote, config.branch)
     output.say(f"{subdir.as_posix()}: branch {branch} created, worktree at {subdir_worktree.as_posix()}")
+
+
+def _start(
+    git: GitRunner, from_patches: bool, config: NestedConfig, subdir: Path, subref: str, git_tmp: Path
+) -> str | None:
+    """Where the branch starts: from the patches if asked, else None for the history."""
+    return _from_patches(git, config, subdir, subref, git_tmp) if from_patches else None
+
+
+def _from_patches(git: GitRunner, config: NestedConfig, subdir: Path, subref: str, git_tmp: Path) -> str:
+    """The upstream commit with the patches on top, one commit each.
+
+    It must give what HEAD has in subdir. Else a patch is missing or out of date.
+    """
+    files = patches.files(config, subdir)
+    patches.check(config, subdir, files)
+    if config.patches_folder(subdir) is None or not patches.supported(config):
+        raise GitNestedError(f"{subdir.as_posix()}: --from-patches needs patches on, without filter, exclude or path")
+    base = verify.upstream_base(git, config, subref, subdir)
+    commit = patches.apply_on(git, base, files, git_tmp / 'from-patches' / subref, subdir) if files else base
+    local_tree = git.check_output(['rev-parse', f'HEAD:{subdir.as_posix()}'])
+    pathspec = patches.pathspec(patches.local_paths(git, config, subdir))
+    stat = git.check_output(['diff', '--stat', commit, local_tree, '--', *pathspec])
+    if stat:
+        raise GitNestedError(
+            f"{subdir.as_posix()}: upstream with the patches differs from HEAD\n{stat}\n"
+            f"'git nested patches create {subdir.as_posix()}' writes the missing patch"
+        )
+    return commit
 
 
 def _check_new_name(git: GitRunner, branch: str, subdir: Path) -> None:
