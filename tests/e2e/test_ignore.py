@@ -127,6 +127,7 @@ def test_ignore_without_an_upstream_commit(foo_bar_cloned):
 def test_verify_ignore_skips_the_path(foo_bar_cloned_and_nested):
     env = foo_bar_cloned_and_nested
     foo = env.workspace / 'foo'
+    cmd_git_nested(['config', 'bar', 'patches', 'false'], cwd=foo)
     env.modify_files('bar/bard/Bard', text='local', cwd=foo)
     assert cmd_git_nested('verify bar', cwd=foo, check=False).returncode == 1
 

@@ -35,7 +35,7 @@ def do_pull(
 
     branch = refs.nested_branch(git, subref)
     worktree.delete_branch(git, branch, git_tmp)
-    if config.patches:
+    if patches.in_use(git, config, subdir):
         return branch, _apply_patches(git, flags, config, subdir, git_tmp, subref, branch)
     output.verbose(f"creating nested branch {branch}")
     subdir_worktree = content.create_nested_branch(
@@ -95,9 +95,9 @@ def _apply_patches(
 
 def _check_patches(git: GitRunner, flags: Flags, config: NestedConfig, subdir: Path, subref: str, tmp: Path) -> None:
     """Refuse a pull with patches that would lose local changes."""
-    if not config.patches:
+    patches.check(config, subdir, patches.files(config, subdir))
+    if not patches.in_use(git, config, subdir):
         return
-    patches.check(config, subdir)
     if flags.ignore:
         output.usage_error("--ignore does not work with patches yet")
     if flags.no_squash or not config.squash:

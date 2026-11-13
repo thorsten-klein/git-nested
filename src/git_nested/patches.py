@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import posixpath
 import tempfile
 from collections.abc import Iterator
 from pathlib import Path, PurePosixPath
@@ -40,7 +41,7 @@ def files(config: NestedConfig, subdir: Path) -> list[Path]:
 def files_at(git: GitRunner, config: NestedConfig, subdir: Path, rev: str, out: Path) -> list[Path]:
     """The patch files as `rev` has them, copied into `out`, in order."""
     folder = subdir / config.patches
-    if git.run(['cat-file', '-e', f'{rev}:{folder.as_posix()}'], may_fail=True).returncode:
+    if not config.patches or git.run(['cat-file', '-e', f'{rev}:{folder.as_posix()}'], may_fail=True).returncode:
         return []
     # A scratch index: checkout-index writes the bytes as they are.
     env = {**os.environ, 'GIT_INDEX_FILE': str(out.parent / f'{out.name}.index')}
@@ -50,9 +51,17 @@ def files_at(git: GitRunner, config: NestedConfig, subdir: Path, rev: str, out: 
 
 
 def local_paths(git: GitRunner, config: NestedConfig, subdir: Path) -> list[str]:
-    """The paths in subdir that are not upstream content: the patches folder and the inner nested repos."""
+    """The paths in subdir the patches leave out.
+
+    The patches folder, the inner nested repos and the `patches-ignore` paths.
+    """
     inside = config.patches_inside(subdir)
-    return [*([inside] if inside else []), *history.inner_repos(git, config, subdir)]
+    return [*([inside] if inside else []), *history.inner_repos(git, config, subdir), *ignored(config)]
+
+
+def ignored(config: NestedConfig) -> list[str]:
+    """The `patches-ignore` paths, if the patches are on."""
+    return list(config.patches_ignore) if config.patches else []
 
 
 def pathspec(local: list[str], ignored: list[str] | None = None) -> list[str]:
@@ -60,16 +69,56 @@ def pathspec(local: list[str], ignored: list[str] | None = None) -> list[str]:
     return ['.', GITNESTED_EXCLUDE, *(f':(exclude,literal){path}' for path in [*local, *(ignored or [])])]
 
 
-def check(config: NestedConfig, subdir: Path) -> None:
-    """Refuse a setup the patches do not work with yet."""
+def in_use(git: GitRunner, config: NestedConfig, subdir: Path) -> bool:
+    """Whether the patches take over: they are on, and HEAD has at least one.
+
+    Without any, the commands work as without patches. So a nested repo
+    from before the patches keeps working.
+
+    From HEAD: a reclone has removed the folder already.
+    """
+    folder = config.patches_folder(subdir)
+    if folder is None:
+        return False
+    listed = git.check_output(['ls-tree', '-r', '--name-only', 'HEAD', '--', f'{folder.as_posix()}/'], may_fail=True)
+    return any(path.endswith('.patch') for path in listed.splitlines())
+
+
+def supported(config: NestedConfig) -> bool:
+    """Whether the patches work with this setup yet."""
+    return config.squash and not (config.path or config.filter or config.exclude)
+
+
+def check(config: NestedConfig, subdir: Path, patches: list[Path]) -> None:
+    """Refuse a patches setup that can't be, and `patches` with a setup they do not work with yet."""
     if not config.patches:
         return
+    problem = _folder_problem(config, subdir) or _ignore_problem(config)
+    if not problem and patches and (config.path or config.filter or config.exclude):
+        problem = "patches do not work with filter, exclude or path yet"
+    if problem:
+        raise GitNestedError(f"{subdir.as_posix()}: {problem}")
+
+
+def _folder_problem(config: NestedConfig, subdir: Path) -> str | None:
+    """What is wrong with the patches folder, if anything."""
     if PurePosixPath(config.patches).is_absolute() or Path(config.patches).is_absolute():
-        raise GitNestedError(f"{subdir.as_posix()}: patches must be a path relative to the subdir")
+        return "patches must be a path relative to the subdir"
     if config.patches_inside(subdir) == '.':
-        raise GitNestedError(f"{subdir.as_posix()}: patches can't be the subdir itself")
-    if config.path or config.filter or config.exclude:
-        raise GitNestedError(f"{subdir.as_posix()}: patches do not work with filter, exclude or path yet")
+        return "patches can't be the subdir itself"
+    return None
+
+
+def _ignore_problem(config: NestedConfig) -> str | None:
+    """What is wrong with the patches-ignore paths, if anything."""
+    outside = next((path for path in config.patches_ignore if not _inside(path)), None)
+    return None if outside is None else f"patches-ignore {outside}: not a path inside the subdir"
+
+
+def _inside(path: str) -> bool:
+    """Whether `path`, relative to the subdir, is inside it."""
+    normal = posixpath.normpath(PurePosixPath(path).as_posix())
+    return not (posixpath.isabs(normal) or Path(path).is_absolute() or normal == '.' or normal.startswith('..'))
 
 
 @contextlib.contextmanager
@@ -95,6 +144,9 @@ def as_written(git: GitRunner, patch: Path) -> Iterator[Path]:
 def _am(git: GitRunner, path: Path, patches: list[Path], no_hooks: Path) -> str | None:
     """`git am -3` the patches in the worktree at `path`, without hooks or signing.
 
+    One `git am` for all patches: after a conflict, `git am --continue`
+    goes on with the rest.
+
     --keep-cr: a CR in a patch is content.
 
     A patch that upstream already has is dropped.
@@ -103,15 +155,24 @@ def _am(git: GitRunner, path: Path, patches: list[Path], no_hooks: Path) -> str 
         None, or the name of the patch that does not apply.
     """
     no_hooks.mkdir(parents=True, exist_ok=True)
-    for patch in patches:
-        output.verbose(f"applying {patch.as_posix()}")
-        hooks = ['-c', f'core.hooksPath={no_hooks.as_posix()}']
-        am = ['am', '-3', '--quiet', '--no-gpg-sign', '--keep-cr']
-        with as_written(git, patch) as written:
-            failed = git.run([*identity(git), *hooks, *am, written], cwd=path, may_fail=True).returncode != 0
-        if failed:
-            return patch.name
-    return None
+    output.verbose(f"applying {', '.join(patch.as_posix() for patch in patches)}")
+    hooks = ['-c', f'core.hooksPath={no_hooks.as_posix()}']
+    am = ['am', '-3', '--quiet', '--no-gpg-sign', '--keep-cr']
+    with contextlib.ExitStack() as stack:
+        # git am copies the patches before it starts, so the copies can go after it.
+        written = [stack.enter_context(as_written(git, patch)) for patch in patches]
+        if git.run([*identity(git), *hooks, *am, *written], cwd=path, may_fail=True).returncode == 0:
+            return None
+    return patches[_stopped_at(git, path) - 1].name
+
+
+def _stopped_at(git: GitRunner, path: Path) -> int:
+    """The number of the patch the open `git am` in `path` stopped at, from 1.
+
+    No open `git am`: the first patch failed the format detection.
+    """
+    state = path / git.check_output(['rev-parse', '--git-path', 'rebase-apply/next'], cwd=path)
+    return int(state.read_text()) if state.is_file() else 1
 
 
 def apply_in_worktree(git: GitRunner, path: Path, patches: list[Path], git_tmp: Path) -> str | None:
@@ -149,6 +210,15 @@ def restore_inner_repos(git: GitRunner, subdir: Path, inner: list[str]) -> None:
     """Put the `inner` nested repos back, as HEAD has them."""
     for path in inner:
         git.run(['checkout', 'HEAD', '--', f'{subdir.as_posix()}/{path}'])
+
+
+def restore_ignored(git: GitRunner, config: NestedConfig, subdir: Path) -> None:
+    """Put the `patches-ignore` paths back as HEAD has them: upstream's changes there do not come in."""
+    for path in ignored(config):
+        full = f'{subdir.as_posix()}/{path}'
+        git.run(['rm', '-r', '-q', '-f', '--ignore-unmatch', '--', full])
+        if git.check_output(['ls-tree', '--name-only', 'HEAD', '--', full]):
+            git.run(['checkout', 'HEAD', '--', full])
 
 
 def write(git: GitRunner, config: NestedConfig, subdir: Path, base: str, tip: str, local: list[str]) -> None:

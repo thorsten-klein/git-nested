@@ -334,8 +334,10 @@ def create_branch(
             bool(config.pin),
             gitlinked,
             keep=keep,
-            # A push leaves the --ignore paths as upstream has them.
-            ignored=tuple(filters.ignored_paths(flags, subdir)) if command == 'push' else (),
+            # A push leaves the --ignore and patches-ignore paths as upstream has them.
+            ignored=(*filters.ignored_paths(flags, subdir), *(config.patches_ignore if config.patches else ()))
+            if command == 'push'
+            else (),
             path=config.path,
         )
         if parent:

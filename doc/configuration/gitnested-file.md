@@ -69,7 +69,8 @@ Fields that are not set take their default.
 | [`path`](#path) | the whole upstream | clone `--path` | no |
 | [`pin`](#pin) | empty | clone `--pin`, pull `--pin` | yes |
 | [`readonly`](#readonly) | `false` | you | yes |
-| [`patches`](#patches) | empty | you | yes |
+| [`patches`](#patches) | `.gitnested.patches` | you | yes |
+| [`patches-ignore`](#patches-ignore) | nothing | you | no |
 | [`cmdver`](#cmdver) | | every write | no |
 
 ### `remote`
@@ -150,15 +151,32 @@ for code you only take from upstream.
 
 ### `patches`
 
-A folder with your local changes as patch files. The path is relative to
+The folder with your local changes as patch files. The path is relative to
 the nested folder. Inside it, the folder is never pushed.
+
+The patches are on by default, in `.gitnested.patches`. They take over once
+the folder has a patch. Until then, the commands work as without patches.
+Set another folder, or `false` to turn them off:
 
 ```yaml
 nested:
-  patches: .gitnested.patches
+  patches: false
 ```
 
 See [Keep local changes as patches](../guides/patches.md).
+
+### `patches-ignore`
+
+Paths in the nested folder that stay local. Your changes there need no
+patch. A pull keeps your copy, and a push leaves it out. The paths are
+relative to the nested folder. One path, or a list:
+
+```yaml
+nested:
+  patches-ignore:
+    - config/local.yaml
+    - build
+```
 
 ### `cmdver`
 

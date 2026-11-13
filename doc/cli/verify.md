@@ -23,9 +23,11 @@ The files can be git patches (`git format-patch`) or plain diffs
 
 Your working tree and branches are not touched.
 
-With [`patches`](../configuration/gitnested-file.md#patches) set in
-`.gitnested`, the files default to the patches in that folder. The missing
-patch is written there too.
+Without `--patches` or `--diffs`, the files are the
+[patches](../configuration/gitnested-file.md#patches) in the patches
+folder, `.gitnested.patches` by default. The missing patch is written there
+too. The [`patches-ignore`](../configuration/gitnested-file.md#patches-ignore)
+paths are not compared.
 
 Nested repositories inside `<subdir>` are not compared. They are not
 upstream content.

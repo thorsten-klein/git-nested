@@ -108,15 +108,16 @@ def place_with_patches(git: GitRunner, config: NestedConfig, subdir: Path, neste
     """Place the content, and keep the inner nested repos if the patches are used.
 
     Returns:
-        the paths the patches leave out, or None without patches.
+        the paths the patches leave out, or None if the patches are not in use.
     """
-    if not config.patches:
+    if not patches.in_use(git, config, subdir):
         _place_content(git, config, subdir, nested_commit_ref)
         return None
     local = patches.local_paths(git, config, subdir)
     added_here = set(history.inner_repos(git, config, subdir)) - set(history.gitlinked_inner(git, config, subdir))
     _place_content(git, config, subdir, nested_commit_ref)
     patches.restore_inner_repos(git, subdir, sorted(added_here))
+    patches.restore_ignored(git, config, subdir)
     return local
 
 

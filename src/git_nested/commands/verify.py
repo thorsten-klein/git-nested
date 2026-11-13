@@ -203,8 +203,8 @@ def check_patches(git: GitRunner, config: NestedConfig, subref: str, subdir: Pat
 
 def _files(ctx: CommandContext, config: NestedConfig, subdir: Path) -> list[Path]:
     """The files to apply: the given ones, else the patches folder from .gitnested."""
-    patches.check(config, subdir)
-    if config.patches and ctx.verify_mode != 'diff' and not ctx.patches:
+    patches.check(config, subdir, patches.files(config, subdir))
+    if config.patches and patches.supported(config) and ctx.verify_mode != 'diff' and not ctx.patches:
         _use_patches_folder(ctx, config, subdir)
     files = [Path(file) for file in ctx.patches or []]
     missing = next((file for file in files if not file.is_file()), None)

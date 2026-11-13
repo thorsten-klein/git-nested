@@ -80,11 +80,9 @@ def _with_patches(git: GitRunner, config: NestedConfig, subdir: Path, upstream: 
 
     From HEAD: a reclone has removed the folder already.
     """
-    if not config.patches:
-        return upstream
-    patches.check(config, subdir)
     with tempfile.TemporaryDirectory() as tmp:
         files = patches.files_at(git, config, subdir, 'HEAD', Path(tmp) / 'patches')
+        patches.check(config, subdir, files)
         return patches.apply_on(git, upstream, files, Path(tmp) / 'patched', subdir) if files else upstream
 
 

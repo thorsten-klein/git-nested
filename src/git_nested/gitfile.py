@@ -30,7 +30,8 @@ CONFIG_FIELDS: dict[str, str] = {
     'pin': "a commit or tag of the branch to nest, instead of its newest commit",
     'cmdver': "the git-nested version that last wrote this file",
     'readonly': "'true' makes push refuse, for a repository that is only pulled",
-    'patches': "the folder with the local changes as patches, relative to the subdir",
+    'patches': "the folder with the local changes as patches, relative to the subdir; 'false' turns them off",
+    'patches-ignore': "paths in the subdir that stay local, so no patch needs their changes",
 }
 
 # The rest are written by the nested operations themselves; setting one by

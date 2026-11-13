@@ -18,9 +18,11 @@ def _commit(env, foo, message):
 
 
 def _with_patches(env):
-    """foo with bar nested, a local change to bar/Bar, and that change as a patch"""
+    """foo with bar nested, a local change to bar/Bar, and that change as a patch
+
+    The patches are on by default.
+    """
     foo = env.workspace / 'foo'
-    cmd_git_nested(['config', 'bar', 'patches', FOLDER], cwd=foo)
     # bytes: write_text would make it CRLF on Windows
     (foo / 'bar' / 'Bar').write_bytes(b"local\n")
     _commit(env, foo, 'local change')
@@ -193,6 +195,8 @@ def test_patches_refuse_a_filter(foo_bar_cloned_and_nested):
     cmd_git_nested(['config', 'bar', 'patches', FOLDER], cwd=foo)
     gitnested = foo / 'bar' / '.gitnested'
     gitnested.write_text(gitnested.read_text().replace('nested:\n', 'nested:\n  path: bard\n'))
+    (foo / 'bar' / FOLDER).mkdir()
+    (foo / 'bar' / FOLDER / '0001-x.patch').write_bytes(b"x\n")
     _commit(env, foo, 'path')
 
     result = cmd_git_nested('pull bar', cwd=foo, check=False)
@@ -207,6 +211,12 @@ def test_push_commit_empties_the_patches(foo_bar_cloned_and_nested):
     assert _patch_names(foo) == []
     assert env.run(['git', 'status', '--porcelain'], cwd=foo).stdout == ''
     assert cmd_git_nested('verify bar', cwd=foo).output.strip().endswith(" with 0 patches")
+
+    env.run(['git', 'pull', '-q'], cwd=env.workspace / 'bar')
+    _upstream_change(env, 'New', "new\n")
+    cmd_git_nested('pull bar', cwd=foo)
+    assert (foo / 'bar' / 'New').read_bytes() == b"new\n"
+    assert _patch_names(foo) == []
 
 
 def test_a_patches_folder_outside_the_subdir(foo_bar_cloned_and_nested):
@@ -367,3 +377,155 @@ def test_patches_split_by_hand_on_a_branch_survive_a_squash_merge_and_a_pull(foo
     assert "+local" not in second
     assert env.run(['git', 'status', '--porcelain'], cwd=foo).stdout == ''
     assert cmd_git_nested('verify bar', cwd=foo).output.strip().endswith(" with 2 patches")
+
+
+def test_a_conflict_in_split_patches_is_resolved_patch_by_patch(foo_bar_cloned_and_nested):
+    """Each patch that conflicts is resolved in turn; the commit writes them again, still split"""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    cmd_git_nested(['config', 'bar', 'patches', FOLDER], cwd=foo)
+    (foo / 'bar' / 'Bar').write_bytes(b"local\n")
+    (foo / 'bar' / 'Extra').write_bytes(b"extra\n")
+    _commit(env, foo, 'local changes')
+    cmd_git_nested('verify bar', cwd=foo, check=False)
+    names = _split(foo / 'bar' / FOLDER / '0001-TODO-title.patch', ["Change Bar", "Add Extra"])
+    _commit(env, foo, 'the patches')
+    _upstream_change(env, 'Bar', "upstream\n")
+    _upstream_change(env, 'Extra', "upstream extra\n")
+
+    result = cmd_git_nested('pull bar', cwd=foo, check=False)
+    assert result.returncode == 1
+    assert "the patch 0001-Change-Bar.patch does not apply" in result.output
+
+    worktree = foo / '.git' / 'tmp' / 'nested' / 'bar'
+    continue_am = ['git', '-c', 'core.editor=true', 'am', '--continue']
+    (worktree / 'Bar').write_bytes(b"upstream and local\n")
+    env.run(['git', 'add', 'Bar'], cwd=worktree)
+    stopped = env.run(continue_am, cwd=worktree, check=False)
+    assert stopped.returncode != 0
+    assert "Add Extra" in stopped.stdout + stopped.stderr
+
+    (worktree / 'Extra').write_bytes(b"upstream extra\nextra\n")
+    env.run(['git', 'add', 'Extra'], cwd=worktree)
+    env.run(continue_am, cwd=worktree)
+    cmd_git_nested('commit bar', cwd=foo)
+
+    assert (foo / 'bar' / 'Bar').read_bytes() == b"upstream and local\n"
+    assert (foo / 'bar' / 'Extra').read_bytes() == b"upstream extra\nextra\n"
+    assert _patch_names(foo) == names
+    first, second = ((foo / 'bar' / FOLDER / name).read_text() for name in names)
+    assert "+upstream and local" in first
+    assert "Extra" not in first
+    assert "+extra" in second
+    assert "Bar" not in second
+    assert env.run(['git', 'status', '--porcelain'], cwd=foo).stdout == ''
+    assert cmd_git_nested('verify bar', cwd=foo).output.strip().endswith(" with 2 patches")
+
+
+def test_reclone_names_a_first_patch_that_is_not_a_patch(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = _with_patches(env)
+    (foo / 'bar' / FOLDER / '0000-garbage.patch').write_bytes(b"garbage\n")
+    _commit(env, foo, 'garbage')
+
+    result = cmd_git_nested('clone --force ../../upstream/bar bar', cwd=foo, check=False)
+    assert result.returncode == 1
+    assert "bar: the patch 0000-garbage.patch does not apply on upstream " in result.output
+
+
+def _set(env, foo, line):
+    """Add `line` to the nested section of bar/.gitnested, and commit"""
+    gitnested = foo / 'bar' / '.gitnested'
+    gitnested.write_text(gitnested.read_text().replace('nested:\n', f'nested:\n{line}'))
+    _commit(env, foo, 'set up bar')
+
+
+def test_without_patches_yet_a_pull_merges_as_before(foo_bar_cloned_and_nested):
+    """A nested repo from before the patches keeps working: no patch, no refusal"""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    (foo / 'bar' / 'Bar').write_bytes(b"local\n")
+    _commit(env, foo, 'local change')
+    _upstream_change(env, 'New', "new\n")
+
+    cmd_git_nested('pull bar', cwd=foo)
+    assert (foo / 'bar' / 'Bar').read_bytes() == b"local\n"
+    assert (foo / 'bar' / 'New').read_bytes() == b"new\n"
+    assert not (foo / 'bar' / FOLDER).exists()
+
+
+def test_patches_false_turns_them_off(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = _with_patches(env)
+    cmd_git_nested(['config', 'bar', 'patches', 'false'], cwd=foo)
+    (foo / 'bar' / 'Other').write_bytes(b"not in a patch\n")
+    _commit(env, foo, 'patches off, and more local work')
+    _upstream_change(env, 'New', "new\n")
+
+    cmd_git_nested('pull bar', cwd=foo)
+    assert (foo / 'bar' / 'Other').read_bytes() == b"not in a patch\n"
+    result = cmd_git_nested('verify bar', cwd=foo, check=False)
+    assert "use --output to have the missing one written" in result.output
+
+    cmd_git_nested('push --commit -b master bar', cwd=foo)
+    assert _patch_names(foo) == ['0001-TODO-title.patch']
+
+
+def test_verify_writes_no_patch_for_a_setup_the_patches_do_not_work_with(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    _set(env, foo, '  squash: false\n')
+    (foo / 'bar' / 'Bar').write_bytes(b"local\n")
+    _commit(env, foo, 'local change')
+
+    result = cmd_git_nested('verify bar', cwd=foo, check=False)
+    assert "use --output to have the missing one written" in result.output
+    assert not (foo / 'bar' / FOLDER).exists()
+
+
+def test_patches_ignore_paths_stay_local(foo_bar_cloned_and_nested):
+    """Changes in a patches-ignore path need no patch; a pull and a push leave the local copy alone"""
+    env = foo_bar_cloned_and_nested
+    foo = _with_patches(env)
+    _upstream_change(env, 'Conf', "upstream\n")
+    cmd_git_nested('pull bar', cwd=foo)
+    _set(env, foo, '  patches-ignore:\n    - Conf\n    - Gone\n')
+    (foo / 'bar' / 'Conf').write_bytes(b"mine\n")
+    _commit(env, foo, 'local Conf')
+    assert cmd_git_nested('verify bar', cwd=foo).output.strip().endswith(" with 1 patch")
+
+    _upstream_change(env, 'Conf', "upstream again\n")
+    _upstream_change(env, 'Gone', "only upstream\n")
+    cmd_git_nested('pull bar', cwd=foo)
+
+    assert (foo / 'bar' / 'Conf').read_bytes() == b"mine\n"
+    assert not (foo / 'bar' / 'Gone').exists()
+    assert (foo / 'bar' / 'Bar').read_bytes() == b"local\n"
+    assert _patch_names(foo) == ['0001-TODO-title.patch']
+    assert 'Conf' not in (foo / 'bar' / FOLDER / '0001-TODO-title.patch').read_text()
+    assert env.run(['git', 'status', '--porcelain'], cwd=foo).stdout == ''
+    assert cmd_git_nested('verify bar', cwd=foo).output.strip().endswith(" with 1 patch")
+
+    cmd_git_nested('push -b master bar', cwd=foo)
+    upstream = env.upstream / 'bar'
+    assert env.run(['git', 'show', 'master:Conf'], cwd=upstream).stdout == "upstream again\n"
+    assert env.run(['git', 'show', 'master:Bar'], cwd=upstream).stdout == "local\n"
+
+
+def test_a_single_patches_ignore_path(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = _with_patches(env)
+    _set(env, foo, '  patches-ignore: Conf\n')
+    (foo / 'bar' / 'Conf').write_bytes(b"mine\n")
+    _commit(env, foo, 'local Conf')
+    assert cmd_git_nested('verify bar', cwd=foo).output.strip().endswith(" with 1 patch")
+
+
+@pytest.mark.parametrize('path', ['/abs', '..', '../other', '.'])
+def test_a_patches_ignore_path_outside_the_subdir_is_refused(foo_bar_cloned_and_nested, path):
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    _set(env, foo, f"  patches-ignore: '{path}'\n")
+
+    result = cmd_git_nested('verify bar', cwd=foo, check=False)
+    assert f"bar: patches-ignore {path}: not a path inside the subdir" in result.output

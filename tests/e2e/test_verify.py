@@ -22,9 +22,10 @@ def test_verify_without_local_changes(foo_bar_cloned_and_nested):
 
 
 def test_verify_without_patches_reports_the_difference(foo_bar_cloned_and_nested):
-    """With nowhere to write the missing patch, only the difference is reported"""
+    """With the patches off, there is nowhere to write the missing patch: only the difference is reported"""
     env = foo_bar_cloned_and_nested
     foo = env.workspace / 'foo'
+    cmd_git_nested(['config', 'bar', 'patches', 'false'], cwd=foo)
     _commit_local_change(env, foo, 'local')
 
     result = cmd_git_nested('verify bar', cwd=foo, check=False)

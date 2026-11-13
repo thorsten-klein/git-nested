@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from . import configio
+from .constants import PATCHES_FOLDER
 from .errors import GitNestedError
 
 if TYPE_CHECKING:
@@ -55,6 +56,21 @@ class Flags:
     verbose: int = 0
 
 
+def _paths(value: object) -> tuple[str, ...]:
+    """A path or a list of paths from .gitnested."""
+    if not value:
+        return ()
+    return tuple(str(path) for path in value) if isinstance(value, list) else (str(value),)
+
+
+def _patches(value: object) -> str:
+    """The patches folder from .gitnested: on by default, '' if set to false."""
+    text = '' if value is None else str(value)
+    if text.lower() == 'false':
+        return ''
+    return PATCHES_FOLDER if text.lower() in ('', 'true') else text
+
+
 @dataclass
 class NestedConfig:
     """Nested configuration from .gitnested file."""
@@ -70,7 +86,9 @@ class NestedConfig:
     method: str = 'merge'
     squash: bool = True
     readonly: bool = False
-    patches: str = ''
+    patches: str = PATCHES_FOLDER
+    # Paths in subdir, relative to it, that stay local: no patch needs them.
+    patches_ignore: tuple[str, ...] = ()
 
     @classmethod
     def from_file(cls, filepath: str | Path) -> NestedConfig:
@@ -91,7 +109,8 @@ class NestedConfig:
             method='rebase' if nested.get('method') == 'rebase' else 'merge',
             squash=str(nested.get('squash', 'true')).lower() != 'false',
             readonly=str(nested.get('readonly')).lower() == 'true',
-            patches=nested.get('patches') or '',
+            patches=_patches(nested.get('patches')),
+            patches_ignore=_paths(nested.get('patches-ignore')),
         )
         if not config.remote:
             raise GitNestedError(f"{path.as_posix()} has no 'remote'")
@@ -100,7 +119,7 @@ class NestedConfig:
         return config
 
     def patches_folder(self, subdir: Path) -> Path | None:
-        """The folder with the patches, or None if there is none."""
+        """The folder with the patches, or None if they are off."""
         return subdir / self.patches if self.patches else None
 
     def patches_inside(self, subdir: Path) -> str | None:

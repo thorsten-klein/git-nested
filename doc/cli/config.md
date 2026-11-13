@@ -43,7 +43,8 @@ instead of editing the file by hand.
 | `pin` | a commit or tag of the branch to nest, instead of its newest commit | yes |
 | `cmdver` | the git-nested version that last wrote this file | no |
 | `readonly` | `true` makes push refuse, for a repository that is only pulled | yes |
-| `patches` | the folder with the local changes as patches, relative to the subdir | yes |
+| `patches` | the folder with the local changes as patches, relative to the subdir; `false` turns them off | yes |
+| `patches-ignore` | paths in the subdir that stay local, so no patch needs their changes | no |
 
 The other keys are written by the commands themselves. Setting one by hand
 would describe a state the repository is not in.
