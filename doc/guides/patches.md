@@ -196,13 +196,16 @@ copy, and upstream's changes there do not come in. A push leaves them out.
 
 Some patches will never go upstream. A push leaves them out if:
 
-- `.gitnested` lists them, by name without the number:
+- `.gitnested` lists them, by file name:
 
   ```yaml
   nested:
     patches-local:
-      - Use-our-CI-image
+      - 0003-Use-our-CI-image.patch
   ```
+
+  A name with no patch file is an error. After a patch is renumbered or
+  renamed, fix the list.
 
 - or their title starts with `git-nested local:`, for example
   `git-nested local: Use our CI image`.

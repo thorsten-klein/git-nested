@@ -26,7 +26,6 @@ _FALLBACK_IDENTITY = ['-c', 'user.name=git-nested', '-c', 'user.email=git-nested
 # A patch with a subject that starts with this stays local: a push leaves it out.
 LOCAL_PREFIX = 'git-nested local:'
 
-_NUMBER = re.compile(r'^\d+-')
 _SUBJECT = re.compile(r'^Subject:\s*(?:\[[^]]*\]\s*)*(.*)$', re.MULTILINE)
 
 # The patch files in the patches folder.
@@ -116,15 +115,10 @@ def _ignore_problem(config: NestedConfig) -> str | None:
 
 
 def _local_problem(config: NestedConfig, patches: list[Path]) -> str | None:
-    """What is wrong with the patches-local names, if anything: a name with no patch."""
-    names = {name_of(patch) for patch in patches}
-    missing = next((name for name in config.patches_local if patches and name not in names), None)
+    """What is wrong with the patches-local file names, if anything: a name with no patch."""
+    names = {patch.name for patch in patches}
+    missing = next((name for name in config.patches_local if name not in names), None)
     return None if missing is None else f"patches-local {missing}: no such patch"
-
-
-def name_of(patch: Path) -> str:
-    """The name of `patch` without its number and without `.patch`."""
-    return _NUMBER.sub('', patch.stem)
 
 
 def _subject(git: GitRunner, patch: Path) -> str:
@@ -137,7 +131,7 @@ def _subject(git: GitRunner, patch: Path) -> str:
 def local(git: GitRunner, config: NestedConfig, patches: list[Path]) -> list[Path]:
     """The patches that stay local: listed in patches-local, or with a title that starts with LOCAL_PREFIX."""
     listed = set(config.patches_local)
-    return [patch for patch in patches if name_of(patch) in listed or _subject(git, patch).startswith(LOCAL_PREFIX)]
+    return [patch for patch in patches if patch.name in listed or _subject(git, patch).startswith(LOCAL_PREFIX)]
 
 
 def _inside(path: str) -> bool:

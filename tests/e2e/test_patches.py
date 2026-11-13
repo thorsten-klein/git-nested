@@ -900,7 +900,7 @@ def test_push_leaves_out_a_patch_in_patches_local(foo_bar_cloned_and_nested):
     env = foo_bar_cloned_and_nested
     foo = _local_and_pushed(env, 'Keep Bar local')
     upstream_bar = _upstream_file(env, 'Bar')
-    _set(env, foo, '  patches-local: Keep-Bar-local\n')
+    _set(env, foo, '  patches-local: 0001-Keep-Bar-local.patch\n')
 
     cmd_git_nested('push --commit -b master bar', cwd=foo)
     assert _upstream_file(env, 'Other') == "more\n"
@@ -936,7 +936,7 @@ def test_local_patches_stay_local_after_a_pull(foo_bar_cloned_and_nested):
     assert "Add Other" in result.output
     assert "stays local: 0001-git-nested-local-Keep-Bar.patch\n" in result.output
 
-    _set(env, foo, '  patches-local: Add-Other\n')
+    _set(env, foo, '  patches-local: 0002-Add-Other.patch\n')
     _upstream_change(env, 'Newer', "newer\n")
     cmd_git_nested('pull bar', cwd=foo)
     assert cmd_git_nested('push -b master bar', cwd=foo).output.strip() == "bar: nothing to push"
@@ -962,8 +962,19 @@ def test_push_refuses_a_patch_that_needs_a_local_one(foo_bar_cloned_and_nested):
 def test_patches_local_names_a_patch_that_is_not_there(foo_bar_cloned_and_nested):
     env = foo_bar_cloned_and_nested
     foo = _with_patches(env)
-    _set(env, foo, '  patches-local:\n    - Nope\n')
+    _set(env, foo, '  patches-local:\n    - TODO-title\n')
 
     result = cmd_git_nested('push -b master bar', cwd=foo, check=False)
     assert result.returncode == 1
-    assert "bar: patches-local Nope: no such patch" in result.output
+    assert "bar: patches-local TODO-title: no such patch" in result.output
+
+
+def test_patches_local_needs_a_patch_even_without_any(foo_bar_cloned_and_nested):
+    """An entry with no patch is an error also when the folder has no patches"""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    _set(env, foo, f"  patches: {FOLDER}\n  patches-local: 0001-Gone.patch\n")
+
+    result = cmd_git_nested('patches create bar', cwd=foo, check=False)
+    assert result.returncode == 1
+    assert "bar: patches-local 0001-Gone.patch: no such patch" in result.output

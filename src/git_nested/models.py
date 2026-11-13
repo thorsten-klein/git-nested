@@ -87,7 +87,7 @@ class NestedConfig:
     patches: str = ''
     # Paths in subdir, relative to it, that stay local: no patch needs them.
     patches_ignore: tuple[str, ...] = ()
-    # Patches a push leaves out, by name without number: they stay local.
+    # Patches a push leaves out, by file name: they stay local.
     patches_local: tuple[str, ...] = ()
 
     @classmethod

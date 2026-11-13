@@ -45,7 +45,7 @@ instead of editing the file by hand.
 | `readonly` | `true` makes push refuse, for a repository that is only pulled | yes |
 | `patches` | the folder with the local changes as patches, relative to the subdir | yes |
 | `patches-ignore` | paths in the subdir that stay local, so no patch needs their changes | no |
-| `patches-local` | patches a push leaves out, by name without the number | no |
+| `patches-local` | patches a push leaves out, by file name | no |
 
 The other keys are written by the commands themselves. Setting one by hand
 would describe a state the repository is not in.

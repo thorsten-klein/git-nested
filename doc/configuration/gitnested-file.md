@@ -181,19 +181,18 @@ nested:
 
 ### `patches-local`
 
-Patches that stay local: a push leaves them out. Name each patch without
-its number and without `.patch`, so `Fix-the-build` is
-`0003-Fix-the-build.patch`. The names still match when the numbers shift.
-One name, or a list:
+Patches that stay local: a push leaves them out. Name each patch by its
+file name in the patches folder. One name, or a list:
 
 ```yaml
 nested:
   patches-local:
-    - Use-our-CI-image
+    - 0003-Use-our-CI-image.patch
 ```
 
-A patch whose title starts with `git-nested local:` stays local too. A
-name with no patch is refused.
+A name with no patch file is an error. So when a patch is renumbered or
+renamed, fix the list. A patch whose title starts with `git-nested local:`
+stays local too, whatever its number.
 
 ### `cmdver`
 
