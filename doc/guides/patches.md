@@ -192,10 +192,34 @@ nested:
 `patches create` and `patches verify` leave them out. A pull keeps your
 copy, and upstream's changes there do not come in. A push leaves them out.
 
+## Patches that stay local
+
+Some patches will never go upstream. A push leaves them out if:
+
+- `.gitnested` lists them, by file name:
+
+  ```yaml
+  nested:
+    patches-local:
+      - 0003-Use-our-CI-image.patch
+  ```
+
+  A name with no patch file is an error. After a patch is renumbered or
+  renamed, fix the list.
+
+- or their title starts with `git-nested local:`, for example
+  `git-nested local: Use our CI image`.
+
+The push sends upstream plus the other patches. `push --commit` keeps only
+the local patches in the folder, on top of the new upstream commit.
+`push --dry-run` lists them. If a pushed patch needs a local one, the push
+stops and sends nothing.
+
 ## Other commands
 
 - `push`: pushes your changes as usual. The folder is left out.
-- `push --commit`: upstream now has your changes. The folder is emptied.
+- `push --commit`: upstream now has your changes. The folder keeps only the
+  patches that stay local.
 - `clone --force`: starts over. It takes upstream again and empties the
   folder, so the local changes are gone.
 - `commit`: writes the patches from the nested branch.

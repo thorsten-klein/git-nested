@@ -71,6 +71,7 @@ Fields that are not set take their default.
 | [`readonly`](#readonly) | `false` | you | yes |
 | [`patches`](#patches) | no patches | you | yes |
 | [`patches-ignore`](#patches-ignore) | nothing | you | no |
+| [`patches-local`](#patches-local) | nothing | you | no |
 | [`cmdver`](#cmdver) | | every write | no |
 
 ### `remote`
@@ -177,6 +178,21 @@ nested:
     - config/local.yaml
     - build
 ```
+
+### `patches-local`
+
+Patches that stay local: a push leaves them out. Name each patch by its
+file name in the patches folder. One name, or a list:
+
+```yaml
+nested:
+  patches-local:
+    - 0003-Use-our-CI-image.patch
+```
+
+A name with no patch file is an error. So when a patch is renumbered or
+renamed, fix the list. A patch whose title starts with `git-nested local:`
+stays local too, whatever its number.
 
 ### `cmdver`
 

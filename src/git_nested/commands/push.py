@@ -50,6 +50,9 @@ def _build_push_branch(
     """Build the nested branch to push, rebased onto the fetched upstream when that is the method."""
     branch = refs.nested_branch(git, subref)
     worktree.delete_branch(git, branch, git_tmp)
+    kept = _local_patches(git, config, subdir)
+    if kept:
+        return _branch_without_local_patches(git, flags, config, subdir, git_tmp / 'push' / subref, branch, kept)
     subdir_worktree = content.create_nested_branch(
         git=git,
         flags=flags,
@@ -69,6 +72,31 @@ def _build_push_branch(
             output.error(f"{subdir.as_posix()}: git rebase failed, so nothing was pushed")
     if flags.squash:
         _squash(git, flags, branch, upstream_head or config.commit)
+    return branch
+
+
+def _local_patches(git: GitRunner, config: NestedConfig, subdir: Path) -> list[Path]:
+    """The patches a push leaves out, if the patches are in use."""
+    if not patches.in_use(git, config, subdir):
+        return []
+    files = patches.files(config, subdir)
+    patches.check(config, subdir, files)
+    return patches.local(git, config, files)
+
+
+def _branch_without_local_patches(
+    git: GitRunner, flags: Flags, config: NestedConfig, subdir: Path, path: Path, branch: str, kept: list[Path]
+) -> str:
+    """`branch` as the upstream commit plus the patches that are not local."""
+    pushed = [file for file in patches.files(config, subdir) if file not in kept]
+    try:
+        tip = patches.apply_on(git, config.commit, pushed, path, subdir) if pushed else config.commit
+    except GitNestedError as error:
+        names = ', '.join(file.name for file in kept)
+        raise GitNestedError(f"{error.message}\nit may need a patch that stays local: {names}") from error
+    git.run(['branch', branch, tip])
+    if flags.squash:
+        _squash(git, flags, branch, config.commit)
     return branch
 
 
@@ -155,6 +183,9 @@ def _dry_run_push(
     commits = git.check_output(['log', '--oneline', rev])
     output.say(f"{subdir.as_posix()}: would push to {config.remote} ({branch_name})")
     output.say('\n'.join(f"  {line}" for line in commits.splitlines()))
+    kept = _local_patches(git, config, subdir)
+    if kept:
+        output.say(f"  stays local: {', '.join(file.name for file in kept)}")
     return new_commit
 
 
@@ -197,7 +228,14 @@ def _tag(git: GitRunner, flags: Flags, config: NestedConfig, subdir: Path, commi
 
 
 def _record_push_commit(
-    git: GitRunner, flags: Flags, subdir: Path, gitnested: Path, config: NestedConfig, new_commit: str, head_commit: str
+    git: GitRunner,
+    flags: Flags,
+    subdir: Path,
+    gitnested: Path,
+    config: NestedConfig,
+    new_commit: str,
+    head_commit: str,
+    git_tmp: Path,
 ) -> None:
     """Update `.gitnested` and create a commit recording the push (the --commit flag)."""
     output.verbose(f"writing {subdir.as_posix()}/.gitnested")
@@ -211,8 +249,10 @@ def _record_push_commit(
         head_commit=head_commit,
         command='push',
     )
-    # Upstream has the local changes now
-    patches.write(git, config, subdir, new_commit, new_commit, [])
+    # Upstream has the local changes now, but for the patches that stay local
+    kept = _local_patches(git, config, subdir)
+    tip = patches.apply_on(git, new_commit, kept, git_tmp / 'push' / subdir.name, subdir) if kept else new_commit
+    patches.write(git, config, subdir, new_commit, tip, patches.local_paths(git, config, subdir))
     msg = flags.message or discovery.build_commit_message(git, config, new_commit, new_commit, subdir, 'push')
     content.commit_gitnested_update(git, flags, subdir, msg)
 
@@ -288,5 +328,5 @@ def _pushed(
 ) -> None:
     """Record the pushed commit when --commit asks for it, and report the push."""
     if ctx.flags.commit:
-        _record_push_commit(ctx.git, ctx.flags, subdir, gitnested, config, new_commit, ctx.head)
+        _record_push_commit(ctx.git, ctx.flags, subdir, gitnested, config, new_commit, ctx.head, ctx.tmp)
     output.say(f"{subdir.as_posix()}: pushed to {config.remote} ({branch_name})")

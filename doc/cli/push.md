@@ -133,6 +133,8 @@ git nested push ext/lib nested/ext%2Flib
 - With the `rebase` method, the nested branch is rebased onto upstream
   first. If that fails, nothing is pushed.
 - `--commit` needs a clean working tree.
+- [Patches that stay local](../guides/patches.md#patches-that-stay-local)
+  are left out. With `--commit`, only they stay in the patches folder.
 - `--commit` refuses a push to another branch than the tracked one. The
   next pull would start from a commit that branch does not have. With
   `-b` or `-r`, add `-u` to track them.

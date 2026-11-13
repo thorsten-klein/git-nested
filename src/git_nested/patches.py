@@ -22,6 +22,10 @@ from .models import NestedConfig
 # `git commit` and `git am` need an identity; CI often has none.
 _FALLBACK_IDENTITY = ['-c', 'user.name=git-nested', '-c', 'user.email=git-nested@localhost']
 
+# A patch with a subject that starts with this stays local: a push leaves it out.
+LOCAL_PREFIX = 'git-nested local:'
+
+
 # The patch files in the patches folder.
 PATCH_GLOB = '*.patch'
 
@@ -86,7 +90,7 @@ def check(config: NestedConfig, subdir: Path, patches: list[Path]) -> None:
     """Refuse a patches setup that can't be, and `patches` with a setup they do not work with yet."""
     if not config.patches:
         return
-    problem = _folder_problem(config, subdir) or _ignore_problem(config)
+    problem = _folder_problem(config, subdir) or _ignore_problem(config) or _local_problem(config, patches)
     if not problem and patches and (config.path or config.filter or config.exclude):
         problem = "patches do not work with filter, exclude or path yet"
     if problem:
@@ -106,6 +110,34 @@ def _ignore_problem(config: NestedConfig) -> str | None:
     """What is wrong with the patches-ignore paths, if anything."""
     outside = next((path for path in config.patches_ignore if not _inside(path)), None)
     return None if outside is None else f"patches-ignore {outside}: not a path inside the subdir"
+
+
+def _local_problem(config: NestedConfig, patches: list[Path]) -> str | None:
+    """What is wrong with the patches-local file names, if anything: a name with no patch."""
+    names = {patch.name for patch in patches}
+    missing = next((name for name in config.patches_local if name not in names), None)
+    return None if missing is None else f"patches-local {missing}: no such patch"
+
+
+def _subject(git: GitRunner, patch: Path) -> str:
+    """The title of `patch`, without `[PATCH]`."""
+    with as_written(git, patch) as plain:
+        lines = plain.read_text(encoding='utf-8', errors='replace').splitlines()
+    line = next((line for line in lines if line.startswith('Subject:')), '')
+    return _without_tags(line.removeprefix('Subject:').strip())
+
+
+def _without_tags(title: str) -> str:
+    """`title` without the `[...]` tags in front, like `[PATCH]`."""
+    while title.startswith('[') and ']' in title:
+        title = title[title.index(']') + 1 :].lstrip()
+    return title
+
+
+def local(git: GitRunner, config: NestedConfig, patches: list[Path]) -> list[Path]:
+    """The patches that stay local: listed in patches-local, or with a title that starts with LOCAL_PREFIX."""
+    listed = set(config.patches_local)
+    return [patch for patch in patches if patch.name in listed or _subject(git, patch).startswith(LOCAL_PREFIX)]
 
 
 def _inside(path: str) -> bool:
