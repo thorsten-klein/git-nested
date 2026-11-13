@@ -314,12 +314,8 @@ def create_branch(
     """
     parent = _usable_parent(git, config.parent, gitnested, subdir) if config.parent else ''
     gitlinked = gitlinked_inner(git, config, subdir)
-    local_only = (
-        [*_local_only_paths(git, config, subdir, gitlinked), *_patches_folder(config, subdir)]
-        if command == 'push'
-        else []
-    )
-    removed = [GITNESTED_FILENAME, *local_only]
+    local_only = _local_only_paths(git, config, subdir, gitlinked) if command == 'push' else []
+    removed = [GITNESTED_FILENAME, *local_only, *_patches_folder(config, subdir)]
     merge = (flags.method or config.method) != 'rebase'
     with tempfile.TemporaryDirectory() as tmp:
         index_env = {**os.environ, 'GIT_INDEX_FILE': str(Path(tmp) / 'index')}

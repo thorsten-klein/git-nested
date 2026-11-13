@@ -148,6 +148,7 @@ class CommandContext:
     git_args: list[str] | None = None
     patches: list[str] | None = None
     patches_action: str | None = None
+    patch_names: list[str] | None = None
     verify_mode: str | None = None
     git_tmp: Path | None = None
     head_commit: str | None = None

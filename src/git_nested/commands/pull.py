@@ -7,12 +7,12 @@ import shutil
 from pathlib import Path
 from uuid import uuid4
 
-from .. import content, discovery, filters, gitfile, history, messages, output, refs, submodules, worktree
+from .. import content, discovery, filters, gitfile, history, messages, output, patches, refs, submodules, worktree
 from ..cli import setup
 from ..errors import GitNestedError
 from ..git import GitRunner
 from ..models import CommandContext, Flags, NestedConfig
-from . import clone, fetch
+from . import clone, fetch, patchset
 
 
 def do_pull(
@@ -35,6 +35,8 @@ def do_pull(
 
     branch = refs.nested_branch(git, subref)
     worktree.delete_branch(git, branch, git_tmp)
+    if patches.in_use(git, config, subdir):
+        return branch, _apply_patches(git, flags, config, subdir, git_tmp, subref, branch)
     output.verbose(f"creating nested branch {branch}")
     subdir_worktree = content.create_nested_branch(
         git=git,
@@ -68,6 +70,40 @@ def do_pull(
 
     refs.create_nested_ref(git, subref, 'branch', branch)
     return branch, subdir_worktree
+
+
+def _apply_patches(
+    git: GitRunner, flags: Flags, config: NestedConfig, subdir: Path, git_tmp: Path, subref: str, branch: str
+) -> Path:
+    """Build the nested branch as upstream plus the patches.
+
+    Returns:
+        the worktree of the branch.
+    """
+    output.verbose(f"creating nested branch {branch} from upstream and the patches")
+    subdir_worktree = git_tmp / branch
+    # --no-checkout and reset: so the parent's post-checkout hook does not run
+    git.run(['worktree', 'add', '--no-checkout', '-b', branch, subdir_worktree, f'refs/nested/{subref}/fetch'])
+    git.run(['reset', '-q', '--hard'], cwd=subdir_worktree)
+    refs.create_nested_ref(git, subref, 'branch', branch)
+    failed = patches.apply_in_worktree(git, subdir_worktree, patches.files(config, subdir), git_tmp)
+    if failed:
+        help_text = messages.pull_conflict_help(subdir, subdir_worktree, 'am', flags.message_file, flags.pin, subref)
+        output.error(f"{subdir.as_posix()}: the pull is unfinished, the patch {failed} does not apply\n{help_text}")
+    return subdir_worktree
+
+
+def _check_patches(git: GitRunner, flags: Flags, config: NestedConfig, subdir: Path, subref: str, tmp: Path) -> None:
+    """Refuse a pull with patches that would lose local changes."""
+    patches.check(config, subdir, patches.files(config, subdir))
+    if not patches.in_use(git, config, subdir):
+        return
+    if flags.ignore:
+        output.usage_error("--ignore does not work with patches yet")
+    if flags.no_squash or not config.squash:
+        raise GitNestedError(f"{subdir.as_posix()}: patches do not work with --no-squash yet")
+    if not flags.force:
+        patchset.check_content(git, config, subdir, subref, tmp)
 
 
 def _goes_back(git: GitRunner, config: NestedConfig, upstream: str) -> bool:
@@ -256,6 +292,7 @@ def cmd_pull(ctx: CommandContext) -> None:
     subdir, gitnested, subref, config = setup.setup_command(git, 'pull', flags, ctx.subdir, ctx.upstream)
     _check_no_squash(flags, config, subdir)
     _check_ignore(flags, config, subdir)
+    _check_patches(git, flags, config, subdir, subref, ctx.tmp)
     if fetch.skip_missing_branch(git, flags, config, subdir):
         return
 

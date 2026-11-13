@@ -1,21 +1,22 @@
-"""`git nested patches`: write and check the patches of a nested repository.
+"""`git nested patches`: write, check and drop the patches of a nested repository.
 
 `create` brings the patches folder up to date: it writes the local
 changes that are not in a patch yet as a new patch, and writes all patches
 again in the one form git-nested uses. `verify` only checks that nothing
-would change.
+would change. `drop` removes patches, and their changes from the subdir.
 """
 
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import shutil
 import tempfile
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-from .. import output, patchbuild, patches
+from .. import checks, content, output, patchbuild, patches
 from ..cli import setup
 from ..errors import GitNestedError
 from ..git import GitRunner
@@ -61,6 +62,13 @@ def _changed(git: GitRunner, old: list[Path], new: list[Path]) -> list[str]:
     before = {file.name: patchbuild.stored(git, file) for file in old}
     after = {file.name: file.read_bytes() for file in new}
     return sorted(name for name in before.keys() | after.keys() if before.get(name) != after.get(name))
+
+
+def check_content(git: GitRunner, config: NestedConfig, subdir: Path, subref: str, tmp: Path) -> None:
+    """Refuse if subdir has changes that are not in its patches."""
+    with _rebuilt(git, config, subdir, subref, tmp, add_missing=False) as rebuilt:
+        if rebuilt.missing:
+            raise GitNestedError(_missing_message(subdir, rebuilt.missing))
 
 
 def _missing_message(subdir: Path, missing: str) -> str:
@@ -129,11 +137,50 @@ def _check_setup(config: NestedConfig, subdir: Path) -> None:
         raise GitNestedError(f"{name}: patches do not work with filter, exclude, path or squash: false yet")
 
 
+def _find(files: list[Path], given: str, subdir: Path) -> Path:
+    """The patch in `files` that `given` names: by its path, or by its file name."""
+    found = next((file for file in files if given == file.name or Path(given).resolve() == file.resolve()), None)
+    if found is None:
+        raise GitNestedError(f"{subdir.as_posix()}: {given} is not one of its patches")
+    return found
+
+
+def _drop(ctx: CommandContext, config: NestedConfig, subdir: Path, subref: str, gitnested: Path) -> None:
+    """Remove the named patches, and their changes from subdir, in one commit."""
+    git, name = ctx.git, subdir.as_posix()
+    checks.check_worktree_clean(git, 'drop a patch')
+    files = patches.files(config, subdir)
+    dropped = [_find(files, given, subdir) for given in ctx.patch_names or []]
+    check_content(git, config, subdir, subref, ctx.tmp)
+    kept = [file for file in files if file not in dropped]
+    result = patches.apply_on(git, config.commit, kept, ctx.tmp / 'patches' / subref, subdir) if kept else config.commit
+    names = ', '.join(file.name for file in dropped)
+    flags = dataclasses.replace(ctx.flags, message=f"{name}: drop the patch {names}")
+    content.commit_nested_branch(
+        git=git,
+        flags=flags,
+        config=config,
+        subdir=subdir,
+        gitnested=gitnested,
+        nested_commit_ref=result,
+        upstream_head_commit=config.commit,
+        head_commit=ctx.head,
+        subdir_worktree=None,
+        command='patches',
+    )
+    output.say(f"{name}: dropped {names}")
+
+
 _ACTIONS = {'create': _create, 'verify': _verify}
 
 
 def cmd_patches(ctx: CommandContext) -> None:
-    """Write or check the patches of a nested repository."""
-    subdir, _, subref, config = setup.setup_command(ctx.git, 'patches', ctx.flags, ctx.subdir, ctx.upstream)
+    """Write, check or drop the patches of a nested repository."""
+    subdir, gitnested, subref, config = setup.setup_command(ctx.git, 'patches', ctx.flags, ctx.subdir, ctx.upstream)
+    if (ctx.patches_action == 'drop') != bool(ctx.patch_names):
+        output.usage_error("drop needs the patches to drop; create and verify take none")
     _check_setup(config, subdir)
+    if ctx.patches_action == 'drop':
+        _drop(ctx, config, subdir, subref, gitnested)
+        return
     _ACTIONS[ctx.patches_action or 'verify'](ctx, config, subdir, subref)

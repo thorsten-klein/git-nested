@@ -95,7 +95,7 @@ COMMAND_HELP: dict[str, str] = {
     'diff': "show a nested repository's local changes against upstream",
     'fetch': "fetch upstream content for a nested repository",
     'init': "turn an existing subdirectory into a nested repository",
-    'patches': "write or check the patches of a nested repository",
+    'patches': "write, check or drop the patches of a nested repository",
     'pull': "update a nested repository from its upstream",
     'push': "push a nested repository's local changes upstream",
     'repair': "point a nested repository's sync point back into the current history",
@@ -295,8 +295,12 @@ POSITIONALS: dict[str, list[tuple[str, dict]]] = {
     'fetch': [('subdir', {'nargs': '?', 'help': _SUBDIR_HELP})],
     'init': [('subdir', {'nargs': '?', 'help': "subdirectory to turn into a nested repository"})],
     'patches': [
-        ('action', {'choices': ['create', 'verify'], 'help': "create: write the patches; verify: check them"}),
+        (
+            'action',
+            {'choices': ['create', 'verify', 'drop'], 'help': "create: write; verify: check; drop: remove patches"},
+        ),
         ('subdir', {'nargs': '?', 'help': _SUBDIR_HELP}),
+        ('patch_names', {'nargs': '*', 'metavar': 'patch', 'help': "drop: the patches, by path or file name"}),
     ],
     'pull': [('subdir', {'nargs': '?', 'help': _SUBDIR_HELP})],
     'push': [
@@ -369,7 +373,8 @@ COMMAND_DESCRIPTION: dict[str, str] = {
         "Keep the local changes of <subdir> as patch files, in the patches folder of .gitnested. "
         "create writes the changes that are not in a patch yet as a new patch, with a TODO title, "
         "and writes all patches again in the one form git-nested uses. "
-        "verify only checks: it fails if a change is not in a patch, or if create would change a patch."
+        "verify only checks: it fails if a change is not in a patch, or if create would change a patch. "
+        "drop removes patches and their changes from <subdir>, writes the other patches again and commits."
     ),
     'pull': (
         "Fetch the upstream of <subdir> and join the new commits into it, by merge or by rebase. "
@@ -459,6 +464,7 @@ COMMAND_EXAMPLES: dict[str, list[str]] = {
         "git nested patches create ext/lib",
         "git nested patches verify ext/lib",
         "git nested patches verify --all",
+        "git nested patches drop ext/lib 0002-Old-workaround.patch",
     ],
     'pull': [
         "git nested pull ext/lib",

@@ -153,9 +153,9 @@ for code you only take from upstream.
 The folder with your local changes as patch files. The path is relative to
 the nested folder. Inside it, the folder is never pushed.
 
-The patches are off by default. Set a folder to turn them on.
-[`git nested patches`](../cli/patches.md) writes
-and checks them.
+The patches are off by default. Set a folder to turn them on. They take
+over once the folder has a patch. Until then, the commands work as
+without patches.
 
 ```yaml
 nested:

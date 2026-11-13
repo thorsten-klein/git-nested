@@ -9,11 +9,12 @@ own patches.
 from __future__ import annotations
 
 import contextlib
+import os
 import tempfile
 from collections.abc import Iterator
 from pathlib import Path, PurePosixPath
 
-from . import history, output
+from . import history, output, worktree
 from .errors import GitNestedError
 from .git import GitRunner
 from .models import NestedConfig
@@ -42,6 +43,18 @@ def files(config: NestedConfig, subdir: Path) -> list[Path]:
     return sorted(folder.glob(PATCH_GLOB)) if folder and folder.is_dir() else []
 
 
+def files_at(git: GitRunner, config: NestedConfig, subdir: Path, rev: str, out: Path) -> list[Path]:
+    """The patch files as `rev` has them, copied into `out`, in order."""
+    folder = subdir / config.patches
+    if not config.patches or git.run(['cat-file', '-e', f'{rev}:{folder.as_posix()}'], may_fail=True).returncode:
+        return []
+    # A scratch index: checkout-index writes the bytes as they are.
+    env = {**os.environ, 'GIT_INDEX_FILE': str(out.parent / f'{out.name}.index')}
+    git.run(['read-tree', f'{rev}:{folder.as_posix()}'], env=env)
+    git.run(['checkout-index', '-a', f'--prefix={out.as_posix()}/'], env=env)
+    return sorted(out.glob(PATCH_GLOB))
+
+
 def local_paths(git: GitRunner, config: NestedConfig, subdir: Path) -> list[str]:
     """The paths in subdir the patches leave out.
 
@@ -54,6 +67,21 @@ def local_paths(git: GitRunner, config: NestedConfig, subdir: Path) -> list[str]
 def pathspec(local: list[str], ignored: list[str] | None = None) -> list[str]:
     """All paths but .gitnested files, the `local` and the `ignored` ones."""
     return ['.', GITNESTED_EXCLUDE, *(f':(exclude,literal){path}' for path in [*local, *(ignored or [])])]
+
+
+def in_use(git: GitRunner, config: NestedConfig, subdir: Path) -> bool:
+    """Whether the patches take over: they are on, and HEAD has at least one.
+
+    Without any, the commands work as without patches. So a nested repo
+    from before the patches keeps working.
+
+    From HEAD: a reclone has removed the folder already.
+    """
+    folder = config.patches_folder(subdir)
+    if folder is None:
+        return False
+    listed = git.check_output(['ls-tree', '-r', '--name-only', 'HEAD', '--', f'{folder.as_posix()}/'], may_fail=True)
+    return any(path.endswith(PATCH_GLOB[1:]) for path in listed.splitlines())
 
 
 def supported(config: NestedConfig) -> bool:
@@ -157,3 +185,70 @@ def apply_in_worktree(git: GitRunner, path: Path, patches: list[Path], git_tmp: 
         None, or the name of the patch that does not apply.
     """
     return _am(git, path, patches, git_tmp / 'no-hooks')
+
+
+def apply_on(git: GitRunner, base: str, patches: list[Path], path: Path, subdir: Path) -> str:
+    """The commit of `base` with the patches applied.
+
+    It is built in a temporary worktree at `path`. Nothing is left behind,
+    also when a patch does not apply.
+    """
+    worktree.remove_worktree(git, path)
+    git.run(['worktree', 'add', '--quiet', '--detach', '--no-checkout', path, base])
+    try:
+        git.run(['reset', '-q', '--hard'], cwd=path)
+        failed = _am(git, path, patches, path.parent / 'no-hooks')
+        if failed:
+            raise GitNestedError(
+                f"{subdir.as_posix()}: the patch {failed} does not apply on upstream {base[:9]}; nothing was changed"
+            )
+        return git.check_output(['rev-parse', 'HEAD'], cwd=path)
+    finally:
+        worktree.remove_worktree(git, path)
+
+
+def restore_inner_repos(git: GitRunner, subdir: Path, inner: list[str]) -> None:
+    """Put the `inner` nested repos back, as HEAD has them."""
+    for path in inner:
+        git.run(['checkout', 'HEAD', '--', f'{subdir.as_posix()}/{path}'])
+
+
+def write(git: GitRunner, config: NestedConfig, subdir: Path, base: str, tip: str, local: list[str]) -> None:
+    """Write the changes from `base` to `tip` as the patches, and stage them.
+
+    One patch per commit. If the commits are not a plain line on top of
+    `base`, it writes one patch with all changes instead. The `local` paths
+    are left out.
+    """
+    folder = config.patches_folder(subdir)
+    if folder is None:
+        return
+    for old in folder.glob(PATCH_GLOB):
+        old.unlink()
+
+    tip = _linear(git, base, tip, subdir)
+    limit = pathspec(local)
+    if git.check_output(['diff', '--name-only', base, tip, '--', *limit]):
+        output.verbose(f"writing the patches to {folder.as_posix()}")
+        folder.mkdir(parents=True, exist_ok=True)
+        git.run([
+            *FORMAT_PATCH,
+            '--quiet',
+            '-o',
+            folder.resolve(),
+            f'{base}..{tip}',
+            '--',
+            *limit,
+        ])
+    if folder.exists():
+        git.run(['add', '-A', '-f', '--', folder])
+
+
+def _linear(git: GitRunner, base: str, tip: str, subdir: Path) -> str:
+    """`tip`, or one commit on `base` with its tree if the history between is not a line."""
+    on_base = git.run(['merge-base', '--is-ancestor', base, tip], may_fail=True).returncode == 0
+    if on_base and not git.check_output(['rev-list', '--merges', f'{base}..{tip}']):
+        return tip
+    tree = git.check_output(['rev-parse', f'{tip}^{{tree}}'])
+    message = f"Local changes to {subdir.as_posix()}"
+    return git.check_output([*identity(git), 'commit-tree', '-p', base, '-m', message, tree])

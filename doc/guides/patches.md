@@ -28,6 +28,9 @@ git add ext/lib/.gitnested.patches
 git commit -m "lib: keep local changes as patches"
 ```
 
+Until the folder has a patch, the other commands work as without patches.
+So a nested repository from an older git-nested version keeps working.
+
 To turn the patches off again:
 
 ```bash
@@ -91,15 +94,72 @@ git commit -m "lib: keep the build fix as a patch"
 git nested patches verify --all
 ```
 
+### Update to a new upstream version
+
+```bash
+git nested pull ext/lib
+```
+
+The patches go on top of the new version. A patch that upstream has
+merged in the meantime is dropped.
+
+### Drop a patch
+
+```bash
+git nested patches drop ext/lib 0002-Old-workaround.patch
+```
+
+It removes the patch and its changes from `ext/lib`, writes the other
+patches again and commits both.
+
+## Pull
+
+```bash
+git nested pull ext/lib
+```
+
+1. git-nested checks that the patches hold all your local changes. If
+   not, it stops. Run `git nested patches create ext/lib` to write the
+   missing patch.
+2. It takes the new upstream commit.
+3. It applies the patches on top, one by one, with `git am -3`.
+4. It writes the patches again and commits them with the pull.
+
+A patch that upstream already has is dropped.
+
+### A patch does not apply
+
+The pull stops and names the patch and a worktree. Fix it there like a
+`git am` conflict:
+
+```bash
+cd .git/tmp/nested/ext%2Flib
+# fix the files
+git add <file>
+git am --continue
+cd -
+git nested commit ext/lib
+```
+
+If a later patch conflicts too, `git am --continue` stops there. Fix it the
+same way and continue, until all patches are applied. Then run
+`git nested commit`.
+
+The patches are written again from the result, one per patch. Patches you
+split stay split.
+
 ## Other commands
 
 - `push`: pushes your changes as usual. The folder is left out.
+- `push --commit`: upstream now has your changes. The folder is emptied.
+- `clone --force`: takes upstream again, and applies the patches on top.
+- `commit`: writes the patches from the nested branch.
 - `diff` and `status`: the folder does not count as a local change.
 
 ## Nested repositories inside
 
-A nested repository inside is not part of the outer patches. It can have
-its own `patches` folder:
+A nested repository inside is not part of the outer patches. A pull keeps
+it as it is. It can have its own `patches` folder:
 
 ```bash
 git nested config ext/lib/inner patches .gitnested.patches
@@ -111,6 +171,9 @@ The patches do not work yet with:
 
 - `filter`, `exclude` and `path`: the nested folder is then only a part of
   upstream, and the patches would have to be on that part.
-- `squash: false`.
+- `pull --no-squash` and `squash: false`: such a pull keeps upstream's
+  history, and the patches are applied on a squashed upstream commit.
+- `pull --ignore`.
 
-With these, `patches create` and `patches verify` stop with a message.
+With these, `patches create` and `patches verify` stop with a message. If
+the folder already has a patch, the other commands stop too.
