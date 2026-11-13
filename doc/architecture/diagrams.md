@@ -62,14 +62,6 @@ sequenceDiagram
     else Plain clone
         Note over git-nested: mkdir <subdir>/
 
-        opt clone --force, and HEAD has patches
-            Note over git-nested: The patches as HEAD has them, in a temporary folder
-            git-nested->>Git: read-tree / checkout-index (scratch index)
-            git-nested->>Git: worktree add --detach --no-checkout <tmp> <upstream>
-            git-nested->>Git: am -3 --keep-cr <patches> (in the worktree)
-            Note over git-nested: nested_commit_ref is the result
-        end
-
         rect rgb(230, 255, 230)
             Note over git-nested,Git: commit_nested_branch
             git-nested->>Git: rev-list <upstream_commit> -1

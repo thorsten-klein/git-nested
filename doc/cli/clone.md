@@ -113,6 +113,8 @@ If nothing changed, it does nothing and says "already up to date".
   git-nested warns about it. See [Upstream submodules](../guides/submodules.md).
 - If upstream is empty, `clone` stops. Use [`init`](init.md) and then
   [`push`](push.md) to fill it.
+- With [patches](../guides/patches.md), `--force` starts over: it takes
+  upstream and empties the patches folder. The local changes are gone.
 
 ## See also
 

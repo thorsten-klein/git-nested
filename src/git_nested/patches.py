@@ -9,7 +9,6 @@ own patches.
 from __future__ import annotations
 
 import contextlib
-import os
 import posixpath
 import tempfile
 from collections.abc import Iterator
@@ -42,18 +41,6 @@ def files(config: NestedConfig, subdir: Path) -> list[Path]:
     """The patch files, in order."""
     folder = config.patches_folder(subdir)
     return sorted(folder.glob(PATCH_GLOB)) if folder and folder.is_dir() else []
-
-
-def files_at(git: GitRunner, config: NestedConfig, subdir: Path, rev: str, out: Path) -> list[Path]:
-    """The patch files as `rev` has them, copied into `out`, in order."""
-    folder = subdir / config.patches
-    if not config.patches or git.run(['cat-file', '-e', f'{rev}:{folder.as_posix()}'], may_fail=True).returncode:
-        return []
-    # A scratch index: checkout-index writes the bytes as they are.
-    env = {**os.environ, 'GIT_INDEX_FILE': str(out.parent / f'{out.name}.index')}
-    git.run(['read-tree', f'{rev}:{folder.as_posix()}'], env=env)
-    git.run(['checkout-index', '-a', f'--prefix={out.as_posix()}/'], env=env)
-    return sorted(out.glob(PATCH_GLOB))
 
 
 def local_paths(git: GitRunner, config: NestedConfig, subdir: Path) -> list[str]:
