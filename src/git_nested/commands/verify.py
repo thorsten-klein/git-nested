@@ -72,7 +72,8 @@ def _apply(git: GitRunner, path: Path, files: list[Path], quiet: bool = False) -
     """
     for file in files:
         (output.verbose if quiet else output.say)(f"applying {_shown(file)}")
-        result = git.run(['apply', '--index', '--whitespace=nowarn', file.resolve()], may_fail=True, cwd=path)
+        patch = patches.as_written(file, path.parent / 'lf')
+        result = git.run(['apply', '--index', '--whitespace=nowarn', patch], may_fail=True, cwd=path)
         if result.returncode != 0:
             raise GitNestedError(f"{_shown(file)}: does not apply\n{(result.stderr or '').strip()}")
     _commit(git, path, "the upstream commit with the patches applied")
@@ -93,8 +94,11 @@ def _diff(git: GitRunner, path: Path, base: str, local_tree: str, pathspec: list
 
 def _write_missing_patch(git: GitRunner, path: Path, local_tree: str, pathspec: list[str], directory: Path) -> Path:
     """Write the missing patch into `directory`."""
-    missing = _diff(git, path, 'HEAD', local_tree, pathspec, '--binary', '--full-index')
-    git.run(['apply', '--index'], cwd=path, input=missing)
+    # A file, not a pipe: text mode would drop the CRs.
+    missing = path.parent / f'{path.name}.diff'
+    _diff(git, path, 'HEAD', local_tree, pathspec, '--binary', '--full-index', f'--output={missing.resolve()}')
+    git.run(['apply', '--index', missing.resolve()], cwd=path)
+    missing.unlink()
     _commit(git, path, TODO_TITLE, TODO_DESCRIPTION)
     directory.mkdir(parents=True, exist_ok=True)
     number = _next_number(directory)
@@ -108,9 +112,8 @@ def _write_missing_patch(git: GitRunner, path: Path, local_tree: str, pathspec: 
 def _write_diff(git: GitRunner, path: Path, base: str, local_tree: str, pathspec: list[str], file: Path) -> Path:
     """Write the whole diff from upstream to `file`."""
     file.parent.mkdir(parents=True, exist_ok=True)
-    file.write_text(
-        _diff(git, path, base, local_tree, pathspec, '--binary'), encoding='utf-8', errors='surrogateescape'
-    )
+    # git writes the file: text mode would drop or add CRs.
+    _diff(git, path, base, local_tree, pathspec, '--binary', f'--output={file.resolve()}')
     return file
 
 

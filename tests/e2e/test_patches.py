@@ -30,7 +30,10 @@ def _with_patches(env):
 def _upstream_change(env, path, text):
     bar = env.workspace / 'bar'
     (bar / path).parent.mkdir(parents=True, exist_ok=True)
-    (bar / path).write_text(text)
+    if isinstance(text, bytes):
+        (bar / path).write_bytes(text)
+    else:
+        (bar / path).write_text(text)
     env.run(['git', 'add', path], cwd=bar)
     env.run(['git', 'commit', '-q', '-m', f'upstream {path}'], cwd=bar)
     env.run(['git', 'push', '-q'], cwd=bar)
@@ -81,6 +84,39 @@ def test_pull_drops_a_patch_upstream_has(foo_bar_cloned_and_nested):
     assert (foo / 'bar' / 'Bar').read_text() == "local\n"
     assert _patch_names(foo) == []
     assert not env.run(['git', 'ls-files', f'bar/{FOLDER}'], cwd=foo).stdout
+
+
+def test_pull_keeps_crlf_in_the_patches(foo_bar_cloned_and_nested):
+    """A CR in a patch is content, also when upstream already has the change"""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    for repo in (foo, env.workspace / 'bar'):
+        env.run(['git', 'config', 'core.autocrlf', 'false'], cwd=repo)
+    cmd_git_nested(['config', 'bar', 'patches', FOLDER], cwd=foo)
+    (foo / 'bar' / 'Bar').write_bytes(b"local\r\n")
+    _commit(env, foo, 'local change')
+    cmd_git_nested('verify bar', cwd=foo, check=False)
+    _commit(env, foo, 'the patch')
+    _upstream_change(env, 'Bar', b"local\r\n")
+
+    cmd_git_nested('pull bar', cwd=foo)
+    assert (foo / 'bar' / 'Bar').read_bytes() == b"local\r\n"
+    assert _patch_names(foo) == []
+
+
+def test_pull_takes_a_patch_file_the_checkout_made_crlf(foo_bar_cloned_and_nested):
+    env = foo_bar_cloned_and_nested
+    foo = _with_patches(env)
+    _upstream_change(env, 'New', "new\n")
+    env.run(['git', 'config', 'core.autocrlf', 'true'], cwd=foo)
+    patch = foo / 'bar' / FOLDER / '0001-TODO-title.patch'
+    patch.unlink()
+    env.run(['git', 'checkout', '--', patch.as_posix()], cwd=foo)
+    assert patch.read_bytes().split(b'\n')[0].endswith(b'\r')
+
+    cmd_git_nested('pull bar', cwd=foo)
+    assert (foo / 'bar' / 'Bar').read_text() == "local\n"
+    assert (foo / 'bar' / 'New').read_text() == "new\n"
 
 
 def test_pull_stops_at_a_patch_that_does_not_apply(foo_bar_cloned_and_nested):

@@ -69,8 +69,26 @@ def check(config: NestedConfig, subdir: Path) -> None:
         raise GitNestedError(f"{subdir.as_posix()}: patches do not work with filter, exclude or path yet")
 
 
+def as_written(patch: Path, scratch: Path) -> Path:
+    """`patch` with the line ends git wrote, as an absolute path.
+
+    git ends the patch lines with LF. If the first line ends with CRLF,
+    a checkout with core.autocrlf made all lines CRLF. Then this is a copy
+    in `scratch` with LF again. Else a CR is content and stays.
+    """
+    data = patch.read_bytes()
+    if not data.split(b'\n', 1)[0].endswith(b'\r'):
+        return patch.resolve()
+    scratch.mkdir(parents=True, exist_ok=True)
+    copy = scratch / patch.name
+    copy.write_bytes(data.replace(b'\r\n', b'\n'))
+    return copy.resolve()
+
+
 def _am(git: GitRunner, path: Path, patches: list[Path], no_hooks: Path) -> str | None:
     """`git am -3` the patches in the worktree at `path`, without hooks or signing.
+
+    --keep-cr: a CR in a patch is content.
 
     A patch that upstream already has is dropped.
 
@@ -81,7 +99,14 @@ def _am(git: GitRunner, path: Path, patches: list[Path], no_hooks: Path) -> str 
     for patch in patches:
         output.verbose(f"applying {patch.as_posix()}")
         hooks = ['-c', f'core.hooksPath={no_hooks.as_posix()}']
-        am: list[str | Path] = ['am', '-3', '--quiet', '--no-gpg-sign', patch.resolve()]
+        am: list[str | Path] = [
+            'am',
+            '-3',
+            '--quiet',
+            '--no-gpg-sign',
+            '--keep-cr',
+            as_written(patch, no_hooks.parent / 'lf'),
+        ]
         if git.run([*identity(git), *hooks, *am], cwd=path, may_fail=True).returncode != 0:
             return patch.name
     return None
