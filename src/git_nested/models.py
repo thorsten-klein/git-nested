@@ -55,6 +55,13 @@ class Flags:
     verbose: int = 0
 
 
+def _paths(value: object) -> tuple[str, ...]:
+    """A path or a list of paths from .gitnested."""
+    if not value:
+        return ()
+    return tuple(str(path) for path in value) if isinstance(value, list) else (str(value),)
+
+
 def _patches(value: object) -> str:
     """The patches folder from .gitnested: '' if not set or false."""
     text = '' if value is None else str(value)
@@ -77,6 +84,8 @@ class NestedConfig:
     squash: bool = True
     readonly: bool = False
     patches: str = ''
+    # Paths in subdir, relative to it, that stay local: no patch needs them.
+    patches_ignore: tuple[str, ...] = ()
 
     @classmethod
     def from_file(cls, filepath: str | Path) -> NestedConfig:
@@ -98,6 +107,7 @@ class NestedConfig:
             squash=str(nested.get('squash', 'true')).lower() != 'false',
             readonly=str(nested.get('readonly')).lower() == 'true',
             patches=_patches(nested.get('patches')),
+            patches_ignore=_paths(nested.get('patches-ignore')),
         )
         if not config.remote:
             raise GitNestedError(f"{path.as_posix()} has no 'remote'")

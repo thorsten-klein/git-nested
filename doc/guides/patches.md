@@ -148,6 +148,20 @@ same way and continue, until all patches are applied. Then run
 The patches are written again from the result, one per patch. Patches you
 split stay split.
 
+## Paths that stay local
+
+Changes in some paths need not go into a patch, for example a local config.
+List them in `.gitnested`:
+
+```yaml
+nested:
+  patches-ignore:
+    - config/local.yaml
+```
+
+`patches create` and `patches verify` leave them out. A pull keeps your
+copy, and upstream's changes there do not come in. A push leaves them out.
+
 ## Other commands
 
 - `push`: pushes your changes as usual. The folder is left out.
@@ -173,7 +187,7 @@ The patches do not work yet with:
   upstream, and the patches would have to be on that part.
 - `pull --no-squash` and `squash: false`: such a pull keeps upstream's
   history, and the patches are applied on a squashed upstream commit.
-- `pull --ignore`.
+- `pull --ignore`: use [`patches-ignore`](#paths-that-stay-local) instead.
 
 With these, `patches create` and `patches verify` stop with a message. If
 the folder already has a patch, the other commands stop too.

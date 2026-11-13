@@ -70,6 +70,7 @@ Fields that are not set take their default.
 | [`pin`](#pin) | empty | clone `--pin`, pull `--pin` | yes |
 | [`readonly`](#readonly) | `false` | you | yes |
 | [`patches`](#patches) | no patches | you | yes |
+| [`patches-ignore`](#patches-ignore) | nothing | you | no |
 | [`cmdver`](#cmdver) | | every write | no |
 
 ### `remote`
@@ -163,6 +164,19 @@ nested:
 ```
 
 See [Make your changes to nested repositories visible](../guides/patches.md).
+
+### `patches-ignore`
+
+Paths in the nested folder that stay local. Your changes there need no
+patch. A pull keeps your copy, and a push leaves it out. The paths are
+relative to the nested folder. One path, or a list:
+
+```yaml
+nested:
+  patches-ignore:
+    - config/local.yaml
+    - build
+```
 
 ### `cmdver`
 
