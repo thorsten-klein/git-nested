@@ -1,5 +1,7 @@
 """Tests for the `patches` field: local changes kept as patch files"""
 
+import re
+
 import pytest
 from conftest import cmd_git_nested
 
@@ -297,3 +299,71 @@ def test_reclone_without_any_patches_yet(foo_bar_cloned_and_nested):
     cmd_git_nested('clone --force ../../upstream/bar bar', cwd=foo)
     assert (foo / 'bar' / 'New').read_text() == "new\n"
     assert _patch_names(foo) == []
+
+
+def _split(patch, subjects):
+    """Split `patch` into one patch per changed file, as a user would by hand.
+
+    Each new patch gets the next subject and is named as format-patch
+    names it. The single patch is removed.
+    """
+    text = patch.read_bytes().decode()
+    header, *diffs = re.split(r'^(?=diff --git )', text, flags=re.MULTILINE)
+    header = header[: header.index('\n---\n') + 1]
+    diffs[-1] = diffs[-1][: diffs[-1].index('\n-- \n') + 1]
+    names = []
+    for number, (subject, diff) in enumerate(zip(subjects, diffs, strict=True), start=1):
+        name = f"{number:04d}-{subject.replace(' ', '-')}.patch"
+        own = header.replace("Subject: [PATCH] TODO: title", f"Subject: [PATCH] {subject}")
+        own = own.replace("TODO: description", f"{subject}.")
+        (patch.parent / name).write_bytes(f"{own}---\n{diff}".encode())
+        names.append(name)
+    patch.unlink()
+    return names
+
+
+def test_patches_split_by_hand_on_a_branch_survive_a_squash_merge_and_a_pull(foo_bar_cloned_and_nested):
+    """The usual way to work: change bar on a branch, have verify write the patch,
+    split it by hand, squash-merge the branch, and pull later on"""
+    env = foo_bar_cloned_and_nested
+    foo = env.workspace / 'foo'
+    cmd_git_nested(['config', 'bar', 'patches', FOLDER], cwd=foo)
+    _commit(env, foo, 'patches')
+
+    env.run(['git', 'checkout', '-q', '-b', 'feature'], cwd=foo)
+    (foo / 'bar' / 'Bar').write_bytes(b"local\n")
+    _commit(env, foo, 'change Bar')
+    (foo / 'bar' / 'Extra').write_bytes(b"extra\n")
+    _commit(env, foo, 'add Extra')
+
+    result = cmd_git_nested('verify bar', cwd=foo, check=False)
+    assert result.returncode == 1
+    assert f"wrote the missing patch bar/{FOLDER}/0001-TODO-title.patch" in result.output
+    names = _split(foo / 'bar' / FOLDER / '0001-TODO-title.patch', ["Change Bar", "Add Extra"])
+    assert names == ['0001-Change-Bar.patch', '0002-Add-Extra.patch']
+    _commit(env, foo, 'the patches')
+    assert cmd_git_nested('verify bar', cwd=foo).output.strip().endswith(" with 2 patches")
+
+    env.run(['git', 'checkout', '-q', 'master'], cwd=foo)
+    env.run(['git', 'merge', '-q', '--squash', 'feature'], cwd=foo)
+    env.run(['git', 'commit', '-q', '-m', 'feature, squashed'], cwd=foo)
+    env.run(['git', 'branch', '-q', '-D', 'feature'], cwd=foo)
+    assert _patch_names(foo) == names
+    assert cmd_git_nested('verify bar', cwd=foo).output.strip().endswith(" with 2 patches")
+
+    _upstream_change(env, 'New', "new\n")
+    cmd_git_nested('pull bar', cwd=foo)
+
+    assert (foo / 'bar' / 'New').read_bytes() == b"new\n"
+    assert (foo / 'bar' / 'Bar').read_bytes() == b"local\n"
+    assert (foo / 'bar' / 'Extra').read_bytes() == b"extra\n"
+    assert _patch_names(foo) == names
+    first, second = ((foo / 'bar' / FOLDER / name).read_text() for name in names)
+    assert "Subject: [PATCH] Change Bar" in first
+    assert "+local" in first
+    assert "Extra" not in first
+    assert "Subject: [PATCH] Add Extra" in second
+    assert "+extra" in second
+    assert "+local" not in second
+    assert env.run(['git', 'status', '--porcelain'], cwd=foo).stdout == ''
+    assert cmd_git_nested('verify bar', cwd=foo).output.strip().endswith(" with 2 patches")
