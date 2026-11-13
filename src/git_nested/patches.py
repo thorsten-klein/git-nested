@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import contextlib
 import posixpath
-import re
 import tempfile
 from collections.abc import Iterator
 from pathlib import Path, PurePosixPath
@@ -26,7 +25,6 @@ _FALLBACK_IDENTITY = ['-c', 'user.name=git-nested', '-c', 'user.email=git-nested
 # A patch with a subject that starts with this stays local: a push leaves it out.
 LOCAL_PREFIX = 'git-nested local:'
 
-_SUBJECT = re.compile(r'^Subject:\s*(?:\[[^]]*\]\s*)*(.*)$', re.MULTILINE)
 
 # The patch files in the patches folder.
 PATCH_GLOB = '*.patch'
@@ -124,8 +122,16 @@ def _local_problem(config: NestedConfig, patches: list[Path]) -> str | None:
 def _subject(git: GitRunner, patch: Path) -> str:
     """The title of `patch`, without `[PATCH]`."""
     with as_written(git, patch) as plain:
-        found = _SUBJECT.search(plain.read_text(encoding='utf-8', errors='replace'))
-    return found.group(1) if found else ''
+        lines = plain.read_text(encoding='utf-8', errors='replace').splitlines()
+    line = next((line for line in lines if line.startswith('Subject:')), '')
+    return _without_tags(line.removeprefix('Subject:').strip())
+
+
+def _without_tags(title: str) -> str:
+    """`title` without the `[...]` tags in front, like `[PATCH]`."""
+    while title.startswith('[') and ']' in title:
+        title = title[title.index(']') + 1 :].lstrip()
+    return title
 
 
 def local(git: GitRunner, config: NestedConfig, patches: list[Path]) -> list[Path]:
