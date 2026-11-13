@@ -156,15 +156,18 @@ def test_push_leaves_the_patches_folder_out(foo_bar_cloned_and_nested):
     assert env.run(['git', 'show', 'master:Bar'], cwd=upstream).stdout == "local\n"
 
 
-def test_reclone_puts_the_patches_back(foo_bar_cloned_and_nested):
+def test_reclone_starts_over_without_the_patches(foo_bar_cloned_and_nested):
+    """clone --force takes plain upstream, and empties the patches folder"""
     env = foo_bar_cloned_and_nested
     foo = _with_patches(env)
     _upstream_change(env, 'New', "new\n")
+    upstream_bar = env.run(['git', 'show', 'HEAD:Bar'], cwd=env.workspace / 'bar').stdout
 
     cmd_git_nested('clone --force ../../upstream/bar bar', cwd=foo)
-    assert (foo / 'bar' / 'Bar').read_text() == "local\n"
+    assert (foo / 'bar' / 'Bar').read_text() == upstream_bar
     assert (foo / 'bar' / 'New').read_text() == "new\n"
-    assert _patch_names(foo) == ['0001-TODO-title.patch']
+    assert _patch_names(foo) == []
+    assert env.run(['git', 'status', '--porcelain'], cwd=foo).stdout == ''
 
 
 def test_pull_keeps_nested_repos_inside(foo_bar_cloned_and_nested):
@@ -276,18 +279,6 @@ def test_pull_options_that_do_not_work_with_patches(foo_bar_cloned_and_nested, o
     foo = _with_patches(foo_bar_cloned_and_nested)
     result = cmd_git_nested(['pull', option, 'bar'], cwd=foo, check=False)
     assert message in result.output
-
-
-def test_reclone_stops_at_a_patch_that_does_not_apply(foo_bar_cloned_and_nested):
-    env = foo_bar_cloned_and_nested
-    foo = _with_patches(env)
-    _upstream_change(env, 'Bar', "upstream\n")
-    head = env.run(['git', 'rev-parse', 'HEAD'], cwd=foo).stdout
-
-    result = cmd_git_nested('clone --force ../../upstream/bar bar', cwd=foo, check=False)
-    assert result.returncode == 1
-    assert "bar: the patch 0001-TODO-title.patch does not apply on upstream " in result.output
-    assert env.run(['git', 'rev-parse', 'HEAD'], cwd=foo).stdout == head
 
 
 def test_commit_of_a_merge_writes_one_patch(foo_bar_cloned_and_nested):
@@ -435,17 +426,6 @@ def test_a_conflict_in_split_patches_is_resolved_patch_by_patch(foo_bar_cloned_a
     assert "Bar" not in second
     assert env.run(['git', 'status', '--porcelain'], cwd=foo).stdout == ''
     assert cmd_git_nested('patches verify bar', cwd=foo).output.strip().endswith(" with 2 patches")
-
-
-def test_reclone_names_a_first_patch_that_is_not_a_patch(foo_bar_cloned_and_nested):
-    env = foo_bar_cloned_and_nested
-    foo = _with_patches(env)
-    (foo / 'bar' / FOLDER / '0000-garbage.patch').write_bytes(b"garbage\n")
-    _commit(env, foo, 'garbage')
-
-    result = cmd_git_nested('clone --force ../../upstream/bar bar', cwd=foo, check=False)
-    assert result.returncode == 1
-    assert "bar: the patch 0000-garbage.patch does not apply on upstream " in result.output
 
 
 def _set(env, foo, line):

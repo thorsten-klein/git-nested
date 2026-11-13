@@ -196,7 +196,8 @@ copy, and upstream's changes there do not come in. A push leaves them out.
 
 - `push`: pushes your changes as usual. The folder is left out.
 - `push --commit`: upstream now has your changes. The folder is emptied.
-- `clone --force`: takes upstream again, and applies the patches on top.
+- `clone --force`: starts over. It takes upstream again and empties the
+  folder, so the local changes are gone.
 - `commit`: writes the patches from the nested branch.
 - `branch --from-patches`: builds the nested branch from upstream and the
   patches, one commit per patch. It stops if the patches do not give what
