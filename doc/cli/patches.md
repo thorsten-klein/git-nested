@@ -1,11 +1,12 @@
 # `git nested patches`
 
-Write or check the patches of a nested repository.
+Write, check or drop the patches of a nested repository.
 
 ```text
 git nested patches create [<options>] [<subdir>]
 git nested patches verify [<options>] [<subdir>]
 git nested patches verify --all
+git nested patches drop [<subdir>] <patch>...
 ```
 
 ## What it does
@@ -36,6 +37,17 @@ It does not commit the folder. Commit it yourself.
 `verify` only checks. It fails if a change is not in a patch, or if
 `create` would change a patch. Use it in CI.
 
+`drop` removes patches, and their changes from `<subdir>`:
+
+1. It checks that the patches hold all local changes, as a pull does.
+2. It applies the other patches on the upstream commit. If a later patch
+   needs a dropped one, it stops and changes nothing.
+3. It puts the result into `<subdir>`, writes the other patches again,
+   numbered without gaps, and commits both.
+
+Name each patch by its path or by its file name. The working tree must be
+clean.
+
 The patches folder is read as it is in your working tree. The rest of
 `<subdir>` is taken from `HEAD`.
 
@@ -45,7 +57,9 @@ The patches folder is read as it is in your working tree. The rest of
 |---|---|
 | `create` | write the missing patch, and all patches again |
 | `verify` | check that `create` would change nothing |
+| `drop` | remove patches, and their changes from `<subdir>` |
 | `<subdir>` | the nested repository. Can be left out inside it |
+| `<patch>` | `drop`: a patch to drop, by its path or file name |
 
 ## Options
 
@@ -59,6 +73,7 @@ The patches folder is read as it is in your working tree. The rest of
 git nested patches create ext/lib
 git nested patches verify ext/lib
 git nested patches verify --all
+git nested patches drop ext/lib 0002-Old-workaround.patch
 ```
 
 ## Notes

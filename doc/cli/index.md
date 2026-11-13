@@ -17,7 +17,7 @@ Each command has its own page. This page lists what they share.
 | [`fetch`](fetch.md) | fetch upstream content for a nested repository |
 | [`status`](status.md) | report on the nested repositories of this repository |
 | [`diff`](diff.md) | show a nested repository's local changes against upstream |
-| [`patches`](patches.md) | write or check the patches of a nested repository |
+| [`patches`](patches.md) | write, check or drop the patches of a nested repository |
 | [`verify`](verify.md) | check that a nested repository is its upstream commit plus patches or diffs |
 | [`branch`](branch.md) | create a branch holding the local nested commits |
 | [`run`](run.md) | run a git command in the worktree of a nested repository |

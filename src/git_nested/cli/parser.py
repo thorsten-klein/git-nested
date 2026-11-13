@@ -164,6 +164,7 @@ def parse_args(git: GitRunner, args_list: list[str]) -> tuple[str, CommandContex
         config_value=getattr(args, 'value', None),
         git_args=getattr(args, 'git_args', None),
         patches_action=getattr(args, 'action', None),
+        patch_names=getattr(args, 'patch_names', None),
         patches=patches,
         verify_mode=verify_mode,
     )
