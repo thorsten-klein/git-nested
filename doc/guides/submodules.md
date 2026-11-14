@@ -16,8 +16,14 @@ Each one stays at the commit upstream pins.
 
 ### Pull
 
-`pull` keeps them nested. After the pull, each one moves to the commit
-upstream pins now.
+`pull` keeps them nested. Each one is pulled to the commit upstream pins
+now. Your changes in it stay.
+
+If one of them stops on conflicts, finish it as the message says. Then run
+the same `pull` again. It updates the other ones.
+
+`pull --force` takes upstream as it is. Inner nested repositories lose
+their changes too. Add `--recurse-submodules` to nest them again.
 
 If upstream adds a new submodule, a plain pull leaves it empty. To nest it
 too:

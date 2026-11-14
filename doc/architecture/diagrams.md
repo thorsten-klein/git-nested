@@ -349,8 +349,11 @@ sequenceDiagram
         end
     end
 
-    opt Submodules of upstream that were nested, or --recurse-submodules
-        Note over git-nested: Nest each at the commit upstream pins now (as in clone)
+    opt Submodules of upstream that are nested
+        Note over git-nested: Put them back from HEAD, with your changes.<br/>Then pull each to the commit upstream pins now
+    end
+    opt --recurse-submodules
+        Note over git-nested: Nest each new one at the commit upstream pins (as in clone)
     end
 
     Note over git-nested: The commit message lists the new upstream commits
@@ -691,6 +694,7 @@ sequenceDiagram
         git-nested->>Git: ls-files -- <subdir>
         git-nested->>Git: rm -r -- <subdir>
         git-nested->>Git: read-tree --prefix=<subdir> -u <nested_commit_ref>
+        Note over git-nested: Inner nested repos: checkout HEAD -- <path>, not the gitlink
         Note over git-nested: Write .gitnested
         opt patches in use
             git-nested->>Git: checkout HEAD -- <inner repos added here>
@@ -707,6 +711,10 @@ sequenceDiagram
         git-nested->>Git: rev-parse --git-dir
         Note over git-nested: Remove empty parent dirs up to .git/tmp
         git-nested->>Git: update-ref refs/nested/<subref>/commit <nested_commit_ref>
+    end
+
+    opt Inner nested repos
+        Note over git-nested: Pull each to the commit upstream pins now (as in pull)
     end
 ```
 

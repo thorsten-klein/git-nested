@@ -48,6 +48,9 @@ git nested commit --file=msg.txt ext/lib
   it. Or pass `-F`.
 - The branch must contain the fetched upstream commit. Otherwise upstream
   changes would be lost. `--force` skips this check.
+- Nested repositories inside `<subdir>` stay nested, with your changes.
+  Then each one is pulled to the commit that upstream pins now, as `pull`
+  does.
 
 ## See also
 

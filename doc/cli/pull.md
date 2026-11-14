@@ -138,9 +138,13 @@ This pull always rebases. Without `--pin`, a merge pull never goes back.
   is recorded.
 - A pin stays where it is on a normal pull. Only `--pin` moves it,
   forward or back.
-- Submodules of upstream that are nested already stay nested. Each one moves
-  to the commit upstream pins after the pull. `--recurse-submodules` also
-  nests new ones.
+- Submodules of upstream that are nested already stay nested. Each one is
+  pulled to the commit upstream pins now. Your changes in it stay.
+  `--recurse-submodules` also nests new ones.
+- If one of them stops on conflicts, finish it. Then run the same pull
+  again. It updates the other ones.
+- With `--force`, nested repositories inside lose their changes too. See
+  [Upstream submodules](../guides/submodules.md).
 - A worktree left from an earlier pull blocks a new one. Finish it, or run
   [`clean`](clean.md).
 - Once the nested repository has [patches](../configuration/gitnested-file.md#patches),

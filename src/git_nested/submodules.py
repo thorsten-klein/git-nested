@@ -19,6 +19,16 @@ def gitlinks(git: GitRunner, subdir: Path) -> list[tuple[str, str]]:
     return links
 
 
+def gitlinks_at(git: GitRunner, tree: str) -> dict[str, str]:
+    """The submodules in `tree`, as {path: pinned commit}. Empty if there is no such tree."""
+    links = {}
+    for line in git.check_output(['ls-tree', '-r', '-z', tree], may_fail=True).split('\0'):
+        meta, _, path = line.partition('\t')
+        if meta.startswith('160000 '):
+            links[path] = meta.split()[2]
+    return links
+
+
 def entry(git: GitRunner, gitmodules: Path, path: str) -> tuple[str, str] | None:
     """The name and url `gitmodules` gives for the submodule at `path`, if any."""
     if not gitmodules.is_file():

@@ -5,7 +5,7 @@ from __future__ import annotations
 from .. import content, output, patches, refs, worktree
 from ..cli import setup
 from ..models import CommandContext
-from . import fetch
+from . import fetch, pull
 
 
 def cmd_commit(ctx: CommandContext) -> None:
@@ -37,4 +37,5 @@ def cmd_commit(ctx: CommandContext) -> None:
         # After a pull that stopped on a conflict, this commit finishes it
         command=worktree.stopped(git, subdir_worktree) or 'commit',
     )
+    pull.follow_inner(ctx, config, subdir)
     output.say(f"{subdir.as_posix()}: committed {nested_commit_ref}")
