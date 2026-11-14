@@ -94,6 +94,21 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: Set-MpPreference -DisableRealtimeMonitoring $true
+      # A Dev Drive is a fast ReFS drive. TEMP points there, so the test
+      # repos in tmp_path live on it.
+      - name: Set up Dev Drive
+        if: runner.os == 'Windows'
+        uses: samypr100/setup-dev-drive@v4.1.0
+        with:
+          drive-size: 8GB
+          drive-path: ${{ runner.temp }}/dev_drive.vhdx
+          trusted-dev-drive: true
+          env-mapping: |
+            TEMP,{{ DEV_DRIVE }}/tmp
+            TMP,{{ DEV_DRIVE }}/tmp
+      - name: Create temp dir on Dev Drive
+        if: runner.os == 'Windows'
+        run: mkdir -p "$TEMP" && echo "TEMP=$TEMP"
       - name: Install uv
         uses: astral-sh/setup-uv@v10.3.3
         with:
