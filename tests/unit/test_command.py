@@ -155,3 +155,18 @@ def test_check_existing_worktree_errors_without_gitnested(cmd, monkeypatch, tmp_
 def test_parse_args_method_shorthand_sets_the_method_flag(cmd, args, method):
     _command, ctx = cmd.parse_args(args)
     assert ctx.flags.method == method
+
+
+@pytest.mark.parametrize(
+    'args',
+    [
+        ['submodules', 'init', '--only', 'lib/core', '--only', 'third_party', '--resolve-relative', 'u'],
+        ['submodules', '--resolve-relative', 'u', 'init', '--only', 'lib/core', '--only', 'third_party'],
+        ['submodules', '--only', 'lib/core', 'init', '--only=third_party', '--resolve-relative=u'],
+    ],
+)
+def test_parse_args_submodules_options_keep_their_value(cmd, args):
+    _, ctx = cmd.parse_args(args)
+    assert ctx.submodules_action == 'init'
+    assert ctx.flags.only == ['lib/core', 'third_party']
+    assert ctx.flags.resolve_relative == 'u'

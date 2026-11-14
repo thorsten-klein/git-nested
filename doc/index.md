@@ -74,6 +74,7 @@ The full reference of the command line. There is one page per command.
 | [`push`](cli/push.md) | Send your changes upstream |
 | [`fetch`](cli/fetch.md) | Download upstream changes, change no file |
 | [`status`](cli/status.md) | Show all nested repositories |
+| [`submodules`](cli/submodules.md) | Turn all submodules into nested repositories |
 | [`diff`](cli/diff.md) | Compare a nested repository with upstream |
 | [`patches`](cli/patches.md) | Keep local changes as patch files |
 | [`verify`](cli/verify.md) | Check local changes against patch files |
@@ -100,6 +101,7 @@ cli/pull
 cli/push
 cli/fetch
 cli/status
+cli/submodules
 cli/diff
 cli/patches
 cli/verify

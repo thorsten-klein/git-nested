@@ -70,6 +70,9 @@ def _flags_from_args(args: argparse.Namespace) -> Flags:
         filter=getattr(args, 'filter', []),
         force=getattr(args, 'force', False),
         ignore=getattr(args, 'ignore', None),
+        only=getattr(args, 'only', None),
+        resolve_relative=getattr(args, 'resolve_relative', None),
+        recursive=getattr(args, 'recursive', False),
         from_submodule=getattr(args, 'from_submodule', False),
         from_patches=getattr(args, 'from_patches', False),
         local=getattr(args, 'local', False),
@@ -210,5 +213,6 @@ def parse_args(git: GitRunner, args_list: list[str]) -> tuple[str, CommandContex
         patch_names=getattr(args, 'patch_names', None),
         patches=patches,
         verify_mode=verify_mode,
+        submodules_action=getattr(args, 'submodules_action', None),
     )
     return args.command, context

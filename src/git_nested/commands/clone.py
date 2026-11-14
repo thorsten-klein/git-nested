@@ -182,6 +182,14 @@ def _clone_into(
     if flags.recurse_submodules:
         nest_submodules(git, flags, config, subdir)
     else:
+        _warn_about_submodules(git, flags, subdir)
+
+
+def _warn_about_submodules(git: GitRunner, flags: Flags, subdir: Path) -> None:
+    """Say which submodules stay empty, and what nests them."""
+    if flags.hint:
+        submodules.warn_if_any(git, subdir, f"use {flags.hint} to nest them")
+    else:
         submodules.warn_if_any(git, subdir)
 
 
@@ -206,10 +214,16 @@ def nest_submodules(git: GitRunner, flags: Flags, config: NestedConfig, subdir: 
 
 
 def clone_at(git: GitRunner, flags: Flags, subdir: Path, url: str, commit: str) -> None:
-    """Clone `url` at `commit` into subdir, and its submodules too."""
+    """Clone `url` at `commit` into subdir, and its submodules too.
+
+    Not its submodules if flags.submodules is 'keep'. flags.submodules goes
+    into .gitnested, and to the submodules nested here.
+    """
     inner = Flags(
         branch=commit,
-        recurse_submodules=True,
+        recurse_submodules=flags.submodules != 'keep',
+        submodules=flags.submodules,
+        hint=flags.hint,
         gpg_sign=flags.gpg_sign,
         signoff=flags.signoff,
         quiet=flags.quiet,

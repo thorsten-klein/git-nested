@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .. import filters, output, patchbuild, patches
+from .. import filters, history, output, patchbuild, patches
 from ..cli import setup
 from ..errors import GitNestedError
 from ..git import GitRunner
@@ -138,7 +138,9 @@ def cmd_verify(ctx: CommandContext) -> None:
 
     local_tree = git.check_output(['rev-parse', f'HEAD:{subdir.as_posix()}'])
     base = upstream_base(git, config, subref, subdir)
-    pathspec = patches.pathspec(patches.local_paths(git, config, subdir), filters.ignored_paths(ctx.flags, subdir))
+    # Nested repos inside are not upstream content of this one
+    ignored = [*filters.ignored_paths(ctx.flags, subdir), *history.gitlinked_inner(git, config, subdir)]
+    pathspec = patches.pathspec(patches.local_paths(git, config, subdir), ignored)
 
     path = ctx.tmp / 'verify' / subref
     with patchbuild.worktree_at(git, path, base, keep=ctx.flags.keep):

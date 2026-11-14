@@ -15,6 +15,7 @@ _VALID_VALUES: dict[str, tuple[str, ...]] = {
     'method': ('merge', 'rebase'),
     'squash': ('true', 'false'),
     'readonly': ('true', 'false'),
+    'submodules': ('nest', 'keep'),
 }
 
 

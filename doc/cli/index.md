@@ -16,6 +16,7 @@ Each command has its own page. This page lists what they share.
 | [`push`](push.md) | push a nested repository's local changes upstream |
 | [`fetch`](fetch.md) | fetch upstream content for a nested repository |
 | [`status`](status.md) | report on the nested repositories of this repository |
+| [`submodules`](submodules.md) | turn all submodules into nested repositories |
 | [`diff`](diff.md) | show a nested repository's local changes against upstream |
 | [`patches`](patches.md) | write, check, drop or cherry-pick the patches of a nested repository |
 | [`verify`](verify.md) | check that a nested repository is its upstream commit plus patches or diffs |

@@ -53,3 +53,18 @@ This:
 
 A relative submodule URL is resolved against the `origin` remote of your
 repository.
+
+## Turn a whole repository into one
+
+Your repository has many submodules, maybe submodules in submodules. You
+want all of them as plain files:
+
+```bash
+git nested submodules init --recursive
+```
+
+`init --recursive` nests all of them, at any depth. Without
+`--recursive`, it nests only the first level. `--only <path>` nests only
+some.
+
+See [`submodules`](../cli/submodules.md).

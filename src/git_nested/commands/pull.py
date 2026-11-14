@@ -325,7 +325,8 @@ def cmd_pull(ctx: CommandContext) -> None:
     follow_inner(ctx, config, subdir)
     if flags.recurse_submodules:
         clone.nest_submodules(git, flags, config, subdir)
-    submodules.warn_if_any(git, subdir)
+    elif config.submodules != 'keep':
+        submodules.warn_if_any(git, subdir)
     output.say(f"{subdir.as_posix()}: pulled from {config.remote} ({config.branch})")
 
 
@@ -348,7 +349,10 @@ def follow_inner(ctx: CommandContext, config: NestedConfig, subdir: Path) -> Non
 
 
 def pull_to(ctx: CommandContext, subdir: Path, url: str | None, pin: str) -> None:
-    """Pull subdir to `pin`, and from `url` if that is new. Local changes stay."""
+    """Pull subdir to `pin`, and from `url` if that is new. Local changes stay.
+
+    New submodules in it are nested, unless its .gitnested says 'keep'.
+    """
     current = NestedConfig.from_file(subdir / GITNESTED_FILENAME)
     if current.commit == pin:
         return
@@ -356,7 +360,7 @@ def pull_to(ctx: CommandContext, subdir: Path, url: str | None, pin: str) -> Non
         branch=pin,
         remote=url if url and url != current.remote else None,
         update=True,
-        recurse_submodules=True,
+        recurse_submodules=current.submodules != 'keep',
         gpg_sign=ctx.flags.gpg_sign,
         signoff=ctx.flags.signoff,
         quiet=ctx.flags.quiet,

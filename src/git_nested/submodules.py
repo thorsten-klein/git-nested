@@ -50,9 +50,14 @@ def url_of(git: GitRunner, gitmodules: Path, path: str, base: str) -> str | None
     return resolve(found[1], base) if found else None
 
 
+def is_relative(url: str) -> bool:
+    """Whether `url` is relative ('./x', '../x')."""
+    return url.startswith(('./', '../'))
+
+
 def resolve(url: str, base: str) -> str:
     """`url`, when relative ('./x', '../x'), resolved against `base`, as git does it."""
-    if not url.startswith(('./', '../')):
+    if not is_relative(url):
         return url
     scheme, sep, rest = base.rpartition('://')
     if not sep:
@@ -61,11 +66,8 @@ def resolve(url: str, base: str) -> str:
     return f'{scheme}{sep}{posixpath.normpath(posixpath.join(rest, url))}'
 
 
-def warn_if_any(git: GitRunner, subdir: Path) -> None:
-    """Say which submodules under subdir stay empty."""
+def warn_if_any(git: GitRunner, subdir: Path, advice: str = "use --recurse-submodules to nest them") -> None:
+    """Say which submodules under subdir stay empty, and what to do about it."""
     paths = [path.removeprefix(f'{subdir.as_posix()}/') for path, _ in gitlinks(git, subdir)]
     if paths:
-        output.warn(
-            f"{subdir.as_posix()}: these submodules stay empty: {', '.join(paths)}; "
-            "use --recurse-submodules to nest them"
-        )
+        output.warn(f"{subdir.as_posix()}: these submodules stay empty: {', '.join(paths)}; {advice}")
