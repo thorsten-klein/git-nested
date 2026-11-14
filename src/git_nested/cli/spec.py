@@ -277,12 +277,12 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
     (
         'abort',
         ('--abort',),
-        {'action': 'store_true', 'help': "throw away a 'submodules pull' that stopped on conflicts"},
+        {'action': 'store_true', 'help': "throw away a 'submodules update' that stopped on conflicts"},
     ),
     (
         'resume',
         ('--continue',),
-        {'action': 'store_true', 'dest': 'resume', 'help': "finish a 'submodules pull' that stopped on conflicts"},
+        {'action': 'store_true', 'dest': 'resume', 'help': "finish a 'submodules update' that stopped on conflicts"},
     ),
     ('remote', ('-r', '--remote'), {'dest': 'remote', 'help': "upstream remote to push/pull/fetch"}),
     (
@@ -383,14 +383,14 @@ POSITIONALS: dict[str, list[tuple[str, dict]]] = {
     'submodules': [
         (
             'submodules_action',
-            {'metavar': 'action', 'choices': ['init', 'merge', 'pull'], 'help': "init, merge or pull"},
+            {'metavar': 'action', 'choices': ['init', 'update'], 'help': "init or update"},
         ),
         (
             'submodules_args',
             {
                 'metavar': 'arg',
                 'nargs': '*',
-                'help': "merge: <commit>; pull: [<remote> [<branch>]]",
+                'help': "update: the commit to merge",
             },
         ),
     ],
@@ -492,11 +492,10 @@ COMMAND_DESCRIPTION: dict[str, str] = {
         "With --recursive, their submodules too. "
         "--only and --ignore pick some of them. "
         "A relative submodule url needs --resolve-relative. "
-        "'merge' merges an upstream commit and keeps its commits. It does not fetch. "
-        "'pull' fetches, then merges. "
+        "'update' merges an upstream commit and keeps its commits. It does not fetch. "
         "Then it changes the nested repositories the way upstream changed its submodules. "
         "Each changed submodule gets one commit. "
-        "On other conflicts, fix them and run --continue. Or give up with --abort. "
+        "On conflicts, fix them and run --continue. Or give up with --abort. "
         "--dry-run shows the changes and makes none."
     ),
     'verify': (
@@ -599,11 +598,10 @@ COMMAND_EXAMPLES: dict[str, list[str]] = {
         "git nested submodules init --recursive",
         "git nested submodules init --only lib/core",
         "git nested submodules init --resolve-relative https://github.com/org/project",
-        "git nested submodules pull",
-        "git nested submodules pull upstream main",
-        "git nested submodules pull --dry-run",
-        "git nested submodules merge upstream/main",
-        "git nested submodules pull --continue",
+        "git nested submodules update upstream/main",
+        "git nested submodules update --dry-run upstream/main",
+        "git nested submodules update v2.0",
+        "git nested submodules update --continue",
     ],
     'verify': [
         "git nested verify ext/lib --patches patches/lib/*.patch",

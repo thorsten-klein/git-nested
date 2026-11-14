@@ -135,13 +135,16 @@ def keep_inner_nested(git: GitRunner, flags: Flags, config: NestedConfig, subdir
     An inner nested repo comes back from `head`, with its local changes.
     Not with --force: that takes upstream as it is.
     With --recurse-submodules a new submodule is left out. It is nested next.
+    One that git skips, `update = none`, stays a submodule.
     """
     drop_new = flags.recurse_submodules and not (config.filter or config.exclude)
+    gitmodules = subdir / '.gitmodules'
     for path, _ in submodules.gitlinks(git, subdir):
+        relative = path.removeprefix(f'{subdir.as_posix()}/')
         if not flags.force and _was_nested(git, head, path):
             git.run(['update-index', '--force-remove', '--', path])
             git.run(['checkout', cast('str', head), '--', path])
-        elif drop_new:
+        elif drop_new and not submodules.skipped_by_git(git, gitmodules, relative):
             _drop_gitlink(git, Path(path))
 
 
@@ -200,16 +203,22 @@ def keep_upstream_bytes(git: GitRunner, flags: Flags, subdir: Path) -> None:
 
     For a submodule, the parent's attributes do not count. For a nested
     repo they do. A rule like '*.bat text eol=crlf' then shows upstream's
-    files as changed. This adds '-text' for them to .gitattributes, in a
-    commit of its own.
+    files as changed, or checks out LF files with CRLF. This adds '-text'
+    for them to .gitattributes, in a commit of its own.
     """
     changed = [path for path in git.check_output(['diff', '--name-only', '-z', '--', subdir]).split('\0') if path]
-    paths = [path for path in changed if _only_attributes_differ(git, path)]
+    converted = _converted_on_checkout(git, subdir)
+    paths = sorted({path for path in changed if _only_attributes_differ(git, path)} | set(converted))
     if not paths:
         return
     text = _GITATTRIBUTES.read_text(encoding='utf-8') if _GITATTRIBUTES.is_file() else ''
     with _GITATTRIBUTES.open('w', encoding='utf-8', newline='\n') as f:
         f.write(_with_rules(text, paths))
+    # Check them out again, now with upstream's bytes
+    for path in converted:
+        Path(path).unlink()
+    if converted:
+        git.run(['checkout', '--', *converted])
     git.run(['add', '--', _GITATTRIBUTES, *paths])
     output.say(f"{subdir.as_posix()}: .gitattributes keeps {len(paths)} files as upstream has them")
     message = f"git nested: keep {subdir.as_posix()} files as upstream has them"
@@ -224,6 +233,28 @@ def _with_rules(text: str, paths: list[str]) -> str:
     if _KEEP_BYTES_HEADER not in text:
         text += _KEEP_BYTES_HEADER
     return text + ''.join(f"{_attribute_pattern(path)} -text\n" for path in paths)
+
+
+def _converted_on_checkout(git: GitRunner, subdir: Path) -> list[str]:
+    """The files in subdir that git checked out with other line endings than their blob has."""
+    converted = []
+    for entry in git.check_output(['ls-files', '--eol', '-z', '--', subdir]).split('\0'):
+        info, _, path = entry.partition('\t')
+        ends = info.split()[:2]
+        if path and len(ends) == 2 and ends[0][2:] and ends[1][2:] and ends[0][2:] != ends[1][2:]:
+            converted.append(path)
+    return converted
+
+
+def split_keep_block(text: str) -> tuple[str, str]:
+    """`text` of .gitattributes without git-nested's block, and the block. The block is '' if there is none."""
+    lines = text.splitlines(keepends=True)
+    if _KEEP_BYTES_HEADER not in lines:
+        return text, ''
+    start = end = lines.index(_KEEP_BYTES_HEADER)
+    while end + 1 < len(lines) and lines[end + 1].rstrip().endswith(' -text'):
+        end += 1
+    return ''.join(lines[:start] + lines[end + 1 :]), ''.join(lines[start : end + 1])
 
 
 def _only_attributes_differ(git: GitRunner, path: str) -> bool:

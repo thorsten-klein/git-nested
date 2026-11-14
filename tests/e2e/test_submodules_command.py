@@ -69,8 +69,14 @@ def _make_mid(env):
     return url
 
 
-def _pull(env, *args, check=True):
-    return cmd_git_nested(['submodules', 'pull', *args], env.fork, check=check)
+def _update(env, *args, check=True):
+    return cmd_git_nested(['submodules', 'update', *args], env.fork, check=check)
+
+
+def _fetch_and_update(env, *args, remote='origin', check=True):
+    """Fetch `remote`, then update to its master."""
+    env.run(['git', 'fetch', '-q', remote], cwd=env.fork)
+    return _update(env, f'{remote}/master', *args, check=check)
 
 
 # ============================================================================
@@ -99,7 +105,7 @@ def _top_dirs_per_commit(env, repo, base):
     return sorted(dirs, key=sorted)
 
 
-def _last_merge(env, repo):
+def _last_update(env, repo):
     return env.run(['git', 'rev-list', '--merges', '-1', 'HEAD'], cwd=repo).output.strip()
 
 
@@ -177,15 +183,19 @@ def _upstream_bumps_inner_of_mid(env):
     return git_rev_parse(['HEAD:inner'], cwd=mid)
 
 
-def test_pull_keeps_a_deeper_submodule_as_init_left_it(foo_bar_cloned):
+def test_update_keeps_a_deeper_submodule_as_init_left_it(foo_bar_cloned):
     env = foo_bar_cloned
     _upstream_adds_submodule(env, _make_mid(env), 'mid')
     env.fork = env.workspace / 'fork'
     clone_repo((env.upstream / 'bar').as_posix(), env.fork)
     cmd_git_nested('submodules init', cwd=env.fork)
     pinned = _upstream_bumps_inner_of_mid(env)
+    env.run(['git', 'fetch', '-q'], cwd=env.fork)
+    preview = _update(env, 'origin/master', '--dry-run').output
+    assert 'mid: would pull to' in preview
+    assert 'mid/inner' not in preview
 
-    _pull(env)
+    _fetch_and_update(env)
 
     entry = env.run(['git', 'ls-tree', 'HEAD', 'mid/inner'], cwd=env.fork).output.split()
     assert entry[:3] == ['160000', 'commit', pinned]
@@ -198,7 +208,7 @@ def test_a_new_submodule_follows_the_choice_of_the_others(fork):
     env.run(['git', 'commit', '-qam', 'keep the submodules of sub'], cwd=env.fork)
     _upstream_adds_submodule(env, _make_mid(env), 'mid')
 
-    result = _pull(env)
+    result = _fetch_and_update(env)
 
     assert_gitnested_field(env.fork / 'mid' / '.gitnested', submodules='keep')
     assert _gitlinks(env, env.fork) == ['mid/inner']
@@ -311,13 +321,13 @@ def _module(env, key):
     return env.run(['git', 'config', '-f', '.gitmodules', key], cwd=env.fork, check=False).output.strip()
 
 
-def test_pull_keeps_a_new_submodule_that_init_ignores(foo_bar_cloned):
+def test_update_keeps_a_new_submodule_that_init_ignores(foo_bar_cloned):
     env = foo_bar_cloned
     _partial_fork(env, '--ignore', 'ext')
     pinned = _upstream_adds_submodule(env, env.upstream / 'foo', 'ext/new')
 
-    assert 'ext/new' not in _pull(env, '--dry-run').output
-    _pull(env)
+    assert 'ext/new' not in _fetch_and_update(env, '--dry-run').output
+    _fetch_and_update(env)
 
     assert _gitlinks(env, env.fork) == ['ext/lib', 'ext/more', 'ext/new']
     assert env.run(['git', 'ls-tree', 'HEAD', 'ext/new'], cwd=env.fork).output.split()[2] == pinned
@@ -325,22 +335,22 @@ def test_pull_keeps_a_new_submodule_that_init_ignores(foo_bar_cloned):
     assert _module(env, 'nested.ignore') == 'ext'
 
 
-def test_pull_keeps_a_new_submodule_outside_of_only(foo_bar_cloned):
+def test_update_keeps_a_new_submodule_outside_of_only(foo_bar_cloned):
     env = foo_bar_cloned
     _partial_fork(env, '--only', 'sub')
     _upstream_adds_submodule(env, env.upstream / 'foo', 'other')
 
-    _pull(env)
+    _fetch_and_update(env)
 
     assert _gitlinks(env, env.fork) == ['ext/lib', 'ext/more', 'other']
 
 
-def test_pull_nests_a_new_submodule_that_init_selects(foo_bar_cloned):
+def test_update_nests_a_new_submodule_that_init_selects(foo_bar_cloned):
     env = foo_bar_cloned
     _partial_fork(env, '--only', 'ext')
     _upstream_adds_submodule(env, env.upstream / 'foo', 'ext/new')
 
-    _pull(env)
+    _fetch_and_update(env)
 
     assert (env.fork / 'ext' / 'new' / '.gitnested').is_file()
     assert _gitlinks(env, env.fork) == ['sub']
@@ -352,14 +362,14 @@ def _set_url(env, path, url):
     _push_bar(env, f'new url for {path}')
 
 
-def test_pull_takes_a_new_url_of_a_kept_submodule(foo_bar_cloned):
+def test_update_takes_a_new_url_of_a_kept_submodule(foo_bar_cloned):
     env = foo_bar_cloned
     _partial_fork(env, '--ignore', 'ext')
     (env.fork / '.gitmodules').write_text("# mine\n" + (env.fork / '.gitmodules').read_text())
     env.run(['git', 'commit', '-qam', 'my note in .gitmodules'], cwd=env.fork)
     _set_url(env, 'ext/lib', 'https://example.com/lib.git')
 
-    _pull(env)
+    _fetch_and_update(env)
 
     assert _module(env, 'submodule.ext/lib.url') == 'https://example.com/lib.git'
     assert '# mine' in (env.fork / '.gitmodules').read_text()
@@ -373,19 +383,19 @@ def test_a_conflict_in_gitmodules_stops_and_continues(foo_bar_cloned):
     env.run(['git', 'commit', '-qam', 'my url'], cwd=env.fork)
     _set_url(env, 'ext/lib', 'https://theirs/lib.git')
 
-    result = _pull(env, check=False)
+    result = _fetch_and_update(env, check=False)
 
     assert 'the merge has conflicts in: .gitmodules' in result.output
     assert '# <<<<<<< HEAD' in (env.fork / '.gitmodules').read_text()
     assert env.run(['git', 'config', '-f', '.gitmodules', '--list'], cwd=env.fork).returncode == 0
     env.run(['git', 'checkout', '--ours', '.gitmodules'], cwd=env.fork)
     env.run(['git', 'add', '.gitmodules'], cwd=env.fork)
-    _pull(env, '--continue')
+    _update(env, '--continue')
     assert _module(env, 'submodule.ext/lib.url') == 'https://mine/lib.git'
     assert env.run(['git', 'status', '--porcelain'], cwd=env.fork).output == ''
 
 
-def test_pull_follows_a_kept_submodule_that_upstream_moved(foo_bar_cloned):
+def test_update_follows_a_kept_submodule_that_upstream_moved(foo_bar_cloned):
     env = foo_bar_cloned
     _partial_fork(env, '--ignore', 'ext')
     bar = env.workspace / 'bar'
@@ -393,7 +403,7 @@ def test_pull_follows_a_kept_submodule_that_upstream_moved(foo_bar_cloned):
     env.run(['git', 'commit', '-qm', 'move ext/lib'], cwd=bar)
     env.run(['git', 'push', '-q'], cwd=bar)
 
-    _pull(env)
+    _fetch_and_update(env)
 
     assert _gitlinks(env, env.fork) == ['ext/more', 'ext/moved']
     assert _module(env, 'submodule.ext/lib.path') == 'ext/moved'
@@ -411,7 +421,7 @@ def test_init_refuses_a_path_without_a_submodule(foo_bar_cloned):
     assert git_rev_parse(['HEAD'], cwd=repo) == head
 
 
-def test_pull_after_a_partial_init(foo_bar_cloned):
+def test_update_after_a_partial_init(foo_bar_cloned):
     """The nested one follows upstream. The other stays a submodule."""
     env = foo_bar_cloned
     _upstream_adds_submodule(env, env.upstream / 'foo', 'other')
@@ -421,41 +431,29 @@ def test_pull_after_a_partial_init(foo_bar_cloned):
     cmd_git_nested('submodules init --only sub', cwd=env.fork)
     pinned = _upstream_bumps_sub(env)
 
-    _pull(env)
+    _fetch_and_update(env)
 
     assert_gitnested_field(env.fork / 'sub' / '.gitnested', commit=pinned)
     assert _gitlinks(env, env.fork) == ['other']
 
 
 # ============================================================================
-# submodules pull
+# submodules update
 # ============================================================================
 
 
-def test_pull_keeps_each_upstream_commit(fork):
+def test_update_keeps_each_upstream_commit(fork):
     """Upstream commits keep their SHAs."""
     env = fork
     first = _upstream_commit(env, 'one')
     second = _upstream_commit(env, 'two')
     env.add_new_files('local', cwd=env.fork)
 
-    _pull(env)
+    _fetch_and_update(env)
 
     assert _is_ancestor(env, env.fork, first)
     assert git_rev_parse(['HEAD^2'], cwd=env.fork) == second
     assert (env.fork / 'two').is_file()
-    _assert_flat(env, env.fork)
-
-
-def test_pull_from_another_remote(fork):
-    """Like git pull: a remote and a branch can be given."""
-    env = fork
-    env.run(['git', 'remote', 'add', 'upstream', env.upstream / 'bar'], cwd=env.fork)
-    tip = _upstream_commit(env, 'one')
-
-    _pull(env, 'upstream', 'master')
-
-    assert _is_ancestor(env, env.fork, tip)
     _assert_flat(env, env.fork)
 
 
@@ -465,100 +463,69 @@ def _git_merge(env):
     return env.run(['git', 'merge', '--no-edit', 'origin/master'], cwd=env.fork, check=False)
 
 
-def test_pull_finishes_a_git_merge(fork):
+def test_update_during_a_git_merge_says_what_to_do(fork):
     env = fork
-    pinned = _upstream_bumps_sub(env)
-    tip = git_rev_parse(['HEAD'], cwd=env.workspace / 'bar')
+    _upstream_bumps_sub(env)
     assert _git_merge(env).returncode != 0
 
-    assert 'would merge 1 commits of the merge in progress' in _pull(env, '--dry-run').output
-    _pull(env)
+    result = _update(env, check=False)
 
-    assert_gitnested_field(env.fork / 'sub' / '.gitnested', commit=pinned)
-    assert _is_ancestor(env, env.fork, tip)
-    _assert_flat(env, env.fork)
-
-
-def test_merge_finishes_a_git_merge(fork):
-    env = fork
-    pinned = _upstream_bumps_sub(env)
-    _git_merge(env)
-
-    _merge(env)
-
-    assert_gitnested_field(env.fork / 'sub' / '.gitnested', commit=pinned)
-    _assert_flat(env, env.fork)
+    assert result.returncode == 1
+    assert "a git merge is in progress. Run 'git merge --abort'." in result.output
+    assert "'git nested submodules update <commit>'" in result.output
 
 
-def test_a_git_merge_with_other_conflicts_stops(fork):
-    env = fork
-    (env.fork / 'Bar').write_text("mine\n")
-    env.run(['git', 'commit', '-qam', 'my Bar'], cwd=env.fork)
-    (env.workspace / 'bar' / 'Bar').write_text("theirs\n")
-    _push_bar(env, 'their Bar')
-    _upstream_bumps_sub(env)
-    _git_merge(env)
-
-    result = _pull(env, check=False)
-
-    assert 'the merge has conflicts in: Bar' in result.output
-    env.run(['git', 'checkout', '--theirs', 'Bar'], cwd=env.fork)
-    env.run(['git', 'add', 'Bar'], cwd=env.fork)
-    _pull(env, '--continue')
-    _assert_flat(env, env.fork)
-
-
-def test_pull_moves_a_submodule_that_upstream_bumped(fork):
+def test_update_moves_a_submodule_that_upstream_bumped(fork):
     env = fork
     pinned = _upstream_bumps_sub(env)
 
-    _pull(env)
+    _fetch_and_update(env)
 
     assert (env.fork / 'sub' / 'FooNew').is_file()
     assert_gitnested_field(env.fork / 'sub' / '.gitnested', commit=pinned)
     _assert_flat(env, env.fork)
 
 
-def test_pull_keeps_local_changes_in_a_submodule(fork):
+def test_update_keeps_local_changes_in_a_submodule(fork):
     env = fork
     env.modify_files('sub/Foo', text='local', cwd=env.fork)
     _upstream_bumps_sub(env)
 
-    _pull(env)
+    _fetch_and_update(env)
 
     assert 'local' in (env.fork / 'sub' / 'Foo').read_text()
     assert (env.fork / 'sub' / 'FooNew').is_file()
     _assert_flat(env, env.fork)
 
 
-def test_pull_makes_one_commit_per_submodule(fork):
+def test_update_makes_one_commit_per_submodule(fork):
     """One commit per changed submodule after the merge."""
     env = fork
     _upstream_bumps_sub(env)
     _upstream_adds_submodule(env, env.upstream / 'foo', 'lib')
 
-    _pull(env)
+    _fetch_and_update(env)
 
-    assert _top_dirs_per_commit(env, env.fork, _last_merge(env, env.fork)) == [{'lib'}, {'sub'}]
+    assert _top_dirs_per_commit(env, env.fork, _last_update(env, env.fork)) == [{'lib'}, {'sub'}]
     _assert_flat(env, env.fork)
 
 
-def test_pull_nests_a_new_submodule(fork):
+def test_update_nests_a_new_submodule(fork):
     env = fork
     pinned = _upstream_adds_submodule(env, env.upstream / 'foo', 'lib')
 
-    _pull(env)
+    _fetch_and_update(env)
 
     assert (env.fork / 'lib' / 'Foo').is_file()
     assert_gitnested_field(env.fork / 'lib' / '.gitnested', remote=(env.upstream / 'foo').as_posix(), commit=pinned)
     _assert_flat(env, env.fork)
 
 
-def test_pull_nests_submodules_of_a_new_submodule(fork):
+def test_update_nests_submodules_of_a_new_submodule(fork):
     env = fork
     _upstream_adds_submodule(env, _make_mid(env), 'mid')
 
-    _pull(env)
+    _fetch_and_update(env)
 
     assert (env.fork / 'mid' / 'Mid').is_file()
     assert (env.fork / 'mid' / '.gitnested').is_file()
@@ -567,21 +534,21 @@ def test_pull_nests_submodules_of_a_new_submodule(fork):
     _assert_flat(env, env.fork)
 
 
-def test_pull_removes_a_submodule_that_upstream_dropped(fork):
+def test_update_removes_a_submodule_that_upstream_dropped(fork):
     """The fork's own nested repos stay."""
     env = fork
     cmd_git_nested(['clone', (env.upstream / 'foo').as_posix(), 'own'], env.fork)
     env.run(['git', 'rm', '-q', 'sub'], cwd=env.workspace / 'bar')
     _push_bar(env, 'drop sub')
 
-    _pull(env)
+    _fetch_and_update(env)
 
     assert not (env.fork / 'sub').exists()
     assert (env.fork / 'own' / '.gitnested').is_file()
     _assert_flat(env, env.fork)
 
 
-def test_pull_follows_a_moved_submodule(fork):
+def test_update_follows_a_moved_submodule(fork):
     """Local changes move along."""
     env = fork
     env.modify_files('sub/Foo', text='local', cwd=env.fork)
@@ -589,7 +556,7 @@ def test_pull_follows_a_moved_submodule(fork):
     env.run(['git', 'mv', 'sub', 'ext/sub'], cwd=env.workspace / 'bar')
     _push_bar(env, 'move sub')
 
-    _pull(env)
+    _fetch_and_update(env)
 
     assert not (env.fork / 'sub').exists()
     assert 'local' in (env.fork / 'ext' / 'sub' / 'Foo').read_text()
@@ -597,7 +564,7 @@ def test_pull_follows_a_moved_submodule(fork):
     _assert_flat(env, env.fork)
 
 
-def test_pull_keeps_a_real_submodule(foo_bar_cloned):
+def test_update_keeps_a_real_submodule(foo_bar_cloned):
     """A submodule that the fork did not nest stays a submodule."""
     env = foo_bar_cloned
     _upstream_adds_submodule(env, env.upstream / 'foo', 'sub')
@@ -606,27 +573,27 @@ def test_pull_keeps_a_real_submodule(foo_bar_cloned):
     env.add_new_files('local', cwd=env.fork)
     pinned = _upstream_bumps_sub(env)
 
-    _pull(env)
+    _fetch_and_update(env)
 
     entry = env.run(['git', 'ls-tree', 'HEAD', 'sub'], cwd=env.fork).output.split()
     assert entry[:3] == ['160000', 'commit', pinned]
     assert not (env.fork / 'sub' / '.gitnested').exists()
 
 
-def test_pull_follows_a_new_url(fork):
+def test_update_follows_a_new_url(fork):
     env = fork
     mirror = env.upstream / 'foo-mirror'
     env.run(['git', 'clone', '-q', '--bare', env.upstream / 'foo', mirror])
     env.run(['git', 'submodule', 'set-url', 'sub', mirror.as_posix()], cwd=env.workspace / 'bar')
     _push_bar(env, 'move sub to a mirror')
 
-    _pull(env)
+    _fetch_and_update(env)
 
     assert_gitnested_field(env.fork / 'sub' / '.gitnested', remote=mirror.as_posix())
     _assert_flat(env, env.fork)
 
 
-def test_pull_stops_on_a_conflict_and_continues(fork):
+def test_update_stops_on_a_conflict_and_continues(fork):
     """You fix other conflicts. Then --continue finishes."""
     env = fork
     env.modify_files('Bar', text='fork', cwd=env.fork)
@@ -634,15 +601,15 @@ def test_pull_stops_on_a_conflict_and_continues(fork):
     env.run(['git', 'push', '-q'], cwd=env.workspace / 'bar')
     pinned = _upstream_bumps_sub(env)
 
-    result = _pull(env, check=False)
+    result = _fetch_and_update(env, check=False)
 
     assert result.returncode == 1
     assert 'Bar' in result.output
-    assert 'submodules pull --continue' in result.output
+    assert 'submodules update --continue' in result.output
 
     (env.fork / 'Bar').write_text('both\n')
     env.run(['git', 'add', 'Bar'], cwd=env.fork)
-    _pull(env, '--continue')
+    _update(env, '--continue')
 
     assert _is_ancestor(env, env.fork, git_rev_parse(['origin/master'], cwd=env.fork))
     assert (env.fork / 'Bar').read_text() == 'both\n'
@@ -650,20 +617,20 @@ def test_pull_stops_on_a_conflict_and_continues(fork):
     _assert_flat(env, env.fork)
 
 
-def test_pull_twice_changes_nothing(fork):
+def test_update_twice_changes_nothing(fork):
     env = fork
     _upstream_bumps_sub(env)
-    _pull(env)
+    _fetch_and_update(env)
     head = git_rev_parse(['HEAD'], cwd=env.fork)
 
-    result = _pull(env)
+    result = _fetch_and_update(env)
 
     assert 'already up to date' in result.output
     assert git_rev_parse(['HEAD'], cwd=env.fork) == head
 
 
 # ============================================================================
-# submodules pull: stopping, aborting, errors
+# submodules update: stopping, aborting, errors
 # ============================================================================
 
 
@@ -675,39 +642,41 @@ def _conflict_in_bar(env):
     return _upstream_bumps_sub(env)
 
 
-def test_pull_abort(fork):
+def test_update_abort(fork):
     env = fork
     _conflict_in_bar(env)
     head = git_rev_parse(['HEAD'], cwd=env.fork)
-    assert _pull(env, check=False).returncode == 1
+    assert _fetch_and_update(env, check=False).returncode == 1
 
-    result = _pull(env, '--abort')
+    result = _update(env, '--abort')
 
     assert 'aborted' in result.output
     assert git_rev_parse(['HEAD'], cwd=env.fork) == head
     assert env.run(['git', 'status', '--porcelain'], cwd=env.fork).output == ''
-    assert 'stopped before' not in _pull(env, check=False).output
+    assert 'stopped before' not in _fetch_and_update(env, check=False).output
 
 
-def test_pull_continue_after_the_merge_was_aborted(fork):
+def test_update_continue_after_the_merge_was_aborted(fork):
     """--continue does not update submodules for a merge that is gone."""
     env = fork
     _conflict_in_bar(env)
-    _pull(env, check=False)
+    _fetch_and_update(env, check=False)
     env.run(['git', 'merge', '--abort'], cwd=env.fork)
     before = (env.fork / 'sub' / '.gitnested').read_text()
 
-    result = _pull(env, '--continue', check=False)
+    result = _update(env, '--continue', check=False)
 
     assert result.returncode == 1
-    assert 'submodules pull --abort' in result.output
+    assert 'submodules update --abort' in result.output
     assert (env.fork / 'sub' / '.gitnested').read_text() == before
 
 
-def test_pull_from_a_repo_without_common_history(fork):
+def test_update_from_a_repo_without_common_history(fork):
     env = fork
 
-    result = _pull(env, (env.upstream / 'foo').as_posix(), 'master', check=False)
+    env.run(['git', 'fetch', '-q', env.upstream / 'foo', 'master'], cwd=env.fork)
+
+    result = _update(env, 'FETCH_HEAD', check=False)
 
     assert result.returncode == 1
     assert 'has no history in common with this branch' in result.output
@@ -718,66 +687,56 @@ def test_a_failed_merge_leaves_nothing_to_continue(fork):
     env = fork
     _upstream_commit(env, 'one')
     (env.fork / 'one').write_text('mine\n')
-    result = _pull(env, check=False)
+    result = _fetch_and_update(env, check=False)
     assert result.returncode == 1
     assert 'the merge of origin/master failed' in result.output
     (env.fork / 'one').unlink()
 
     tip = _upstream_commit(env, 'two')
-    _pull(env)
+    _fetch_and_update(env)
 
     assert _is_ancestor(env, env.fork, tip)
 
 
 def test_continue_or_abort_without_a_pull(fork):
     env = fork
-    assert _pull(env, '--continue', check=False).returncode == 1
-    assert _pull(env, '--abort', check=False).returncode == 1
+    assert _update(env, '--continue', check=False).returncode == 1
+    assert _update(env, '--abort', check=False).returncode == 1
 
 
-def test_pull_on_a_detached_head(fork):
+def test_update_on_a_detached_head(fork):
     env = fork
     env.run(['git', 'checkout', '-q', '--detach'], cwd=env.fork)
 
-    result = _pull(env, check=False)
+    result = _fetch_and_update(env, check=False)
 
     assert result.returncode == 1
     assert 'detached' in result.output
 
 
-def test_pull_without_an_upstream_branch(fork):
-    env = fork
-    env.run(['git', 'checkout', '-q', '-b', 'topic'], cwd=env.fork)
-
-    result = _pull(env, check=False)
-
-    assert result.returncode == 1
-    assert 'no upstream' in result.output
-
-
-def test_pull_signoff(fork):
+def test_update_signoff(fork):
     env = fork
     _upstream_commit(env, 'one')
 
-    _pull(env, '--signoff')
+    _fetch_and_update(env, '--signoff')
 
-    message = env.run(['git', 'log', '-1', '--format=%B', _last_merge(env, env.fork)], cwd=env.fork).output
+    message = env.run(['git', 'log', '-1', '--format=%B', _last_update(env, env.fork)], cwd=env.fork).output
     assert 'Signed-off-by:' in message
 
 
-def test_pull_warns_about_changes_in_a_dropped_submodule(fork):
+def test_update_warns_about_changes_in_a_dropped_submodule(fork):
     env = fork
     env.modify_files('sub/Foo', text='local', cwd=env.fork)
     env.run(['git', 'rm', '-q', 'sub'], cwd=env.workspace / 'bar')
     _push_bar(env, 'drop sub')
 
-    result = _pull(env)
+    result = _fetch_and_update(env)
 
     assert 'sub: your changes in it go too' in result.output
     assert not (env.fork / 'sub').exists()
 
 
-def test_pull_keeps_a_moved_submodule_if_the_path_is_taken(fork):
+def test_update_keeps_a_moved_submodule_if_the_path_is_taken(fork):
     """The fork has its own ext/sub. sub stays where it is."""
     env = fork
     env.add_new_files('ext/sub/mine', cwd=env.fork)
@@ -785,7 +744,7 @@ def test_pull_keeps_a_moved_submodule_if_the_path_is_taken(fork):
     env.run(['git', 'mv', 'sub', 'ext/sub'], cwd=env.workspace / 'bar')
     _push_bar(env, 'move sub')
 
-    result = _pull(env)
+    result = _fetch_and_update(env)
 
     assert 'that path is taken' in result.output
     assert 'ext/sub: the path is taken' in result.output
@@ -823,7 +782,7 @@ def test_relative_urls_in_a_fork(foo_bar_cloned):
     env.run(['git', 'remote', 'add', 'upstream', env.upstream / 'bar'], cwd=env.fork)
     cmd_git_nested(['submodules', 'init', '--resolve-relative', (env.upstream / 'bar').as_posix()], cwd=env.fork)
     pinned = _upstream_bumps_sub(env)
-    _pull(env, 'upstream', 'master')
+    _fetch_and_update(env, remote='upstream')
 
     remote = (env.upstream / 'foo').as_posix()
     assert_gitnested_field(env.fork / 'sub' / '.gitnested', remote=remote, commit=pinned)
@@ -831,28 +790,24 @@ def test_relative_urls_in_a_fork(foo_bar_cloned):
 
 
 # ============================================================================
-# submodules merge
+# submodules update <commit>
 # ============================================================================
 
 
-def _merge(env, *args, check=True):
-    return cmd_git_nested(['submodules', 'merge', *args], env.fork, check=check)
-
-
-def test_merge_a_fetched_branch(fork):
+def test_update_a_fetched_branch(fork):
     env = fork
     pinned = _upstream_bumps_sub(env)
     tip = git_rev_parse(['HEAD'], cwd=env.workspace / 'bar')
     env.run(['git', 'fetch', '-q'], cwd=env.fork)
 
-    _merge(env, 'origin/master')
+    _update(env, 'origin/master')
 
     assert _is_ancestor(env, env.fork, tip)
     assert_gitnested_field(env.fork / 'sub' / '.gitnested', commit=pinned)
     _assert_flat(env, env.fork)
 
 
-def test_merge_a_tag(fork):
+def test_update_a_tag(fork):
     env = fork
     pinned = _upstream_bumps_sub(env)
     env.run(['git', 'tag', 'v2'], cwd=env.workspace / 'bar')
@@ -860,32 +815,32 @@ def test_merge_a_tag(fork):
     _upstream_commit(env, 'after-v2')
     env.run(['git', 'fetch', '-q', '--tags'], cwd=env.fork)
 
-    _merge(env, 'v2')
+    _update(env, 'v2')
 
     assert_gitnested_field(env.fork / 'sub' / '.gitnested', commit=pinned)
     assert not (env.fork / 'after-v2').exists()
     _assert_flat(env, env.fork)
 
 
-def test_merge_does_not_fetch(fork):
+def test_update_does_not_fetch(fork):
     env = fork
     _upstream_commit(env, 'one')
 
-    result = _merge(env, 'origin/master')
+    result = _update(env, 'origin/master')
 
     assert 'already up to date' in result.output
 
 
-def test_merge_needs_a_known_commit(fork):
+def test_update_needs_a_known_commit(fork):
     env = fork
 
-    result = _merge(env, 'nope', check=False)
+    result = _update(env, 'nope', check=False)
 
     assert result.returncode == 1
     assert 'nope: no such commit. Fetch it first.' in result.output
 
 
-def test_merge_resolves_relative_urls_against_the_remote_of_the_ref(foo_bar_cloned):
+def test_update_resolves_relative_urls_against_the_remote_of_the_ref(foo_bar_cloned):
     env = foo_bar_cloned
     bar = env.workspace / 'bar'
     env.run(['git', *ALLOW_FILE, 'submodule', 'add', '-q', '../foo', 'sub'], cwd=bar)
@@ -901,22 +856,10 @@ def test_merge_resolves_relative_urls_against_the_remote_of_the_ref(foo_bar_clon
     _push_bar(env, 'lib is relative')
     env.run(['git', 'fetch', '-q', 'upstream'], cwd=env.fork)
 
-    _merge(env, 'upstream/master')
+    _update(env, 'upstream/master')
 
     assert_gitnested_field(env.fork / 'lib' / '.gitnested', remote=(env.upstream / 'foo').as_posix())
     _assert_flat(env, env.fork)
-
-
-def test_pull_hints_at_merge_for_a_ref(fork):
-    env = fork
-    env.run(['git', 'fetch', '-q'], cwd=env.fork)
-
-    result = _pull(env, 'origin/master', check=False)
-
-    assert result.returncode == 1
-    assert "origin/master is not a remote. To merge it, run 'git nested submodules merge origin/master'." in (
-        result.output
-    )
 
 
 # ============================================================================
@@ -924,7 +867,7 @@ def test_pull_hints_at_merge_for_a_ref(fork):
 # ============================================================================
 
 
-def test_pull_dry_run_changes_nothing(fork):
+def test_update_dry_run_changes_nothing(fork):
     env = fork
     env.modify_files('sub/Foo', text='local', cwd=env.fork)
     _upstream_adds_submodule(env, env.upstream / 'foo', 'lib')
@@ -932,7 +875,7 @@ def test_pull_dry_run_changes_nothing(fork):
     _push_bar(env, 'drop sub')
     head = git_rev_parse(['HEAD'], cwd=env.fork)
 
-    result = _pull(env, '--dry-run')
+    result = _fetch_and_update(env, '--dry-run')
 
     assert 'would merge 2 commits of origin/master' in result.output
     assert 'lib: would nest at' in result.output
@@ -940,15 +883,15 @@ def test_pull_dry_run_changes_nothing(fork):
     assert git_rev_parse(['HEAD'], cwd=env.fork) == head
     assert env.run(['git', 'status', '--porcelain'], cwd=env.fork).output == ''
     assert (env.fork / 'sub' / '.gitnested').is_file()
-    assert _pull(env).returncode == 0
+    assert _fetch_and_update(env).returncode == 0
 
 
-def test_merge_dry_run_shows_a_pull(fork):
+def test_update_dry_run_shows_a_pull(fork):
     env = fork
     pinned = _upstream_bumps_sub(env)
     env.run(['git', 'fetch', '-q'], cwd=env.fork)
 
-    result = _merge(env, '--dry-run', 'origin/master')
+    result = _update(env, '--dry-run', 'origin/master')
 
     assert f'sub: would pull to {pinned[:12]}' in result.output
 
@@ -959,9 +902,9 @@ def test_single_commit(fork):
     pinned = _upstream_bumps_sub(env)
     _upstream_adds_submodule(env, env.upstream / 'foo', 'lib')
 
-    _pull(env, '--single-commit')
+    _fetch_and_update(env, '--single-commit')
 
-    assert git_rev_parse(['HEAD'], cwd=env.fork) == _last_merge(env, env.fork)
+    assert git_rev_parse(['HEAD'], cwd=env.fork) == _last_update(env, env.fork)
     message = env.run(['git', 'log', '-1', '--format=%B'], cwd=env.fork).output
     assert message.startswith('Merge')
     assert 'git nested' in message
@@ -973,7 +916,7 @@ def test_single_commit(fork):
 def test_options_that_do_not_go_together(fork):
     env = fork
     for args in (['--continue', '--dry-run'], ['--abort', 'origin', 'master'], ['--continue', '--abort']):
-        assert _pull(env, *args, check=False).returncode == 1
+        assert _fetch_and_update(env, *args, check=False).returncode == 1
     result = cmd_git_nested('submodules init --dry-run', cwd=env.fork, check=False)
     assert result.returncode == 1
 
@@ -994,15 +937,15 @@ def test_continue_finishes_a_conflict_inside_a_submodule(fork):
     pinned = git_rev_parse(['HEAD'], cwd=other)
     _upstream_adds_submodule(env, env.upstream / 'foo', 'zlib')
 
-    result = _pull(env, check=False)
+    result = _fetch_and_update(env, check=False)
 
     assert result.returncode == 1
-    assert 'submodules pull --continue' in result.output
-    worktree = env.fork / next(line.split('cd ', 1)[1] for line in result.output.splitlines() if '1. cd ' in line)
+    assert 'submodules update --continue' in result.output
+    worktree = env.fork / '.git' / 'tmp' / 'nested' / 'sub'
     (worktree / 'Foo').write_text('both\n')
     env.run(['git', 'add', 'Foo'], cwd=worktree)
 
-    _pull(env, '--continue')
+    _update(env, '--continue')
 
     assert (env.fork / 'sub' / 'Foo').read_text() == 'both\n'
     assert_gitnested_field(env.fork / 'sub' / '.gitnested', commit=pinned)
@@ -1018,9 +961,9 @@ def test_continue_says_which_conflicts_are_left(fork):
     env.run(['git', 'push', '-q'], cwd=other)
     env.run(['git', 'pull', '-q'], cwd=env.workspace / 'bar' / 'sub')
     _push_bar(env, 'bump sub')
-    _pull(env, check=False)
+    _fetch_and_update(env, check=False)
 
-    result = _pull(env, '--continue', check=False)
+    result = _update(env, '--continue', check=False)
 
     assert result.returncode == 1
     assert 'sub: fix the conflicts in' in result.output
@@ -1034,7 +977,7 @@ def test_a_pinned_submodule_stays(fork):
     env.run(['git', 'commit', '-qm', 'keep sub'], cwd=env.fork)
     _upstream_bumps_sub(env)
 
-    result = _pull(env)
+    result = _fetch_and_update(env)
 
     assert f'sub: it has the pin {before}, so it stays' in result.output
     assert_gitnested_field(env.fork / 'sub' / '.gitnested', commit=before)
@@ -1049,35 +992,35 @@ def test_a_pinned_submodule_stays(fork):
 def test_wrong_arguments(fork):
     env = fork
     assert 'too many arguments' in cmd_git_nested('submodules init upstream', cwd=env.fork, check=False).output
-    assert "--only only works with 'submodules init'" in _merge(env, 'x', '--only', 'sub', check=False).output
-    assert "--ignore only works with 'submodules init'" in _pull(env, '--ignore', 'sub', check=False).output
-    assert "--recursive only works with 'submodules init'" in _merge(env, 'x', '--recursive', check=False).output
-    result = _pull(env, '--resolve-relative', 'x', check=False)
+    assert "--only only works with 'submodules init'" in _update(env, 'x', '--only', 'sub', check=False).output
+    assert "--ignore only works with 'submodules init'" in _update(env, 'x', '--ignore', 'sub', check=False).output
+    assert "--recursive only works with 'submodules init'" in _update(env, 'x', '--recursive', check=False).output
+    result = _update(env, 'x', '--resolve-relative', 'y', check=False)
     assert "--resolve-relative only works with 'submodules init'" in result.output
     result = cmd_git_nested('submodules init --only sub --ignore sub', cwd=env.fork, check=False)
     assert "--only and --ignore can't be used together" in result.output
-    assert "'submodules merge' needs a commit" in _merge(env, check=False).output
-    assert 'too many arguments' in _merge(env, 'a', 'b', check=False).output
+    assert "'submodules update' needs a commit" in _update(env, check=False).output
+    assert 'too many arguments' in _update(env, 'a', 'b', check=False).output
 
 
-def test_pull_after_a_stop_needs_continue_or_abort(fork):
+def test_update_after_a_stop_needs_continue_or_abort(fork):
     env = fork
     _conflict_in_bar(env)
-    _pull(env, check=False)
+    _fetch_and_update(env, check=False)
     env.run(['git', 'merge', '--abort'], cwd=env.fork)
 
-    result = _pull(env, check=False)
+    result = _fetch_and_update(env, check=False)
 
-    assert "A 'submodules pull' stopped before." in result.output
+    assert "A 'submodules update' stopped before." in result.output
 
 
 def test_single_commit_without_submodule_changes(fork):
     env = fork
     _upstream_commit(env, 'one')
 
-    _pull(env, '--single-commit')
+    _fetch_and_update(env, '--single-commit')
 
-    assert git_rev_parse(['HEAD'], cwd=env.fork) == _last_merge(env, env.fork)
+    assert git_rev_parse(['HEAD'], cwd=env.fork) == _last_update(env, env.fork)
 
 
 def test_a_gitlink_without_url_stays_as_it_is(fork):
@@ -1088,7 +1031,7 @@ def test_a_gitlink_without_url_stays_as_it_is(fork):
     env.run(['git', 'commit', '-qm', 'gitlink only'], cwd=bar)
     env.run(['git', 'push', '-q'], cwd=bar)
 
-    result = _pull(env)
+    result = _fetch_and_update(env)
 
     assert 'nourl: .gitmodules has no url for it, so it stays as it is' in result.output
     _assert_flat(env, env.fork)
@@ -1108,7 +1051,7 @@ def test_a_teammates_clone_of_the_fork(fork):
     _push_bar(env, 'drop sub')
     env.fork = teammate
 
-    _pull(env, 'upstream', 'master')
+    _fetch_and_update(env, remote='upstream')
 
     assert not (teammate / 'sub').exists()
     _assert_flat(env, teammate)
@@ -1120,17 +1063,17 @@ def test_a_teammates_clone_of_the_fork(fork):
 
 
 def _state_file(env):
-    return env.fork / '.git' / 'nested-submodules-pull.json'
+    return env.fork / '.git' / 'nested-submodules-update.json'
 
 
-@pytest.mark.parametrize('text', ['not json', '{}', '{"action": "pull", "base": "x", "target": "y", "url": ""}'])
+@pytest.mark.parametrize('text', ['not json', '{}', '{"base": "x", "target": "y", "url": ""}'])
 def test_continue_with_a_broken_state_file(fork, text):
     env = fork
     _conflict_in_bar(env)
-    _pull(env, check=False)
+    _fetch_and_update(env, check=False)
     _state_file(env).write_text(text)
 
-    result = _pull(env, '--continue', check=False)
+    result = _update(env, '--continue', check=False)
 
     assert result.returncode == 1
     assert 'is broken. Start over with --abort.' in result.output
@@ -1139,13 +1082,13 @@ def test_continue_with_a_broken_state_file(fork, text):
 def test_single_commit_after_a_conflict(fork):
     env = fork
     pinned = _conflict_in_bar(env)
-    _pull(env, '--single-commit', check=False)
+    _fetch_and_update(env, '--single-commit', check=False)
     (env.fork / 'Bar').write_text('both\n')
     env.run(['git', 'add', 'Bar'], cwd=env.fork)
 
-    _pull(env, '--continue')
+    _update(env, '--continue')
 
-    assert git_rev_parse(['HEAD'], cwd=env.fork) == _last_merge(env, env.fork)
+    assert git_rev_parse(['HEAD'], cwd=env.fork) == _last_update(env, env.fork)
     assert_gitnested_field(env.fork / 'sub' / '.gitnested', commit=pinned)
     _assert_flat(env, env.fork)
 
@@ -1154,11 +1097,11 @@ def test_single_commit_when_the_merge_commit_is_gone(fork):
     """You threw the merge away and moved to upstream itself. There is nothing to fold into."""
     env = fork
     _conflict_in_bar(env)
-    _pull(env, '--single-commit', check=False)
+    _fetch_and_update(env, '--single-commit', check=False)
     env.run(['git', 'merge', '--abort'], cwd=env.fork)
     env.run(['git', 'reset', '-q', '--hard', 'origin/master'], cwd=env.fork)
 
-    result = _pull(env, '--continue', check=False)
+    result = _update(env, '--continue', check=False)
 
     assert result.returncode == 1
     assert 'is gone' in result.output
@@ -1230,12 +1173,12 @@ def _upstream_changes_foo(env, text):
     return git_rev_parse(['HEAD'], cwd=foo)
 
 
-def test_pull_applies_the_patches_on_the_new_pin(fork):
+def test_update_applies_the_patches_on_the_new_pin(fork):
     env = fork
     _with_patch(env)
     pinned = _upstream_bumps_sub(env)
 
-    _pull(env)
+    _fetch_and_update(env)
 
     assert (env.fork / 'sub' / 'Foo').read_text() == "local\n"
     assert (env.fork / 'sub' / 'FooNew').is_file()
@@ -1244,12 +1187,12 @@ def test_pull_applies_the_patches_on_the_new_pin(fork):
     _assert_flat(env, env.fork)
 
 
-def test_pull_drops_a_patch_upstream_has(fork):
+def test_update_drops_a_patch_upstream_has(fork):
     env = fork
     _with_patch(env)
     _upstream_changes_foo(env, b"local\n")
 
-    _pull(env)
+    _fetch_and_update(env)
 
     assert (env.fork / 'sub' / 'Foo').read_text() == "local\n"
     assert not list((env.fork / 'sub' / PATCHES).glob('*.patch'))
@@ -1261,16 +1204,16 @@ def test_continue_finishes_a_patch_that_does_not_apply(fork):
     _with_patch(env)
     pinned = _upstream_changes_foo(env, b"upstream\n")
 
-    result = _pull(env, check=False)
+    result = _fetch_and_update(env, check=False)
 
     assert result.returncode == 1
-    assert "the patch 0001-TODO-title.patch does not apply" in result.output
-    assert 'submodules pull --continue' in result.output
+    assert "The patch 0001-TODO-title.patch does not apply." in result.output
+    assert 'submodules update --continue' in result.output
     worktree = env.fork / '.git' / 'tmp' / 'nested' / 'sub'
     (worktree / 'Foo').write_bytes(b"upstream and local\n")
     env.run(['git', 'add', 'Foo'], cwd=worktree)
 
-    _pull(env, '--continue')
+    _update(env, '--continue')
 
     assert (env.fork / 'sub' / 'Foo').read_text() == "upstream and local\n"
     assert_gitnested_field(env.fork / 'sub' / '.gitnested', commit=pinned)
@@ -1279,27 +1222,27 @@ def test_continue_finishes_a_patch_that_does_not_apply(fork):
     _assert_flat(env, env.fork)
 
 
-def test_pull_moves_the_patches_with_a_moved_submodule(fork):
+def test_update_moves_the_patches_with_a_moved_submodule(fork):
     env = fork
     _with_patch(env)
     (env.workspace / 'bar' / 'ext').mkdir()
     env.run(['git', 'mv', 'sub', 'ext/sub'], cwd=env.workspace / 'bar')
     _push_bar(env, 'move sub')
 
-    _pull(env)
+    _fetch_and_update(env)
 
     assert (env.fork / 'ext' / 'sub' / 'Foo').read_text() == "local\n"
     assert _verified(env, 'ext/sub')
     _assert_flat(env, env.fork)
 
 
-def test_pull_warns_when_it_removes_a_submodule_with_patches(fork):
+def test_update_warns_when_it_removes_a_submodule_with_patches(fork):
     env = fork
     _with_patch(env)
     env.run(['git', 'rm', '-q', 'sub'], cwd=env.workspace / 'bar')
     _push_bar(env, 'drop sub')
 
-    result = _pull(env)
+    result = _fetch_and_update(env)
 
     assert not (env.fork / 'sub').exists()
     assert 'sub' in result.output
@@ -1314,12 +1257,12 @@ def test_continue_finishes_a_rebase_that_stopped(fork):
     _commit(env, 'local change')
     pinned = _upstream_changes_foo(env, b"upstream\n")
 
-    assert _pull(env, check=False).returncode == 1
+    assert _fetch_and_update(env, check=False).returncode == 1
     worktree = env.fork / '.git' / 'tmp' / 'nested' / 'sub'
     (worktree / 'Foo').write_bytes(b"upstream and local\n")
     env.run(['git', 'add', 'Foo'], cwd=worktree)
 
-    _pull(env, '--continue')
+    _update(env, '--continue')
 
     assert (env.fork / 'sub' / 'Foo').read_text() == "upstream and local\n"
     assert_gitnested_field(env.fork / 'sub' / '.gitnested', commit=pinned)
@@ -1330,14 +1273,211 @@ def test_continue_after_you_finished_the_patch_yourself(fork):
     env = fork
     _with_patch(env)
     _upstream_changes_foo(env, b"upstream\n")
-    assert _pull(env, check=False).returncode == 1
+    assert _fetch_and_update(env, check=False).returncode == 1
     worktree = env.fork / '.git' / 'tmp' / 'nested' / 'sub'
     (worktree / 'Foo').write_bytes(b"upstream and local\n")
     env.run(['git', 'add', 'Foo'], cwd=worktree)
     env.run(['git', '-c', 'core.editor=true', 'am', '--continue'], cwd=worktree)
 
-    _pull(env, '--continue')
+    _update(env, '--continue')
 
     assert (env.fork / 'sub' / 'Foo').read_text() == "upstream and local\n"
     assert _verified(env)
     _assert_flat(env, env.fork)
+
+
+def test_update_keeps_what_git_skips(fork):
+    """git does not check out a submodule with `update = none`. update leaves it a submodule too."""
+    env = fork
+    _upstream_adds_submodule(env, env.upstream / 'foo', 'lib')
+    _upstream_adds_submodule(env, env.upstream / 'foo', 'big')
+    env.run(['git', 'config', '-f', '.gitmodules', 'submodule.big.update', 'none'], cwd=env.workspace / 'bar')
+    _push_bar(env, 'skip big')
+
+    preview = _fetch_and_update(env, '--dry-run').output
+    _fetch_and_update(env)
+
+    assert 'lib: would nest at' in preview
+    assert 'big' not in preview
+    assert (env.fork / 'lib' / '.gitnested').is_file()
+    assert _gitlinks(env, env.fork) == ['big']
+    assert _module(env, 'submodule.big.update') == 'none'
+
+
+def test_init_keeps_what_git_skips(foo_bar_cloned):
+    env = foo_bar_cloned
+    _upstream_adds_submodule(env, _make_mid(env), 'mid')
+    _upstream_adds_submodule(env, env.upstream / 'foo', 'big')
+    env.run(['git', 'config', '-f', '.gitmodules', 'submodule.big.update', 'none'], cwd=env.workspace / 'bar')
+    _push_bar(env, 'skip big')
+    mid = env.workspace / 'mid'
+    env.run(['git', 'config', '-f', '.gitmodules', 'submodule.inner.update', 'none'], cwd=mid)
+    env.run(['git', 'commit', '-qam', 'skip inner'], cwd=mid)
+    env.run(['git', 'push', '-q', 'origin', 'master'], cwd=mid)
+    env.run(['git', 'pull', '-q', 'origin', 'master'], cwd=env.workspace / 'bar' / 'mid')
+    _push_bar(env, 'bump mid')
+    repo = env.workspace / 'repo'
+    clone_repo((env.upstream / 'bar').as_posix(), repo)
+
+    result = cmd_git_nested('submodules init --recursive', cwd=repo)
+
+    assert "mid/inner: stays a submodule, .gitmodules says 'update = none'" in result.output
+    assert _gitlinks(env, repo) == ['big', 'mid/inner']
+
+
+def test_update_after_abort_updates_the_rest(fork):
+    """You finished a nested repo by hand and threw the rest away. update <commit> does the rest."""
+    env = fork
+    env.modify_files('sub/Foo', text='local', cwd=env.fork)
+    other = env.workspace / 'foo'
+    env.modify_files('Foo', text='upstream', cwd=other)
+    env.run(['git', 'push', '-q'], cwd=other)
+    env.run(['git', 'pull', '-q'], cwd=env.workspace / 'bar' / 'sub')
+    pinned = git_rev_parse(['HEAD'], cwd=other)
+    _upstream_adds_submodule(env, env.upstream / 'foo', 'zlib')
+    assert _fetch_and_update(env, check=False).returncode == 1
+    worktree = env.fork / '.git' / 'tmp' / 'nested' / 'sub'
+    (worktree / 'Foo').write_text('both\n')
+    env.run(['git', 'add', 'Foo'], cwd=worktree)
+    env.run(['git', 'commit', '-q', '--no-edit'], cwd=worktree)
+    cmd_git_nested('commit sub', cwd=env.fork)
+    assert 'aborted' in _update(env, '--abort').output
+    assert not (env.fork / 'zlib').exists()
+
+    assert 'zlib: would nest at' in _update(env, 'origin/master', '--dry-run').output
+    _update(env, 'origin/master')
+
+    assert (env.fork / 'zlib' / '.gitnested').is_file()
+    assert_gitnested_field(env.fork / 'sub' / '.gitnested', commit=pinned)
+    _assert_flat(env, env.fork)
+    assert 'already up to date with origin/master' in _update(env, 'origin/master').output
+
+
+def test_catching_up_has_no_single_commit(fork):
+    """origin/master is merged already. There is no merge to fold the commits into."""
+    result = _update(fork, 'origin/master', '--single-commit', check=False)
+
+    assert result.returncode == 1
+    assert "--single-commit only works when 'submodules update' merges" in result.output
+
+
+# ============================================================================
+# What a tester found on a big project (issue #184)
+# ============================================================================
+
+
+def _conflict_in_sub(env):
+    """A local change in sub, and upstream changes the same line. Return the new pin."""
+    env.modify_files('sub/Foo', text='local', cwd=env.fork)
+    other = env.workspace / 'foo'
+    env.modify_files('Foo', text='upstream', cwd=other)
+    env.run(['git', 'push', '-q'], cwd=other)
+    env.run(['git', 'pull', '-q'], cwd=env.workspace / 'bar' / 'sub')
+    _push_bar(env, 'bump sub')
+    return git_rev_parse(['HEAD'], cwd=other)
+
+
+def test_abort_removes_the_worktree_of_a_stopped_nested_repo(fork):
+    env = fork
+    _conflict_in_sub(env)
+    assert _fetch_and_update(env, check=False).returncode == 1
+    worktree = env.fork / '.git' / 'tmp' / 'nested' / 'sub'
+    assert worktree.is_dir()
+
+    _update(env, '--abort')
+
+    assert not worktree.exists()
+    assert 'nested/sub' not in env.run(['git', 'worktree', 'list'], cwd=env.fork).output
+
+
+def test_a_conflict_in_a_nested_repo_shows_the_submodules_way_only(fork):
+    env = fork
+    _conflict_in_sub(env)
+
+    result = _fetch_and_update(env, check=False)
+
+    assert result.returncode == 1
+    assert 'git nested commit' not in result.output
+    assert 'sub: the update stopped on conflicts in Foo' in result.output
+    assert 'cd .git/tmp/nested/sub' in result.output
+    assert "'git nested submodules update --continue'" in result.output
+    assert "'git nested submodules update --abort'" in result.output
+
+
+def test_dry_run_shows_the_deeper_submodules(foo_bar_cloned):
+    env = foo_bar_cloned
+    _upstream_adds_submodule(env, _make_mid(env), 'mid')
+    env.fork = env.workspace / 'fork'
+    clone_repo((env.upstream / 'bar').as_posix(), env.fork)
+    cmd_git_nested('submodules init --recursive', cwd=env.fork)
+    pinned = _upstream_bumps_inner_of_mid(env)
+    env.run(['git', 'fetch', '-q'], cwd=env.fork)
+
+    result = _update(env, 'origin/master', '--dry-run')
+
+    assert 'mid: would pull to' in result.output
+    assert f'mid/inner: would pull to {pinned[:12]}' in result.output
+    _update(env, 'origin/master')
+    assert_gitnested_field(env.fork / 'mid' / 'inner' / '.gitnested', commit=pinned)
+
+
+def test_the_gitattributes_block_does_not_conflict(foo_bar_cloned):
+    """git-nested owns its block at the end of .gitattributes. Upstream's new rules come in above it."""
+    env = foo_bar_cloned
+    foo = env.workspace / 'foo'
+    (foo / 'make.bat').write_bytes(b"echo hi\r\n")
+    env.run(['git', '-c', 'core.autocrlf=false', 'add', 'make.bat'], cwd=foo)
+    env.run(['git', 'commit', '-qm', 'make.bat'], cwd=foo)
+    env.run(['git', 'push', '-q'], cwd=foo)
+    bar = env.workspace / 'bar'
+    (bar / '.gitattributes').write_text("*.bat text eol=crlf\n")
+    env.run(['git', 'add', '.gitattributes'], cwd=bar)
+    _upstream_adds_submodule(env, env.upstream / 'foo', 'sub')
+    env.fork = env.workspace / 'fork'
+    clone_repo((env.upstream / 'bar').as_posix(), env.fork)
+    cmd_git_nested('submodules init', cwd=env.fork)
+    assert '/sub/make.bat -text' in (env.fork / '.gitattributes').read_text()
+    with (bar / '.gitattributes').open('a') as f:
+        f.write("*.bin binary\n")
+    _push_bar(env, 'bin files')
+
+    _fetch_and_update(env)
+
+    rules = (env.fork / '.gitattributes').read_text()
+    assert rules.index('*.bin binary') < rules.index('# git-nested')
+    assert rules.rstrip().endswith('/sub/make.bat -text')
+    assert env.run(['git', 'status', '--porcelain'], cwd=env.fork).output == ''
+
+
+def test_dry_run_shows_a_new_deeper_submodule_and_skips_an_unchanged_one(foo_bar_cloned):
+    env = foo_bar_cloned
+    _upstream_adds_submodule(env, _make_mid(env), 'mid')
+    env.fork = env.workspace / 'fork'
+    clone_repo((env.upstream / 'bar').as_posix(), env.fork)
+    cmd_git_nested('submodules init --recursive', cwd=env.fork)
+    mid = env.workspace / 'mid'
+    env.run(['git', *ALLOW_FILE, 'submodule', 'add', '-q', (env.upstream / 'foo').as_posix(), 'extra'], cwd=mid)
+    env.run(['git', 'commit', '-qm', 'add extra'], cwd=mid)
+    env.run(['git', 'push', '-q', 'origin', 'master'], cwd=mid)
+    env.run(['git', 'pull', '-q', 'origin', 'master'], cwd=env.workspace / 'bar' / 'mid')
+    _push_bar(env, 'bump mid')
+    env.run(['git', 'fetch', '-q'], cwd=env.fork)
+
+    preview = _update(env, 'origin/master', '--dry-run').output
+
+    assert 'mid/extra: would nest at' in preview
+    assert 'mid/inner' not in preview
+
+
+def test_a_failed_pull_of_a_nested_repo_shows_its_own_error(fork):
+    """No conflict, so there is no worktree to fix things in."""
+    env = fork
+    cmd_git_nested(['config', 'sub', 'remote', (env.tmp / 'gone').as_posix()], cwd=env.fork)
+    env.run(['git', 'commit', '-qam', 'sub from somewhere else'], cwd=env.fork)
+    _upstream_bumps_sub(env)
+
+    result = _fetch_and_update(env, check=False)
+
+    assert result.returncode == 1
+    assert 'gone' in result.output
+    assert 'the update stopped on conflicts' not in result.output

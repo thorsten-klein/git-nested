@@ -61,26 +61,31 @@ want all of them as plain files, and still follow upstream:
 
 ```bash
 git nested submodules init --recursive
-git nested submodules pull
+git fetch origin
+git nested submodules update origin/main
 ```
 
 `init --recursive` nests all of them, at any depth. Without
 `--recursive`, it nests only the first level. `--only <path>` nests only
-some. `pull` merges upstream, keeps its commits, and
+some. `update` merges upstream, keeps its commits, and
 changes the nested repositories the way upstream changed its submodules.
 
-To see what `pull` would do first:
+To see what `update` would do first:
 
 ```bash
-git nested submodules pull --dry-run
+git nested submodules update --dry-run origin/main
 ```
 
-In a fork, pull from the project you forked:
+In a fork, update from the project you forked:
 
 ```bash
-git nested submodules init
-git nested submodules pull upstream main
+git nested submodules init --recursive
+git fetch upstream
+git nested submodules update upstream/main
 ```
+
+Use `update` instead of `git merge` or `git pull`. A plain git merge
+can't put a gitlink where a nested folder is.
 
 See [`submodules`](../cli/submodules.md). It also explains how the merged
 history looks, and how to keep a submodule back.

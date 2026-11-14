@@ -100,6 +100,12 @@ def mine(env, upstream):
 # ============================================================================
 
 
+def _update_from_upstream(env, repo, check=True):
+    """Fetch upstream, then `submodules update upstream/master`."""
+    env.run(['git', 'fetch', '-q', 'upstream'], cwd=repo)
+    return cmd_git_nested('submodules update upstream/master', cwd=repo, check=check)
+
+
 def _git(env, repo, *args):
     return env.run(['git', *args], cwd=repo).output.strip()
 
@@ -187,7 +193,7 @@ def test_the_fork_of_issue_184(env, upstream, mine):
     tools_pin = upstream.git('super', '-C', 'tools', 'rev-parse', 'HEAD')
     alice_again = upstream.push('super', 'Move tools to a mirror and update it', author='Alice')
 
-    cmd_git_nested('submodules pull upstream master', cwd=mine)
+    _update_from_upstream(env, mine)
 
     # Each superproject commit is there, as upstream made it.
     for commit, author in ((alice, 'Alice'), (bob, 'Bob'), (alice_again, 'Alice')):
@@ -245,9 +251,7 @@ def test_the_fork_of_issue_184(env, upstream, mine):
     upstream.git('super', 'mv', 'docs', 'documentation/docs')
     moved = upstream.push('super', 'Move docs', author='Alice')
 
-    # This time from the upstream branch of the current branch.
-    env.run(['git', 'branch', '-q', '-u', 'upstream/master'], cwd=mine)
-    cmd_git_nested('submodules pull', cwd=mine)
+    _update_from_upstream(env, mine)
 
     assert _is_ancestor(env, mine, dropped)
     assert _is_ancestor(env, mine, moved)
@@ -266,7 +270,7 @@ def test_the_fork_of_issue_184(env, upstream, mine):
 
     # --- Nothing new upstream.
     head = git_rev_parse(['HEAD'], cwd=mine)
-    assert 'already up to date' in cmd_git_nested('submodules pull', cwd=mine).output
+    assert 'already up to date' in _update_from_upstream(env, mine).output
     assert git_rev_parse(['HEAD'], cwd=mine) == head
 
 
@@ -299,11 +303,11 @@ def test_a_conflict_inside_a_submodule(env, upstream, mine):
     upstream.follow('super', 'tools')
     upstream.push('super', 'Bump core and tools')
 
-    result = cmd_git_nested('submodules pull upstream master', cwd=mine, check=False)
+    result = _update_from_upstream(env, mine, check=False)
 
     assert result.returncode == 1
     assert 'modules/core' in result.output
-    assert 'submodules pull --continue' in result.output
+    assert 'submodules update --continue' in result.output
     worktree = next(line.split('cd ', 1)[1] for line in result.output.splitlines() if 'cd ' in line)
 
     worktree = mine / worktree
@@ -311,7 +315,7 @@ def test_a_conflict_inside_a_submodule(env, upstream, mine):
     env.run(['git', 'add', 'Core'], cwd=worktree)
     env.run(['git', 'commit', '-q', '--no-edit'], cwd=worktree)
     cmd_git_nested('commit modules/core', cwd=mine)
-    cmd_git_nested('submodules pull --continue', cwd=mine)
+    cmd_git_nested('submodules update --continue', cwd=mine)
 
     assert (mine / 'modules' / 'core' / 'Core').read_text() == 'core\nboth changes\n'
     assert_gitnested_field(mine / 'modules' / 'core' / '.gitnested', commit=core_pin)
@@ -333,7 +337,7 @@ def test_upstream_history_with_a_merge_commit(env, upstream, mine):
     upstream.git('super', 'push', '-q', 'origin', 'master')
     merged = upstream.head('super')
 
-    cmd_git_nested('submodules pull upstream master', cwd=mine)
+    _update_from_upstream(env, mine)
 
     assert _is_ancestor(env, mine, feature)
     assert _is_ancestor(env, mine, merged)
@@ -351,7 +355,7 @@ def test_a_submodule_bump_inside_a_submodule(env, upstream, mine):
     upstream.follow('super', 'modules/core')
     upstream.push('super', 'Bump core')
 
-    cmd_git_nested('submodules pull upstream master', cwd=mine)
+    _update_from_upstream(env, mine)
 
     lib = mine / 'modules' / 'core' / 'third_party' / 'lib'
     assert (lib / 'LibNew').is_file()

@@ -35,7 +35,8 @@ repositories, and keep following upstream:
 
 ```bash
 git nested submodules init --recursive
-git nested submodules pull
+git fetch origin
+git nested submodules update origin/main
 ```
 
 ## Why git-nested?

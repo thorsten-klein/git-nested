@@ -4,14 +4,14 @@ The root repo stays a normal clone of the upstream superproject. Its
 submodules are nested repos.
 
 - init: nest every submodule, or the ones named, one commit each.
-- merge: merge an upstream commit, drop the gitlinks it brings, then update
-  the nested repos to match. One commit per nested repo.
-- pull: fetch, then merge.
+- update: merge an upstream commit, drop the gitlinks it brings, then
+  update the nested repos to match. One commit per nested repo.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import posixpath
 import re
 from collections.abc import Callable
@@ -27,10 +27,11 @@ from ..models import CommandContext, Flags, NestedConfig
 from . import clone, commit, config, init, pull
 
 _GITMODULES = '.gitmodules'
+_GITATTRIBUTES = '.gitattributes'
 # Where a merge that stopped keeps what --continue needs. Written once.
-_STATE_FILE = 'nested-submodules-pull.json'
-_MAX_ARGS = {'init': 0, 'merge': 1, 'pull': 2}
-# What init left out, in .gitmodules: merge and pull leave new submodules there out too
+_STATE_FILE = 'nested-submodules-update.json'
+_MAX_ARGS = {'init': 0, 'update': 1}
+# What init left out, in .gitmodules: update leaves new submodules there out too
 _ONLY, _IGNORE = 'nested.only', 'nested.ignore'
 # The lines git merge-file marks a conflict with
 _CONFLICT_MARKER = re.compile(r'^(<{7}|={7}|>{7})', re.MULTILINE)
@@ -39,7 +40,7 @@ _COMMIT_ID = re.compile(r'[0-9a-f]{40}|[0-9a-f]{64}')
 
 
 def cmd_submodules(ctx: CommandContext) -> None:
-    """Run `submodules init`, `merge` or `pull`."""
+    """Run `submodules init` or `submodules update`."""
     action = ctx.submodules_action or ''
     args = ctx.submodules_args or []
     _check_args(ctx.flags, action, args)
@@ -47,11 +48,11 @@ def cmd_submodules(ctx: CommandContext) -> None:
         checks.check_worktree_clean(ctx.git, 'init')
         _nest_all(ctx.git, ctx.flags)
     else:
-        _merge(ctx, action, args)
+        _update(ctx, args)
 
 
 def _given(flags: Flags) -> list[str]:
-    """The options of merge and pull that were given."""
+    """The options of update that were given."""
     options = {
         '--continue': flags.resume,
         '--abort': flags.abort,
@@ -67,7 +68,7 @@ def _check_args(flags: Flags, action: str, args: list[str]) -> None:
         output.usage_error(f"too many arguments for 'submodules {action}'")
     _check_init_options(flags, action)
     if action == 'init' and given:
-        output.usage_error(f"{given[0]} only works with 'submodules merge' and 'submodules pull'")
+        output.usage_error(f"{given[0]} only works with 'submodules update'")
     stop = next((name for name in given if name in ('--continue', '--abort')), None)
     if stop and (args or len(given) > 1):
         output.usage_error(f"{stop} takes no other arguments, and no --dry-run or --single-commit")
@@ -107,15 +108,18 @@ def _nest_all(git: GitRunner, flags: Flags) -> None:
     if not flags.resolve_relative:
         _refuse_relative_urls(git, links)
     _keep_selection(git, flags)
-    # .gitnested keeps the choice, for merge and pull
+    # .gitnested keeps the choice, for update
     choice = cast('Flags', replace(flags, submodules='nest' if flags.recursive else 'keep', hint='--recursive'))
     for path in links:
         init.init_from_submodule(git, choice, Path(path), flags.resolve_relative)
 
 
 def _selected(git: GitRunner, flags: Flags) -> list[str]:
-    """The submodules that --only and --ignore leave in."""
-    links = [path for path, _ in submodules.gitlinks(git, Path())]
+    """The submodules that --only and --ignore leave in. Not the ones git skips: `update = none`."""
+    gitmodules = Path(_GITMODULES)
+    links = [
+        path for path, _ in submodules.gitlinks(git, Path()) if not submodules.skipped_by_git(git, gitmodules, path)
+    ]
     if flags.only:
         return _below_any(links, flags.only)
     skipped = set(_below_any(links, flags.ignore)) if flags.ignore else set()
@@ -163,19 +167,25 @@ def _kept(git: GitRunner, ours: str, target: str) -> set[str]:
     """The submodules of `target` that stay submodules.
 
     The ones `ours` has as a submodule, also under a new path, and also
-    inside nested repos. And new ones that init's --only or --ignore leaves
-    out.
+    inside nested repos. The ones git skips: `update = none`. And new ones
+    that init's --only or --ignore leaves out.
     """
     ours_links = submodules.gitlinks_at(git, ours)
     names = {name for path, (name, _) in _modules_at(git, ours).items() if path in ours_links}
-    only, ignore = _selection_at(git, ours)
+    selection = _selection_at(git, ours)
     target_modules = _modules_at(git, target)
-    kept = set(ours_links)
+    kept = set(ours_links) | _skipped_by_git_at(git, target)
     for path in submodules.gitlinks_at(git, target):
-        name = target_modules.get(path, ('', ''))[0]
-        if path in ours_links or (name and name in names) or (not _is_nested(path) and _left_out(path, only, ignore)):
+        if _stays(path, target_modules.get(path, ('', ''))[0], names, selection):
             kept.add(path)
     return kept
+
+
+def _stays(path: str, name: str, names: set[str], selection: tuple[list[str], list[str]]) -> bool:
+    """Whether the submodule at `path` stays one: its name is in `names`, or init left it out."""
+    if name and name in names:
+        return True
+    return not _is_nested(path) and _left_out(path, *selection)
 
 
 def _refuse_relative_urls(git: GitRunner, links: list[str]) -> None:
@@ -212,20 +222,20 @@ def _below(link: str, path: str) -> bool:
 
 
 # ============================================================================
-# merge and pull
+# update
 # ============================================================================
 
 
-def _merge(ctx: CommandContext, action: str, args: list[str]) -> None:
+def _update(ctx: CommandContext, args: list[str]) -> None:
     git = ctx.git
     state_file = Path(git.check_output(['rev-parse', '--git-dir'])) / _STATE_FILE
     if ctx.flags.abort:
-        _abort(git, state_file)
+        _abort(ctx, state_file)
         return
-    state = _resume(git, state_file) if ctx.flags.resume else _start(ctx, state_file, action, args)
+    state = _resume(git, state_file) if ctx.flags.resume else _start(ctx, state_file, args)
     if state is None:
         return
-    _finish_merge(git, ctx.flags, state['action'])
+    _finish_merge(git, ctx.flags)
     _run_steps(ctx, state)
     if state['single']:
         _fold_into_merge(git, ctx.flags, _merge_commit(git, state['target']))
@@ -239,7 +249,7 @@ def _run_steps(ctx: CommandContext, state: dict[str, str]) -> None:
     for step in _plan(ctx.git, state):
         if step.what == 'pull' and ctx.flags.resume:
             _finish_pending(steps_ctx, step.path)
-        _APPLY[step.what](steps_ctx, step, state['action'])
+        _APPLY[step.what](steps_ctx, step)
 
 
 def _merge_commit(git: GitRunner, target: str) -> str:
@@ -252,14 +262,29 @@ def _merge_commit(git: GitRunner, target: str) -> str:
     raise GitNestedError(f"the merge commit of {target} is gone")
 
 
-def _abort(git: GitRunner, state_file: Path) -> None:
-    """Throw away a merge that stopped. Nested repos that it already updated stay."""
+def _abort(ctx: CommandContext, state_file: Path) -> None:
+    """Throw away a merge that stopped, and a nested repo's pull that stopped. Nested repos that it updated stay."""
+    git = ctx.git
     if not state_file.is_file():
         raise GitNestedError("there is nothing to abort")
     if _merging(git):
         git.run(['merge', '--abort'])
+    _drop_stopped_pulls(git, ctx.tmp)
     state_file.unlink()
-    output.say("aborted")
+    output.say(
+        "aborted. The nested repos that were updated stay. 'git nested submodules update <commit>' updates the rest."
+    )
+
+
+def _drop_stopped_pulls(git: GitRunner, tmp: Path) -> None:
+    """Remove the worktrees and branches of the nested repos whose pull stopped on conflicts."""
+    for path, _ in worktree.list_worktrees(git):
+        try:
+            branch = path.resolve().relative_to(tmp.resolve()).as_posix()
+        except ValueError:
+            continue
+        if worktree.stopped(git, path):
+            worktree.delete_branch(git, branch, tmp)
 
 
 def _resume(git: GitRunner, state_file: Path) -> dict[str, str]:
@@ -268,9 +293,7 @@ def _resume(git: GitRunner, state_file: Path) -> dict[str, str]:
         raise GitNestedError("there is nothing to continue")
     state = _load(state_file)
     if not _merging(git) and not _is_ancestor(git, state['target'], 'HEAD'):
-        raise GitNestedError(
-            f"The merge of upstream is gone. Start over with 'git nested submodules {state['action']} --abort'."
-        )
+        raise GitNestedError("The merge of upstream is gone. Start over with 'git nested submodules update --abort'.")
     return state
 
 
@@ -280,7 +303,6 @@ def _load(state_file: Path) -> dict[str, str]:
     try:
         raw = json.loads(state_file.read_text())
         state = {
-            'action': 'merge' if raw['action'] == 'merge' else 'pull',
             'base': str(raw['base']),
             'target': str(raw['target']),
             'url': str(raw['url']),
@@ -293,69 +315,69 @@ def _load(state_file: Path) -> dict[str, str]:
     return state
 
 
-def _start(ctx: CommandContext, state_file: Path, action: str, args: list[str]) -> dict[str, str] | None:
+def _start(ctx: CommandContext, state_file: Path, args: list[str]) -> dict[str, str] | None:
     """Start the merge. None if there is nothing to merge, or on --dry-run."""
     git = ctx.git
     if state_file.is_file():
         raise GitNestedError(
-            f"A 'submodules {action}' stopped before. Finish it with 'git nested submodules {action} --continue'."
+            "A 'submodules update' stopped before. Finish it with 'git nested submodules update --continue'."
         )
-    if not args and _merging(git):
-        return _take_over(ctx, state_file, action)
-    checks.check_worktree_clean(git, 'pull')
-    ref, remote_url, label = _fetch(git, args) if action == 'pull' else _resolve(git, args)
+    if not args:
+        _needs_a_commit(git)
+    checks.check_worktree_clean(git, 'update')
+    ref, remote_url, label = _resolve(git, args)
     target = git.check_output(['rev-parse', f'{ref}^{{commit}}'])
     if _is_ancestor(git, target, 'HEAD'):
-        output.say(f"already up to date with {label}")
-        return None
+        return _catch_up(ctx, state_file, {'base': target, 'target': target, 'url': remote_url, 'single': ''}, label)
     base = git.check_output(['merge-base', 'HEAD', target], may_fail=True)
     if not base:
         raise GitNestedError(f"{label} has no history in common with this branch")
     state = {
-        'action': action,
         'base': base,
         'target': target,
         'url': remote_url,
         'single': 'yes' if ctx.flags.single_commit else '',
     }
     if ctx.flags.dry_run:
-        _show_plan(git, state, label)
+        count = git.check_output(['rev-list', '--count', f'HEAD..{target}'])
+        _show_plan(git, state, f"would merge {count} commits of {label}")
         return None
     _start_merge(git, ref)
     # Only now: --continue needs a merge to continue
     state_file.write_text(json.dumps(state))
     _drop_gitlinks(git, state)
+    _merge_gitattributes(git, state)
     return state
 
 
-def _take_over(ctx: CommandContext, state_file: Path, action: str) -> dict[str, str] | None:
-    """Finish a `git merge` that stopped on the submodules. None on --dry-run.
+def _catch_up(ctx: CommandContext, state_file: Path, state: dict[str, str], label: str) -> dict[str, str] | None:
+    """The target is merged. Bring the nested repos to its gitlinks, if some are not there yet.
 
-    A plain git merge can't put a gitlink where a nested folder is. So it
-    stops. This drops the gitlinks, and the steps update the nested repos.
+    For example after --abort. Only for the upstream commit of the last
+    merge, so an older one does not take the nested repos back.
     """
     git = ctx.git
-    _current_branch(git)
-    target = git.check_output(['rev-parse', 'MERGE_HEAD'])
-    state = {
-        'action': action,
-        'base': git.check_output(['merge-base', 'HEAD', target]),
-        'target': target,
-        'url': _remote_url_of(git, _remote_ref_at(git, target)),
-        'single': 'yes' if ctx.flags.single_commit else '',
-    }
+    if ctx.flags.single_commit:
+        output.usage_error("--single-commit only works when 'submodules update' merges")
+    last = git.check_output(['log', '-1', '--first-parent', '--merges', '--format=%P', 'HEAD']).split()
+    if state['target'] not in last[1:] or all(step.what == 'skip' for step in _plan(git, state)):
+        output.say(f"already up to date with {label}")
+        return None
     if ctx.flags.dry_run:
-        _show_plan(git, state, 'the merge in progress')
+        _show_plan(git, state, f"would update the nested repos to {label}")
         return None
     state_file.write_text(json.dumps(state))
-    _drop_gitlinks(git, state)
     return state
 
 
-def _remote_ref_at(git: GitRunner, commit: str) -> str:
-    """A remote-tracking branch at `commit`, else `commit` itself."""
-    refs = git.check_output(['for-each-ref', '--points-at', commit, '--format=%(refname)', 'refs/remotes'])
-    return next(iter(refs.split()), commit)
+def _needs_a_commit(git: GitRunner) -> None:
+    """Fail: update needs a commit. Say what to do about a git merge that is in progress."""
+    if _merging(git):
+        raise GitNestedError(
+            "a git merge is in progress. Run 'git merge --abort'. "
+            "Then run 'git nested submodules update <commit>' instead."
+        )
+    output.usage_error("'submodules update' needs a commit, for example upstream/main")
 
 
 def _current_branch(git: GitRunner) -> str:
@@ -365,39 +387,9 @@ def _current_branch(git: GitRunner) -> str:
     return branch
 
 
-def _fetch(git: GitRunner, args: list[str]) -> tuple[str, str, str]:
-    """Fetch what to merge. Return the ref to merge, the url of its remote, and a name to show."""
-    current = _current_branch(git)
-    ref, remote = _fetch_named(git, args, current) if args else _fetch_upstream(git, current)
-    url = git.check_output(['remote', 'get-url', remote], may_fail=True) or remote
-    return ref, url, ' '.join(args) if args else ref
-
-
-def _fetch_named(git: GitRunner, args: list[str], current: str) -> tuple[str, str]:
-    """Fetch <branch> from <remote>, like git pull. Return FETCH_HEAD and the remote."""
-    remote = args[0]
-    if remote not in git.check_output(['remote']).split() and _is_commit(git, remote):
-        raise GitNestedError(f"{remote} is not a remote. To merge it, run 'git nested submodules merge {remote}'.")
-    branch = args[1] if len(args) > 1 else current
-    git.network(['fetch', '-q', remote, branch], f"fetching {branch} from {remote}")
-    return 'FETCH_HEAD', remote
-
-
-def _fetch_upstream(git: GitRunner, current: str) -> tuple[str, str]:
-    """Fetch the remote of the current branch. Return its upstream branch and the remote."""
-    ref = git.check_output(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'], may_fail=True)
-    if not ref:
-        raise GitNestedError("This branch has no upstream. Name a remote and a branch.")
-    remote = git.check_output(['config', f'branch.{current}.remote'])
-    git.network(['fetch', '-q', remote], f"fetching {remote}")
-    return ref, remote
-
-
 def _resolve(git: GitRunner, args: list[str]) -> tuple[str, str, str]:
     """The commit to merge, as given. Return it, the url of its remote, and a name to show."""
     _current_branch(git)
-    if not args:
-        output.usage_error("'submodules merge' needs a commit, or a git merge in progress")
     ref = args[0]
     if not _is_commit(git, ref):
         raise GitNestedError(f"{ref}: no such commit. Fetch it first.")
@@ -493,12 +485,52 @@ def _stage_merged(git: GitRunner, files: list[str], conflict: bool) -> None:
 
 def _kept_modules(git: GitRunner, rev: str, names: set[str], selection: tuple[list[str], list[str]], file: Path) -> str:
     """Write .gitmodules of `rev` to `file`, with only the submodules in `names`, and `selection`."""
-    file.write_text(git.check_output(['show', f'{rev}:{_GITMODULES}'], may_fail=True) + '\n', encoding='utf-8')
+    text = git.check_output(['show', f'{rev}:{_GITMODULES}'], may_fail=True)
+    file.write_text(f'{text}\n' if text else '', encoding='utf-8', newline='\n')
     others = {name for name, _ in _modules_at(git, rev).values()} - names
     for section in [*(f'submodule.{name}' for name in others), 'nested']:
         git.run(['config', '-f', file, '--remove-section', section], may_fail=True)
+    # No section left: the same empty file for each side, so they do not differ by a blank line
+    if not file.read_text(encoding='utf-8').strip():
+        file.write_text('', encoding='utf-8')
     _add_selection(git, file, selection)
     return file.as_posix()
+
+
+def _merge_gitattributes(git: GitRunner, state: dict[str, str]) -> None:
+    """Merge .gitattributes again without git-nested's block, then put the block back at the end.
+
+    git-nested owns the block. Upstream adds its rules at the end too, so
+    a plain merge stops there. A real conflict in the other rules stays.
+    """
+    if _GITATTRIBUTES not in _conflicts(git):
+        return
+    files, block = _attributes_without_block(git, state)
+    merged = git.run(['merge-file', '-p', *files], may_fail=True)
+    for file in files:
+        Path(file).unlink()
+    if merged.returncode == 0:
+        rules = merged.stdout if merged.stdout.endswith('\n') or not merged.stdout else f'{merged.stdout}\n'
+        Path(_GITATTRIBUTES).write_text(rules + block, encoding='utf-8', newline='\n')
+        git.run(['add', '--', _GITATTRIBUTES])
+
+
+def _attributes_without_block(git: GitRunner, state: dict[str, str]) -> tuple[list[str], str]:
+    """.gitattributes of HEAD, base and target without git-nested's block, in files. Also the block of HEAD."""
+    scratch = Path(git.check_output(['rev-parse', '--git-dir'])) / 'nested-gitattributes'
+    scratch.mkdir(exist_ok=True)
+    files, blocks = [], []
+    for rev in ('HEAD', state['base'], state['target']):
+        text = git.check_output(['show', f'{rev}:{_GITATTRIBUTES}'], may_fail=True)
+        rest, block = content.split_keep_block(f'{text}\n' if text else '')
+        (scratch / rev).write_text(rest, encoding='utf-8', newline='\n')
+        files.append((scratch / rev).as_posix())
+        blocks.append(block)
+    return files, blocks[0]
+
+
+def _conflicts(git: GitRunner) -> list[str]:
+    return sorted(set(git.check_output(['diff', '--name-only', '--diff-filter=U']).split('\n')) - {''})
 
 
 def _remove_if_empty(path: Path) -> None:
@@ -507,15 +539,15 @@ def _remove_if_empty(path: Path) -> None:
         path.rmdir()
 
 
-def _finish_merge(git: GitRunner, flags: Flags, action: str) -> None:
+def _finish_merge(git: GitRunner, flags: Flags) -> None:
     """Commit the merge. Stop if there are conflicts left."""
     if not _merging(git):
         return
-    conflicts = sorted(set(git.check_output(['diff', '--name-only', '--diff-filter=U']).split('\n')) - {''})
+    conflicts = _conflicts(git)
     if conflicts:
         raise GitNestedError(
             f"the merge has conflicts in: {', '.join(conflicts)}\n"
-            f"Fix them and 'git add' them. Then run 'git nested submodules {action} --continue'."
+            "Fix them and 'git add' them. Then run 'git nested submodules update --continue'."
         )
     git.run(['commit', '-q', '--no-edit', *_signing(flags)])
 
@@ -604,18 +636,29 @@ class _Step:
         }[self.what]
 
 
-def _modules_at(git: GitRunner, commit: str) -> dict[str, tuple[str, str]]:
-    """The .gitmodules of `commit`, as {path: (name, url)}."""
+def _module_fields(git: GitRunner, commit: str) -> dict[str, dict[str, str]]:
+    """The .gitmodules of `commit`, as {name: {field: value}}, with path, url and update."""
     text = git.check_output(['show', f'{commit}:{_GITMODULES}'], may_fail=True)
     fields: dict[str, dict[str, str]] = {}
     lines = git.check_output(
-        ['config', '-f', '-', '--get-regexp', r'^submodule\..*\.(path|url)$'], may_fail=True, input=text
+        ['config', '-f', '-', '--get-regexp', r'^submodule\..*\.(path|url|update)$'], may_fail=True, input=text
     )
     for line in lines.splitlines():
         key, _, value = line.partition(' ')
         name, _, field = key.removeprefix('submodule.').rpartition('.')
         fields.setdefault(name, {})[field] = value
+    return fields
+
+
+def _modules_at(git: GitRunner, commit: str) -> dict[str, tuple[str, str]]:
+    """The .gitmodules of `commit`, as {path: (name, url)}."""
+    fields = _module_fields(git, commit)
     return {f['path']: (name, f['url']) for name, f in fields.items() if 'path' in f and 'url' in f}
+
+
+def _skipped_by_git_at(git: GitRunner, commit: str) -> set[str]:
+    """The submodules that .gitmodules of `commit` gives `update = none`. git does not check those out."""
+    return {f['path'] for f in _module_fields(git, commit).values() if 'path' in f and f.get('update') == 'none'}
 
 
 def _is_nested(path: str | Path) -> bool:
@@ -709,20 +752,58 @@ def _has_local_changes(git: GitRunner, path: str) -> bool:
         return False
 
 
-def _show_plan(git: GitRunner, state: dict[str, str], ref: str) -> None:
-    count = git.check_output(['rev-list', '--count', f"HEAD..{state['target']}"])
-    output.say(f"would merge {count} commits of {ref}")
+def _show_plan(git: GitRunner, state: dict[str, str], heading: str) -> None:
+    output.say(heading)
     for step in _plan(git, state):
-        if step.what != 'skip' or step.note:
-            output.say(f"{step.path}: would {step.text()}" + (f" ({step.note})" if step.note else ''))
+        for line in _step_lines(git, step):
+            output.say(line)
 
 
-def _apply_skip(_ctx: CommandContext, step: _Step, _action: str) -> None:
+def _step_lines(git: GitRunner, step: _Step) -> list[str]:
+    """What --dry-run shows for `step`. For a pull, also what it does deeper down."""
+    lines = []
+    if step.what != 'skip' or step.note:
+        lines.append(f"{step.path}: would {step.text()}" + (f" ({step.note})" if step.note else ''))
+    if step.what == 'pull':
+        lines += _deeper(git, step.path, step.to, step.url)
+    return lines
+
+
+def _deeper(git: GitRunner, path: str, pin: str, url: str | None) -> list[str]:
+    """What a pull of the nested repo at `path` to `pin` would do to the nested repos inside it."""
+    config = NestedConfig.from_file(Path(path) / GITNESTED_FILENAME)
+    if config.submodules == 'keep':
+        return []
+    _have_commit(git, url or config.remote, pin)
+    lines = []
+    for relative, inner_pin in sorted(submodules.gitlinks_at(git, pin).items()):
+        lines += _deeper_one(git, f'{path}/{relative}', inner_pin)
+    gone = set(submodules.gitlinks_at(git, config.commit)) - set(submodules.gitlinks_at(git, pin))
+    lines += [f"{path}/{relative}: would remove" for relative in sorted(gone) if _is_nested(f'{path}/{relative}')]
+    return lines
+
+
+def _deeper_one(git: GitRunner, path: str, pin: str) -> list[str]:
+    """What a pull would do to the inner submodule at `path`, which its parent now pins at `pin`."""
+    if not _is_nested(path):
+        return [] if Path(path).exists() else [f"{path}: would nest at {pin[:12]}"]
+    if NestedConfig.from_file(Path(path) / GITNESTED_FILENAME).commit == pin:
+        return []
+    return [f"{path}: would pull to {pin[:12]}", *_deeper(git, path, pin, None)]
+
+
+def _have_commit(git: GitRunner, remote: str, commit: str) -> None:
+    """Fetch `commit` from `remote`, unless it is here already."""
+    if git.run(['cat-file', '-e', f'{commit}^{{commit}}'], may_fail=True).returncode:
+        git.network(['fetch', '--no-tags', '--quiet', remote, commit], f"fetching {commit[:12]} from {remote}")
+
+
+def _apply_skip(_ctx: CommandContext, step: _Step) -> None:
     if step.note:
         output.warn(f"{step.path}: {step.note}")
 
 
-def _apply_move(ctx: CommandContext, step: _Step, _action: str) -> None:
+def _apply_move(ctx: CommandContext, step: _Step) -> None:
     Path(step.to).parent.mkdir(parents=True, exist_ok=True)
     ctx.git.run(['mv', '--', step.path, step.to])
     message = f"git nested submodules: move {step.path} to {step.to}"
@@ -730,7 +811,7 @@ def _apply_move(ctx: CommandContext, step: _Step, _action: str) -> None:
     output.say(f"{step.path}: moved to {step.to}")
 
 
-def _apply_remove(ctx: CommandContext, step: _Step, _action: str) -> None:
+def _apply_remove(ctx: CommandContext, step: _Step) -> None:
     if step.note:
         output.warn(f"{step.path}: {step.note}")
     ctx.git.run(['rm', '-r', '-q', '--', step.path])
@@ -738,7 +819,7 @@ def _apply_remove(ctx: CommandContext, step: _Step, _action: str) -> None:
     output.say(f"{step.path}: removed, upstream dropped it")
 
 
-def _apply_nest(ctx: CommandContext, step: _Step, _action: str) -> None:
+def _apply_nest(ctx: CommandContext, step: _Step) -> None:
     flags = cast('Flags', replace(ctx.flags, submodules=_choice_of_the_others(ctx.git)))
     clone.clone_at(ctx.git, flags, Path(step.path), step.url or '', step.to)
 
@@ -753,26 +834,47 @@ def _choice_of_the_others(git: GitRunner) -> str | None:
     return next((choice for choice in ('keep', 'nest') if choice in choices), None)
 
 
-def _apply_url(ctx: CommandContext, step: _Step, _action: str) -> None:
+def _apply_url(ctx: CommandContext, step: _Step) -> None:
     subdir = Path(step.path)
     config.write_field(ctx.git, subdir / GITNESTED_FILENAME, 'remote', step.url or '')
     content.commit_gitnested_update(ctx.git, ctx.flags, subdir, f"git nested submodules: new url for {step.path}")
     output.say(f"{step.path}: remote set to {step.url}")
 
 
-def _apply_pull(ctx: CommandContext, step: _Step, action: str) -> None:
+def _apply_pull(ctx: CommandContext, step: _Step) -> None:
     try:
         pull.pull_to(ctx, Path(step.path), step.url, step.to)
     except GitNestedError as e:
-        raise GitNestedError(
-            f"{e.message.rstrip()}\n\n"
-            f"Shorter: fix the files there and 'git add' them. Then run 'git nested submodules {action} --continue'. "
-            "It commits the pull and goes on with the other submodules."
-        ) from None
+        tree = _stopped_tree(ctx, step.path)
+        if tree is None:
+            raise
+        patch = re.search(r'the patch (\S+) does not apply', e.message)
+        why = f" The patch {patch[1]} does not apply." if patch else ''
+        raise GitNestedError(_stopped_message(ctx.git, step.path, tree, why)) from None
+
+
+def _stopped_tree(ctx: CommandContext, path: str) -> Path | None:
+    """The worktree where the pull of `path` stopped on conflicts, if it did."""
+    branch = refs.nested_branch(ctx.git, refs.sanitize_subref(path))
+    # A rebase that stopped has no branch checked out
+    tree = worktree.find_worktree(ctx.git, branch) or ctx.tmp / branch
+    return tree if tree.is_dir() and worktree.stopped(ctx.git, tree) else None
+
+
+def _stopped_message(git: GitRunner, path: str, tree: Path, why: str) -> str:
+    """How to go on after a conflict in a nested repo: the `submodules` way only."""
+    files = git.check_output(['diff', '--name-only', '--diff-filter=U'], cwd=tree).split()
+    return (
+        f"{path}: the update stopped on conflicts in {', '.join(files) or 'its files'}.{why}\n"
+        "Fix them there, and 'git add' them:\n\n"
+        f"  cd {Path(os.path.relpath(tree)).as_posix()}\n\n"
+        f"Then run 'git nested submodules update --continue'. It finishes {path} and goes on with the others.\n"
+        "Or throw the update away: 'git nested submodules update --abort'."
+    )
 
 
 # Each step makes one commit, or none for skip.
-_APPLY: dict[str, Callable[[CommandContext, _Step, str], None]] = {
+_APPLY: dict[str, Callable[[CommandContext, _Step], None]] = {
     'skip': _apply_skip,
     'move': _apply_move,
     'remove': _apply_remove,

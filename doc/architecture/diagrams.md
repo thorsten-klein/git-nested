@@ -783,8 +783,8 @@ sequenceDiagram
 
 ## submodules
 
-`init` runs `init --from-submodule` for each submodule. `merge` is `pull`
-without the fetch: it takes the commit it is given. `pull` looks like this:
+`init` runs `init --from-submodule` for each submodule. `update` looks
+like this:
 
 ```mermaid
 sequenceDiagram
@@ -792,22 +792,21 @@ sequenceDiagram
     participant git-nested
     participant Git
 
-    User->>git-nested: git nested submodules pull
-    git-nested->>Git: rev-parse --abbrev-ref @{upstream}
-    git-nested->>Git: fetch <remote>
-    git-nested->>Git: merge-base --is-ancestor <target> HEAD
-    Note over git-nested: Stop if already up to date
+    User->>git-nested: git nested submodules update <commit>
+    git-nested->>Git: merge-base --is-ancestor <commit> HEAD
+    Note over git-nested: Merged already: only update the nested repos that lag behind
     opt --dry-run
-        Note over git-nested: Print the plan, then stop
+        Note over git-nested: Print the plan, also deeper down, then stop
     end
-    git-nested->>Git: merge --no-commit --no-ff <target>
-    Note over git-nested: Write .git/nested-submodules-pull.json for --continue and --abort
+    git-nested->>Git: merge --no-commit --no-ff <commit>
+    Note over git-nested: Write .git/nested-submodules-update.json for --continue and --abort
     git-nested->>Git: update-index --force-remove <gitlink>
-    Note over git-nested: Drop each gitlink and .gitmodules
+    Note over git-nested: Drop each gitlink and its part of .gitmodules
+    Note over git-nested: Merge .gitattributes without git-nested's block, then add the block again
     git-nested->>Git: commit --no-edit
     Note over git-nested: Stop on other conflicts. --continue goes on here
     opt A submodule pull stopped before
-        Note over git-nested: --continue commits it there, then runs commit
+        Note over git-nested: --continue finishes it there, then runs commit
     end
 
     loop For each submodule upstream changed
@@ -816,7 +815,7 @@ sequenceDiagram
         else removed
             git-nested->>Git: rm -r <path>
         else added
-            Note over git-nested: Same as clone
+            Note over git-nested: Same as clone. Not for update = none
         else new pin
             Note over git-nested: Same as pull -b <pin> -u. Skipped if it has a pin
         end

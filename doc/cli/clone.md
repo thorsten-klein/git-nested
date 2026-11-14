@@ -114,7 +114,9 @@ If nothing changed, it does nothing and says "already up to date".
 - If your `.gitattributes` would change files of the nested repository,
   for example `*.bat text eol=crlf`, `clone` and `pull` add `-text` for
   these files to `.gitattributes`, in a commit of their own. So the files
-  stay as upstream has them.
+  stay as upstream has them, in git and in your checkout.
+- With `--recurse-submodules`, a submodule with `update = none` in
+  `.gitmodules` stays a submodule, as in git.
 - If upstream is empty, `clone` stops. Use [`init`](init.md) and then
   [`push`](push.md) to fill it.
 - With [patches](../guides/patches.md), `--force` starts over: it takes

@@ -160,16 +160,16 @@ def test_parse_args_method_shorthand_sets_the_method_flag(cmd, args, method):
 @pytest.mark.parametrize(
     'args',
     [
-        ['submodules', 'merge', '--dry-run', 'upstream/main'],
-        ['submodules', 'merge', 'upstream/main', '--dry-run'],
-        ['submodules', '--dry-run', 'merge', 'upstream/main'],
+        ['submodules', 'update', '--dry-run', 'upstream/main'],
+        ['submodules', 'update', 'upstream/main', '--dry-run'],
+        ['submodules', '--dry-run', 'update', 'upstream/main'],
     ],
 )
 def test_parse_args_submodules_options_go_anywhere(cmd, args):
     """Before Python 3.12, argparse failed when an option stood between the action and its arguments."""
     _, ctx = cmd.parse_args(args)
     assert ctx.flags.dry_run
-    assert ctx.submodules_action == 'merge'
+    assert ctx.submodules_action == 'update'
     assert ctx.submodules_args == ['upstream/main']
 
 

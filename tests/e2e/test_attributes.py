@@ -30,10 +30,12 @@ def test_clone_keeps_crlf_files_as_upstream_has_them(foo_bar_cloned):
 
     result = cmd_git_nested(['clone', (env.upstream / 'bar').as_posix()], foo)
 
-    assert "bar: .gitattributes keeps 1 files as upstream has them" in result.output
+    assert "bar: .gitattributes keeps 2 files as upstream has them" in result.output
     assert env.run(['git', 'status', '--porcelain'], cwd=foo).output == ''
     assert "/bar/make.bat -text" in (foo / '.gitattributes').read_text()
-    assert 'plain.bat' not in (foo / '.gitattributes').read_text()
+    # git would check this one out with CRLF. A submodule keeps it LF.
+    assert "/bar/plain.bat -text" in (foo / '.gitattributes').read_text()
+    assert (foo / 'bar' / 'plain.bat').read_bytes() == b"echo plain\n"
     assert env.run(['git', 'show', 'HEAD:bar/make.bat'], cwd=foo, text=False).stdout == b"echo hi\r\n"
     assert cmd_git_nested('verify bar', cwd=foo).returncode == 0
 

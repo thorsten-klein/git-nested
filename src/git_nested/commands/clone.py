@@ -200,19 +200,29 @@ def nest_submodules(git: GitRunner, flags: Flags, config: NestedConfig, subdir: 
 
     Each one is cloned with -b <commit>, so it stays at that commit. The
     submodules come from the tree subdir got its content from. Nested ones
-    are skipped.
+    are skipped, and so are the ones git skips: `update = none`.
     """
     in_index = dict(submodules.gitlinks(git, subdir))
     for relative, pinned in sorted(submodules.gitlinks_at(git, content.nested_tree(config, subdir)).items()):
         path = f'{subdir.as_posix()}/{relative}'
         if (Path(path) / GITNESTED_FILENAME).is_file() or ((config.filter or config.exclude) and path not in in_index):
             continue
-        url = submodules.url_of(git, subdir / '.gitmodules', relative, config.remote)
-        if url is None:
-            output.warn(f"{path}: .gitmodules has no url for it, so it stays empty")
-            continue
-        git.run(['rm', '-q', '--cached', '--', path], may_fail=True)
-        clone_at(git, flags, Path(path), url, pinned)
+        url = _url_to_nest(git, config, subdir, relative)
+        if url:
+            git.run(['rm', '-q', '--cached', '--', path], may_fail=True)
+            clone_at(git, flags, Path(path), url, pinned)
+
+
+def _url_to_nest(git: GitRunner, config: NestedConfig, subdir: Path, relative: str) -> str | None:
+    """The url to nest the submodule at `relative` from. None, with a word why, if it stays a submodule."""
+    path = f'{subdir.as_posix()}/{relative}'
+    if submodules.skipped_by_git(git, subdir / '.gitmodules', relative):
+        output.say(f"{path}: stays a submodule, .gitmodules says 'update = none'")
+        return None
+    url = submodules.url_of(git, subdir / '.gitmodules', relative, config.remote)
+    if url is None:
+        output.warn(f"{path}: .gitmodules has no url for it, so it stays empty")
+    return url
 
 
 def clone_at(git: GitRunner, flags: Flags, subdir: Path, url: str, commit: str) -> None:
