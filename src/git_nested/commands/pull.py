@@ -6,6 +6,7 @@ import os
 import shutil
 from dataclasses import replace
 from pathlib import Path
+from typing import cast
 from uuid import uuid4
 
 from .. import content, discovery, filters, gitfile, history, messages, output, patches, refs, submodules, worktree
@@ -361,4 +362,4 @@ def pull_to(ctx: CommandContext, subdir: Path, url: str | None, pin: str) -> Non
         verbose=ctx.flags.verbose,
     )
     head = ctx.git.check_output(['rev-parse', 'HEAD'])
-    cmd_pull(replace(ctx, flags=inner, subdir=subdir, head_commit=head))
+    cmd_pull(cast('CommandContext', replace(ctx, flags=inner, subdir=subdir, head_commit=head)))
