@@ -529,8 +529,9 @@ def _attributes_without_block(git: GitRunner, state: dict[str, str]) -> tuple[li
     return files, blocks[0]
 
 
-def _conflicts(git: GitRunner) -> list[str]:
-    return sorted(set(git.check_output(['diff', '--name-only', '--diff-filter=U']).split('\n')) - {''})
+def _conflicts(git: GitRunner, cwd: Path | None = None) -> list[str]:
+    """The files with conflicts left, in the worktree at `cwd` or here."""
+    return sorted(set(git.check_output(['diff', '--name-only', '--diff-filter=U'], cwd=cwd).split('\n')) - {''})
 
 
 def _remove_if_empty(path: Path) -> None:
@@ -577,7 +578,7 @@ def _finish_stopped(git: GitRunner, path: str, tree: Path) -> None:
         finish = ['rebase', '--continue']
     else:
         return
-    left = git.check_output(['diff', '--name-only', '--diff-filter=U'], cwd=tree).split()
+    left = _conflicts(git, tree)
     if left:
         raise GitNestedError(f"{path}: fix the conflicts in {tree.as_posix()} first: {', '.join(left)}")
     git.run(['-c', 'core.editor=true', *finish], cwd=tree)
@@ -863,7 +864,7 @@ def _stopped_tree(ctx: CommandContext, path: str) -> Path | None:
 
 def _stopped_message(git: GitRunner, path: str, tree: Path, why: str) -> str:
     """How to go on after a conflict in a nested repo: the `submodules` way only."""
-    files = git.check_output(['diff', '--name-only', '--diff-filter=U'], cwd=tree).split()
+    files = _conflicts(git, tree)
     return (
         f"{path}: the update stopped on conflicts in {', '.join(files) or 'its files'}.{why}\n"
         "Fix them there, and 'git add' them:\n\n"
