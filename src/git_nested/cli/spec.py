@@ -79,7 +79,18 @@ VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
         'update',
     ],
     'status': ['ALL', 'all', 'fetch', 'short'],
-    'submodules': ['gpg_sign', 'ignore', 'only', 'recursive', 'resolve_relative', 'signoff'],
+    'submodules': [
+        'abort',
+        'dry_run',
+        'gpg_sign',
+        'ignore',
+        'only',
+        'recursive',
+        'resolve_relative',
+        'resume',
+        'signoff',
+        'single_commit',
+    ],
     'verify': ['diffs', 'ignore', 'keep', 'output_dir', 'patches'],
     'version': [],
 }
@@ -102,7 +113,7 @@ COMMAND_HELP: dict[str, str] = {
     'repair': "point a nested repository's sync point back into the current history",
     'run': "run a git command in the worktree of a nested repository",
     'status': "report on the nested repositories of this repository",
-    'submodules': "turn all submodules into nested repositories",
+    'submodules': "turn all submodules into nested repositories and keep them up to date",
     'verify': "check that a nested repository is its upstream commit plus patches or diffs",
     'version': "print version information",
 }
@@ -143,7 +154,11 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
         ('-c', '--commit'),
         {'action': 'store_true', 'help': "record the pushed commit in .gitnested; needs a push to the tracked branch"},
     ),
-    ('dry_run', ('--dry-run',), {'action': 'store_true', 'dest': 'dry_run', 'help': "show what would be pushed"}),
+    (
+        'dry_run',
+        ('--dry-run',),
+        {'action': 'store_true', 'dest': 'dry_run', 'help': "show what would happen; change nothing"},
+    ),
     (
         'diffs',
         ('--diffs',),
@@ -259,6 +274,16 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
             'help': "patches: folder for the missing patch; diff: file for the whole diff",
         },
     ),
+    (
+        'abort',
+        ('--abort',),
+        {'action': 'store_true', 'help': "throw away a 'submodules pull' that stopped on conflicts"},
+    ),
+    (
+        'resume',
+        ('--continue',),
+        {'action': 'store_true', 'dest': 'resume', 'help': "finish a 'submodules pull' that stopped on conflicts"},
+    ),
     ('remote', ('-r', '--remote'), {'dest': 'remote', 'help': "upstream remote to push/pull/fetch"}),
     (
         'short',
@@ -268,7 +293,7 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
     (
         'single_commit',
         ('--single-commit',),
-        {'action': 'store_true', 'help': "with --all: one commit for all nested repositories"},
+        {'action': 'store_true', 'help': "one commit for all nested repositories"},
     ),
     (
         'squash',
@@ -355,7 +380,20 @@ POSITIONALS: dict[str, list[tuple[str, dict]]] = {
         # everything after <subdir> goes to git untouched, options included.
         ('git_args', {'nargs': '...', 'help': "the git command to run, with its arguments"}),
     ],
-    'submodules': [('submodules_action', {'metavar': 'action', 'choices': ['init'], 'help': "init"})],
+    'submodules': [
+        (
+            'submodules_action',
+            {'metavar': 'action', 'choices': ['init', 'merge', 'pull'], 'help': "init, merge or pull"},
+        ),
+        (
+            'submodules_args',
+            {
+                'metavar': 'arg',
+                'nargs': '*',
+                'help': "merge: <commit>; pull: [<remote> [<branch>]]",
+            },
+        ),
+    ],
     'verify': [('subdir', {'help': _SUBDIR_HELP})],
 }
 
@@ -453,7 +491,13 @@ COMMAND_DESCRIPTION: dict[str, str] = {
         "'init' nests all submodules at the commits they pin, one commit each. "
         "With --recursive, their submodules too. "
         "--only and --ignore pick some of them. "
-        "A relative submodule url needs --resolve-relative."
+        "A relative submodule url needs --resolve-relative. "
+        "'merge' merges an upstream commit and keeps its commits. It does not fetch. "
+        "'pull' fetches, then merges. "
+        "Then it changes the nested repositories the way upstream changed its submodules. "
+        "Each changed submodule gets one commit. "
+        "On other conflicts, fix them and run --continue. Or give up with --abort. "
+        "--dry-run shows the changes and makes none."
     ),
     'verify': (
         "Apply the files to the upstream commit in .gitnested, in a temporary worktree, and compare "
@@ -555,6 +599,11 @@ COMMAND_EXAMPLES: dict[str, list[str]] = {
         "git nested submodules init --recursive",
         "git nested submodules init --only lib/core",
         "git nested submodules init --resolve-relative https://github.com/org/project",
+        "git nested submodules pull",
+        "git nested submodules pull upstream main",
+        "git nested submodules pull --dry-run",
+        "git nested submodules merge upstream/main",
+        "git nested submodules pull --continue",
     ],
     'verify': [
         "git nested verify ext/lib --patches patches/lib/*.patch",

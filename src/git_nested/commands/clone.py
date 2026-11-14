@@ -186,9 +186,11 @@ def _clone_into(
 
 
 def _warn_about_submodules(git: GitRunner, flags: Flags, subdir: Path) -> None:
-    """Say which submodules stay empty, and what nests them."""
+    """Say which submodules stay empty, and why or what nests them."""
     if flags.hint:
         submodules.warn_if_any(git, subdir, f"use {flags.hint} to nest them")
+    elif flags.submodules == 'keep':
+        submodules.warn_if_any(git, subdir, "its .gitnested says 'submodules: keep'")
     else:
         submodules.warn_if_any(git, subdir)
 

@@ -31,10 +31,11 @@ A small `.gitnested` file in the folder remembers the URL, the branch and
 the upstream commit. So the commands stay short.
 
 Your repository has submodules already? Turn them all into nested
-repositories:
+repositories, and keep following upstream:
 
 ```bash
 git nested submodules init --recursive
+git nested submodules pull
 ```
 
 ## Why git-nested?

@@ -783,7 +783,51 @@ sequenceDiagram
 
 ## submodules
 
-`init` runs `init --from-submodule` for each submodule.
+`init` runs `init --from-submodule` for each submodule. `merge` is `pull`
+without the fetch: it takes the commit it is given. `pull` looks like this:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant git-nested
+    participant Git
+
+    User->>git-nested: git nested submodules pull
+    git-nested->>Git: rev-parse --abbrev-ref @{upstream}
+    git-nested->>Git: fetch <remote>
+    git-nested->>Git: merge-base --is-ancestor <target> HEAD
+    Note over git-nested: Stop if already up to date
+    opt --dry-run
+        Note over git-nested: Print the plan, then stop
+    end
+    git-nested->>Git: merge --no-commit --no-ff <target>
+    Note over git-nested: Write .git/nested-submodules-pull.json for --continue and --abort
+    git-nested->>Git: update-index --force-remove <gitlink>
+    Note over git-nested: Drop each gitlink and .gitmodules
+    git-nested->>Git: commit --no-edit
+    Note over git-nested: Stop on other conflicts. --continue goes on here
+    opt A submodule pull stopped before
+        Note over git-nested: --continue commits it there, then runs commit
+    end
+
+    loop For each submodule upstream changed
+        alt moved
+            git-nested->>Git: mv <old> <new>
+        else removed
+            git-nested->>Git: rm -r <path>
+        else added
+            Note over git-nested: Same as clone
+        else new pin
+            Note over git-nested: Same as pull -b <pin> -u. Skipped if it has a pin
+        end
+        git-nested->>Git: commit
+    end
+
+    opt --single-commit
+        git-nested->>Git: reset --soft <merge commit>
+        git-nested->>Git: commit --amend
+    end
+```
 
 ## diff
 

@@ -57,14 +57,30 @@ repository.
 ## Turn a whole repository into one
 
 Your repository has many submodules, maybe submodules in submodules. You
-want all of them as plain files:
+want all of them as plain files, and still follow upstream:
 
 ```bash
 git nested submodules init --recursive
+git nested submodules pull
 ```
 
 `init --recursive` nests all of them, at any depth. Without
 `--recursive`, it nests only the first level. `--only <path>` nests only
-some.
+some. `pull` merges upstream, keeps its commits, and
+changes the nested repositories the way upstream changed its submodules.
 
-See [`submodules`](../cli/submodules.md).
+To see what `pull` would do first:
+
+```bash
+git nested submodules pull --dry-run
+```
+
+In a fork, pull from the project you forked:
+
+```bash
+git nested submodules init
+git nested submodules pull upstream main
+```
+
+See [`submodules`](../cli/submodules.md). It also explains how the merged
+history looks, and how to keep a submodule back.
