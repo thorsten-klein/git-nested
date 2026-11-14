@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 256" width="800" height="256" role="img" aria-label="git-nested">
+<!-- outer commit tree -->
+  <g fill="none" stroke="#1B2330" stroke-width="10" stroke-linecap="round">
+    <path d="M64 40 V216"/>
+    <path d="M64 44 C 64 62, 160 48, 160 70"/>
+    <path d="M160 186 C 160 208, 64 194, 64 212"/>
+  </g>
+  <g fill="#1B2330">
+    <circle cx="64" cy="40"  r="15"/>
+    <circle cx="64" cy="128" r="15"/>
+    <circle cx="64" cy="216" r="15"/>
+  </g>
+
+  <!-- the nested repo: a commit that is itself a commit tree -->
+  <circle cx="160" cy="128" r="58" fill="#E6F6F0" stroke="#12A67E" stroke-width="10"/>
+
+  <!-- inner commit tree -->
+  <g fill="none" stroke="#0E7C5F" stroke-width="6" stroke-linecap="round">
+    <path d="M138 100 V156"/>
+    <path d="M138 104 C 138 114, 180 106, 180 118"/>
+    <path d="M180 138 C 180 150, 138 142, 138 152"/>
+  </g>
+  <g fill="#0E7C5F">
+    <circle cx="138" cy="100" r="8"/>
+    <circle cx="138" cy="128" r="8"/>
+    <circle cx="138" cy="156" r="8"/>
+  </g>
+  <circle cx="180" cy="128" r="10" fill="#FFFFFF" stroke="#0E7C5F" stroke-width="5"/>
+  <text x="262" y="156" font-family="'JetBrains Mono', 'Fira Code', ui-monospace, Menlo, Consolas, monospace" font-size="84" letter-spacing="-2"><tspan fill="#5B6676" font-weight="400">git-</tspan><tspan fill="#1B2330" font-weight="800">nested</tspan></text>
+</svg>
