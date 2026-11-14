@@ -87,6 +87,12 @@ jobs:
           # authorship) needs real history, not the default shallow, tagless
           # checkout.
           fetch-depth: 0
+      # The tests start many git processes and write many small files.
+      # On Windows, Defender scans each one, which makes the tests slow.
+      - name: Turn off Defender scanning
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Set-MpPreference -DisableRealtimeMonitoring $true
       - name: Install uv
         uses: astral-sh/setup-uv@v10.3.3
         with:
