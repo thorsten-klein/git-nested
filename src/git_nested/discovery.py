@@ -67,7 +67,7 @@ def build_commit_message(
     commit = git.check_output(['rev-parse', '--short', nested_commit_ref])
     message = textwrap.dedent(
         f"""\
-        git nested {command}
+        git nested {command} {subdir.as_posix()}
 
         nested:
           subdir:   "{subdir.as_posix()}"

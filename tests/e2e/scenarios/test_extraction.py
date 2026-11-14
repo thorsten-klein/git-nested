@@ -49,7 +49,7 @@ def test_usual_contribution(foo_bar_cloned_and_nested):
         author_email='foo@foo',
         committer_name='FooUser',
         committer_email='foo@foo',
-        commit_title='git nested pull',
+        commit_title='git nested pull bar',
         changed_files=['bar/.gitnested', 'bar/FirstBar', 'bar/SecondBar'],
     )
 
@@ -82,7 +82,7 @@ def test_usual_contribution(foo_bar_cloned_and_nested):
         author_email='foo@foo',
         committer_name='FooUser',
         committer_email='foo@foo',
-        commit_title='git nested pull',
+        commit_title='git nested pull bar',
         changed_files=[],
     )
     assert_commit(
@@ -155,7 +155,7 @@ def test_usual_contribution(foo_bar_cloned_and_nested):
         author_email='foo@foo',
         committer_name='FooUser',
         committer_email='foo@foo',
-        commit_title='git nested pull',
+        commit_title='git nested pull bar',
         changed_files=['bar/.gitnested', 'bar/SecondBar', 'bar/ThirdBar'],
     )
 
