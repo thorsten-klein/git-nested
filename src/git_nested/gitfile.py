@@ -33,11 +33,12 @@ CONFIG_FIELDS: dict[str, str] = {
     'patches': "the folder with the local changes as patches, relative to the subdir",
     'patches-ignore': "paths in the subdir that stay local, so no patch needs their changes",
     'patches-local': "patches a push leaves out, by file name",
+    'submodules': "'nest' or 'keep': whether a pull nests the submodules in it. Unset: nest",
 }
 
 # The rest are written by the nested operations themselves; setting one by
 # hand would describe a state the repository is not in.
-WRITABLE_CONFIG_FIELDS = ('remote', 'branch', 'method', 'squash', 'parent', 'pin', 'readonly', 'patches')
+WRITABLE_CONFIG_FIELDS = ('remote', 'branch', 'method', 'squash', 'parent', 'pin', 'readonly', 'patches', 'submodules')
 
 
 def create_level_gitnested_files(git: GitRunner, subdir: Path, level: int | None = None) -> None:
@@ -110,7 +111,7 @@ def update_gitrepo_file(
     nested['method'] = flags.method or config.method or 'merge'
     nested['cmdver'] = VERSION
     # These are written only when given
-    for field in ('filter', 'exclude', 'path', 'pin'):
+    for field in ('filter', 'exclude', 'path', 'pin', 'submodules'):
         if getattr(flags, field):
             nested[field] = getattr(flags, field)
 

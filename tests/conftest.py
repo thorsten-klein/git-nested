@@ -551,6 +551,7 @@ def assert_gitnested_field(
     method: str | None = None,
     squash: str | None = None,
     version: str | None = None,
+    submodules: str | None = None,
 ):
     """Assert that according fields in .gitnested YAML file have the expected value"""
     assert Path(gitnested_path).exists()
@@ -569,6 +570,7 @@ def assert_gitnested_field(
     _assert_yaml_field(nested_data, 'method', method)
     _assert_yaml_field(nested_data, 'squash', squash)
     _assert_yaml_field(nested_data, 'cmdver', version)
+    _assert_yaml_field(nested_data, 'submodules', submodules)
 
 
 def _get_commit_info(cwd, ref: str, format_str: str) -> str:

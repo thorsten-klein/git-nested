@@ -217,13 +217,17 @@ class _Replay:
         """Put the inner nested repository at `path` back as the submodule it came from.
 
         Its gitlink pins the commit its .gitnested records in `commit`. In
-        the index it sits under `prefix`.
+        the index it sits under `prefix`. If `commit` does not have it yet,
+        it keeps upstream's gitlink: a recursive clone nests it one commit
+        later, and that is no change.
         """
+        entry = f'{prefix}{path}'
         pinned = _recorded_commit(self.git, commit, self.subdir / path / GITNESTED_FILENAME)
         if pinned:
-            entry = f'{prefix}{path}'
             self.git.run(['rm', '--cached', '-r', '-q', '-f', '--ignore-unmatch', '--', entry], env=self.index_env)
             self.git.run(['update-index', '--add', '--cacheinfo', f'160000,{pinned},{entry}'], env=self.index_env)
+        elif self.git.run(['cat-file', '-e', f'{commit}:{(self.subdir / path).as_posix()}'], may_fail=True).returncode:
+            self._keep_upstream(commit, [entry])
 
     def _keep_upstream(self, commit: str, paths: list[str]) -> None:
         """Set `paths` to what the recorded upstream commit has.

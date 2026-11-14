@@ -31,7 +31,8 @@ your repository.
 With git-nested the files are part of your repository. A plain `git clone`
 gets them, and every commit is complete.
 
-To switch, see [`git nested init --from-submodule`](../cli/init.md).
+To switch, see [`git nested init --from-submodule`](../cli/init.md) for one
+submodule, or [`git nested submodules`](../cli/submodules.md) for all of them.
 
 ## git subtree
 

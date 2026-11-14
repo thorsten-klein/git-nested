@@ -16,8 +16,11 @@ from . import clone, fetch
 _GITMODULES = Path('.gitmodules')
 
 
-def _init_from_submodule(git: GitRunner, flags: Flags, subdir: Path) -> None:
-    """Replace the submodule at subdir by a nested repository, at the same commit and url."""
+def init_from_submodule(git: GitRunner, flags: Flags, subdir: Path, base: str | None = None) -> None:
+    """Replace the submodule at subdir by a nested repository, at the same commit and url.
+
+    A relative url is relative to `base`, or else to the url of origin.
+    """
     path = subdir.as_posix()
     found = submodules.entry(git, _GITMODULES, path)
     link = git.check_output(['ls-tree', 'HEAD', '--', path]).split()
@@ -26,7 +29,7 @@ def _init_from_submodule(git: GitRunner, flags: Flags, subdir: Path) -> None:
     name, url = found
     pinned = link[2]
     # A relative url is relative to this repository's own remote.
-    url = submodules.resolve(url, git.check_output(['remote', 'get-url', 'origin'], may_fail=True))
+    url = submodules.resolve(url, base or git.check_output(['remote', 'get-url', 'origin'], may_fail=True))
 
     output.verbose(f"removing the submodule {name}")
     git.run(['submodule', 'deinit', '-q', '-f', '--', path], may_fail=True)
@@ -74,7 +77,7 @@ def cmd_init(ctx: CommandContext) -> None:
     """Initialize a subdirectory as a nested repo."""
     git, flags, head_commit = ctx.git, ctx.flags, ctx.head
     if flags.from_submodule:
-        _init_from_submodule(git, flags, setup.resolve_subdir(ctx.subdir))
+        init_from_submodule(git, flags, setup.resolve_subdir(ctx.subdir))
         return
     subdir, gitnested, subref, config = setup.setup_command(git, 'init', flags, ctx.subdir, ctx.upstream)
     _validate_init_target(subdir, gitnested, git)

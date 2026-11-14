@@ -30,6 +30,13 @@ git nested status                                      # see where everything st
 A small `.gitnested` file in the folder remembers the URL, the branch and
 the upstream commit. So the commands stay short.
 
+Your repository has submodules already? Turn them all into nested
+repositories:
+
+```bash
+git nested submodules init --recursive
+```
+
 ## Why git-nested?
 
 - **Self-contained.** Your repository has all files. A plain `git clone`

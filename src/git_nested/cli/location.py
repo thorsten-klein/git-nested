@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 # Commands whose missing <subdir> is not filled in from the current directory:
 # status reports on all of them, clone guesses one from the upstream, and init
 # is what makes a directory nested in the first place.
-_NO_IMPLIED_SUBDIR = ('clone', 'completion', 'init', 'status', 'version')
+_NO_IMPLIED_SUBDIR = ('clone', 'completion', 'init', 'status', 'submodules', 'version')
 
 
 def at_top_level(git: GitRunner, command: str, ctx: CommandContext) -> AbstractContextManager[object]:
@@ -56,11 +56,13 @@ def at_top_level(git: GitRunner, command: str, ctx: CommandContext) -> AbstractC
     # relative one keeps working in every clone of the parent repository.
     ctx.upstream = _remote_from(prefix, ctx.upstream)
     ctx.flags.remote = _remote_from(prefix, ctx.flags.remote)
+    ctx.flags.resolve_relative = _remote_from(prefix, ctx.flags.resolve_relative)
     if ctx.config_key == 'remote':
         ctx.config_value = _remote_from(prefix, ctx.config_value)
 
-    # --ignore paths are given like <subdir>.
-    ctx.flags.ignore = [_joined(prefix, Path(path)) for path in ctx.flags.ignore or []]
+    # --ignore and --only paths are given like <subdir>.
+    ctx.flags.ignore = _all_joined(prefix, ctx.flags.ignore)
+    ctx.flags.only = _all_joined(prefix, ctx.flags.only)
     if ctx.subdir is not None:
         ctx.subdir = _joined(prefix, Path(ctx.subdir))
     elif command not in _NO_IMPLIED_SUBDIR and not ctx.flags.all:
@@ -97,6 +99,11 @@ def _remote_from(prefix: str, remote: str | None) -> str | None:
     joined = posixpath.normpath(PurePosixPath(prefix, Path(remote).as_posix()))
     # './' keeps a path that has lost its leading '..' from reading as a remote's name
     return joined if joined.startswith('.') else f'./{joined}'
+
+
+def _all_joined(prefix: str, paths: list[str] | None) -> list[str] | None:
+    """Each of `paths` joined like a <subdir>. None stays None."""
+    return [_joined(prefix, Path(path)) for path in paths] if paths else paths
 
 
 def _joined(prefix: str, subdir: Path) -> str:

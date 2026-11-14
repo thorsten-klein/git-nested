@@ -32,6 +32,7 @@ from . import (
     repair,
     run,
     status,
+    submodules,
     verify,
     version,
 )
@@ -52,6 +53,7 @@ REGISTRY: dict[str, Callable[[CommandContext], None]] = {
     'repair': repair.cmd_repair,
     'run': run.cmd_run,
     'status': status.cmd_status,
+    'submodules': submodules.cmd_submodules,
     'verify': verify.cmd_verify,
     'version': version.cmd_version,
 }

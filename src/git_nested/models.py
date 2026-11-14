@@ -28,6 +28,13 @@ class Flags:
     filter: list[str] | None = None
     force: bool = False
     ignore: list[str] | None = None
+    only: list[str] | None = None
+    resolve_relative: str | None = None
+    recursive: bool = False
+    # 'nest' or 'keep': what a new nested repo does with its submodules
+    submodules: str | None = None
+    # The option to name when submodules stay empty
+    hint: str = ''
     from_submodule: bool = False
     from_patches: bool = False
     local: bool = False
@@ -90,6 +97,7 @@ class NestedConfig:
     patches_ignore: tuple[str, ...] = ()
     # Patches a push leaves out, by file name: they stay local.
     patches_local: tuple[str, ...] = ()
+    submodules: str = ''
 
     @classmethod
     def from_file(cls, filepath: str | Path) -> NestedConfig:
@@ -113,6 +121,7 @@ class NestedConfig:
             patches=_patches(nested.get('patches')),
             patches_ignore=_paths(nested.get('patches-ignore')),
             patches_local=_paths(nested.get('patches-local')),
+            submodules=str(nested.get('submodules') or ''),
         )
         if not config.remote:
             raise GitNestedError(f"{path.as_posix()} has no 'remote'")
@@ -165,6 +174,7 @@ class CommandContext:
     patches_action: str | None = None
     patch_names: list[str] | None = None
     verify_mode: str | None = None
+    submodules_action: str | None = None
     git_tmp: Path | None = None
     head_commit: str | None = None
 

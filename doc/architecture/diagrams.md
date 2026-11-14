@@ -781,6 +781,10 @@ sequenceDiagram
 
 ---
 
+## submodules
+
+`init` runs `init --from-submodule` for each submodule.
+
 ## diff
 
 ```mermaid

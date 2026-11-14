@@ -91,6 +91,7 @@ git nested init --from-submodule ext/lib
 This removes the submodule and clones the same URL at the same commit into
 its place. A relative submodule URL is resolved against the `origin` remote
 of your repository. See [Upstream submodules](../guides/submodules.md).
+To nest all submodules at once, use [`submodules init`](submodules.md).
 
 ## Notes
 

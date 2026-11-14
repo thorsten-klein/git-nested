@@ -79,6 +79,7 @@ VALID_COMMAND_OPTIONS: dict[str, list[str]] = {
         'update',
     ],
     'status': ['ALL', 'all', 'fetch', 'short'],
+    'submodules': ['gpg_sign', 'ignore', 'only', 'recursive', 'resolve_relative', 'signoff'],
     'verify': ['diffs', 'ignore', 'keep', 'output_dir', 'patches'],
     'version': [],
 }
@@ -101,6 +102,7 @@ COMMAND_HELP: dict[str, str] = {
     'repair': "point a nested repository's sync point back into the current history",
     'run': "run a git command in the worktree of a nested repository",
     'status': "report on the nested repositories of this repository",
+    'submodules': "turn all submodules into nested repositories",
     'verify': "check that a nested repository is its upstream commit plus patches or diffs",
     'version': "print version information",
 }
@@ -179,8 +181,27 @@ SUBPARSER_ARG_SPECS: list[tuple[str, tuple[str, ...], dict]] = [
         {
             'action': 'append',
             'metavar': 'PATH',
-            'help': "skip this path of <subdir>, just this time",
+            'help': "skip this path of <subdir>, just this time; submodules init: do not nest the submodules there",
         },
+    ),
+    (
+        'only',
+        ('--only',),
+        {
+            'action': 'append',
+            'metavar': 'PATH',
+            'help': "init: nest only the submodules at or below this path; give it more than once for more",
+        },
+    ),
+    (
+        'recursive',
+        ('--recursive',),
+        {'action': 'store_true', 'help': "init: nest the submodules of the submodules too, at any depth"},
+    ),
+    (
+        'resolve_relative',
+        ('--resolve-relative',),
+        {'metavar': 'URL', 'help': "init: resolve relative submodule urls against this url"},
     ),
     ('exclude', ('--exclude',), {'action': 'append', 'help': "leave this path of the upstream repository out"}),
     (
@@ -334,6 +355,7 @@ POSITIONALS: dict[str, list[tuple[str, dict]]] = {
         # everything after <subdir> goes to git untouched, options included.
         ('git_args', {'nargs': '...', 'help': "the git command to run, with its arguments"}),
     ],
+    'submodules': [('submodules_action', {'metavar': 'action', 'choices': ['init'], 'help': "init"})],
     'verify': [('subdir', {'help': _SUBDIR_HELP})],
 }
 
@@ -423,6 +445,15 @@ COMMAND_DESCRIPTION: dict[str, str] = {
     'status': (
         "Report every nested repository in this repository: where it comes from, and whether it has local changes. "
         "With -q, just the paths, one per line."
+    ),
+    'submodules': (
+        "Turn the submodules of a repository into plain files. "
+        "Each submodule becomes a nested repository. "
+        "The repository itself stays a normal git clone of its upstream. "
+        "'init' nests all submodules at the commits they pin, one commit each. "
+        "With --recursive, their submodules too. "
+        "--only and --ignore pick some of them. "
+        "A relative submodule url needs --resolve-relative."
     ),
     'verify': (
         "Apply the files to the upstream commit in .gitnested, in a temporary worktree, and compare "
@@ -518,6 +549,12 @@ COMMAND_EXAMPLES: dict[str, list[str]] = {
     'status': [
         "git nested status",
         "git nested status -q",
+    ],
+    'submodules': [
+        "git nested submodules init",
+        "git nested submodules init --recursive",
+        "git nested submodules init --only lib/core",
+        "git nested submodules init --resolve-relative https://github.com/org/project",
     ],
     'verify': [
         "git nested verify ext/lib --patches patches/lib/*.patch",

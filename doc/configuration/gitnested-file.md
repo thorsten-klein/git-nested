@@ -194,6 +194,16 @@ A name with no patch file is an error. So when a patch is renumbered or
 renamed, fix the list. A patch whose title starts with `git-nested local:`
 stays local too, whatever its number.
 
+### `submodules`
+
+What happens to the submodules inside the nested repository:
+
+- `nest`: they become nested repositories too.
+- `keep`: they stay submodules.
+
+`submodules init` writes it: `keep`, or `nest` with `--recursive`. Unset
+means `nest`.
+
 ### `cmdver`
 
 The git-nested version that last wrote the file. For information only.

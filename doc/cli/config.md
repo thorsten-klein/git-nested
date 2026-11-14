@@ -46,6 +46,7 @@ instead of editing the file by hand.
 | `patches` | the folder with the local changes as patches, relative to the subdir | yes |
 | `patches-ignore` | paths in the subdir that stay local, so no patch needs their changes | no |
 | `patches-local` | patches a push leaves out, by file name | no |
+| `submodules` | `nest` or `keep`: whether a pull nests the submodules in it. Unset: nest | yes |
 
 The other keys are written by the commands themselves. Setting one by hand
 would describe a state the repository is not in.
@@ -68,5 +69,5 @@ git commit -m "lib: pull with rebase, never push"
 - A relative path as a `remote` value is taken relative to the folder you
   are in, like git does. It is stored relative to the top of your
   repository.
-- An unknown key, or a bad value for `method`, `squash` or `readonly`, is
-  refused.
+- An unknown key, or a bad value for `method`, `squash`, `readonly` or
+  `submodules`, is refused.
