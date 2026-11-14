@@ -86,6 +86,8 @@ def _flags_from_args(args: argparse.Namespace) -> Flags:
         squash=getattr(args, 'squash', False),
         update=getattr(args, 'update', False),
         keep=getattr(args, 'keep', False),
+        resume=getattr(args, 'resume', False),
+        abort=getattr(args, 'abort', False),
         quiet=getattr(args, 'quiet', False),
         # argparse's `count` action leaves the attribute at None when the flag
         # is absent, and the output layer wants a real count.
@@ -179,7 +181,7 @@ def parse_args(git: GitRunner, args_list: list[str]) -> tuple[str, CommandContex
         tuple: (command, context). The context's git_tmp/head_commit are left
         unset -- only the caller knows whether the command runs in a repository.
     """
-    args = build_arg_parser().parse_args(_options_last(args_list, 'patches'))
+    args = build_arg_parser().parse_args(_options_last(_options_last(args_list, 'patches'), 'submodules'))
 
     if args.version:
         args.command = 'version'
@@ -188,7 +190,7 @@ def parse_args(git: GitRunner, args_list: list[str]) -> tuple[str, CommandContex
 
     flags = _flags_from_args(args)
     _check_flags(flags)
-    if flags.single_commit and not flags.all:
+    if flags.single_commit and not flags.all and args.command != 'submodules':
         output.usage_error("--single-commit needs --all")
 
     patches, verify_mode = _verify_files(args)
@@ -214,5 +216,6 @@ def parse_args(git: GitRunner, args_list: list[str]) -> tuple[str, CommandContex
         patches=patches,
         verify_mode=verify_mode,
         submodules_action=getattr(args, 'submodules_action', None),
+        submodules_args=getattr(args, 'submodules_args', None),
     )
     return args.command, context

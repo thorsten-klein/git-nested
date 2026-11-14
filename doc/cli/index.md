@@ -16,7 +16,7 @@ Each command has its own page. This page lists what they share.
 | [`push`](push.md) | push a nested repository's local changes upstream |
 | [`fetch`](fetch.md) | fetch upstream content for a nested repository |
 | [`status`](status.md) | report on the nested repositories of this repository |
-| [`submodules`](submodules.md) | turn all submodules into nested repositories |
+| [`submodules`](submodules.md) | turn all submodules into nested repositories and keep them up to date |
 | [`diff`](diff.md) | show a nested repository's local changes against upstream |
 | [`patches`](patches.md) | write, check, drop or cherry-pick the patches of a nested repository |
 | [`verify`](verify.md) | check that a nested repository is its upstream commit plus patches or diffs |
@@ -117,7 +117,8 @@ The details are on each command's page. In short:
 | `-f`, `--force` | force the operation; what it does differs per command |
 | `-S`, `--gpg-sign` | GPG-sign the commits git-nested makes |
 | `--signoff` | add a `Signed-off-by:` trailer |
-| `--single-commit` | with `--all`: one commit for all |
+| `--single-commit` | with `--all`: one commit for all. With `submodules`: one merge commit |
+| `--dry-run` | show what would happen; change nothing |
 
 ### `--all` and `-b`
 

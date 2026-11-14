@@ -201,8 +201,8 @@ What happens to the submodules inside the nested repository:
 - `nest`: they become nested repositories too.
 - `keep`: they stay submodules.
 
-`submodules init` writes it: `keep`, or `nest` with `--recursive`. Unset
-means `nest`.
+`submodules init` writes it: `keep`, or `nest` with `--recursive`. Later,
+`submodules update` follows it. Unset means `nest`.
 
 ### `cmdver`
 

@@ -44,6 +44,13 @@ def entry(git: GitRunner, gitmodules: Path, path: str) -> tuple[str, str] | None
     return next(((name, f['url']) for name, f in fields.items() if f.get('path') == path and 'url' in f), None)
 
 
+def skipped_by_git(git: GitRunner, gitmodules: Path, path: str) -> bool:
+    """Whether `gitmodules` says `update = none` for the submodule at `path`. git does not check those out."""
+    found = entry(git, gitmodules, path)
+    key = f'submodule.{found[0]}.update' if found else ''
+    return bool(key) and git.check_output(['config', '-f', gitmodules, '--get', key], may_fail=True) == 'none'
+
+
 def url_of(git: GitRunner, gitmodules: Path, path: str, base: str) -> str | None:
     """The url `gitmodules` gives for `path`; a relative one is resolved against `base`."""
     found = entry(git, gitmodules, path)

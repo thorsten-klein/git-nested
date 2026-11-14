@@ -57,14 +57,35 @@ repository.
 ## Turn a whole repository into one
 
 Your repository has many submodules, maybe submodules in submodules. You
-want all of them as plain files:
+want all of them as plain files, and still follow upstream:
 
 ```bash
 git nested submodules init --recursive
+git fetch origin
+git nested submodules update origin/main
 ```
 
 `init --recursive` nests all of them, at any depth. Without
 `--recursive`, it nests only the first level. `--only <path>` nests only
-some.
+some. `update` merges upstream, keeps its commits, and
+changes the nested repositories the way upstream changed its submodules.
 
-See [`submodules`](../cli/submodules.md).
+To see what `update` would do first:
+
+```bash
+git nested submodules update --dry-run origin/main
+```
+
+In a fork, update from the project you forked:
+
+```bash
+git nested submodules init --recursive
+git fetch upstream
+git nested submodules update upstream/main
+```
+
+Use `update` instead of `git merge` or `git pull`. A plain git merge
+can't put a gitlink where a nested folder is.
+
+See [`submodules`](../cli/submodules.md). It also explains how the merged
+history looks, and how to keep a submodule back.

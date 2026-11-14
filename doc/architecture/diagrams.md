@@ -783,7 +783,50 @@ sequenceDiagram
 
 ## submodules
 
-`init` runs `init --from-submodule` for each submodule.
+`init` runs `init --from-submodule` for each submodule. `update` looks
+like this:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant git-nested
+    participant Git
+
+    User->>git-nested: git nested submodules update <commit>
+    git-nested->>Git: merge-base --is-ancestor <commit> HEAD
+    Note over git-nested: Merged already: only update the nested repos that lag behind
+    opt --dry-run
+        Note over git-nested: Print the plan, also deeper down, then stop
+    end
+    git-nested->>Git: merge --no-commit --no-ff <commit>
+    Note over git-nested: Write .git/nested-submodules-update.json for --continue and --abort
+    git-nested->>Git: update-index --force-remove <gitlink>
+    Note over git-nested: Drop each gitlink and its part of .gitmodules
+    Note over git-nested: Merge .gitattributes without git-nested's block, then add the block again
+    git-nested->>Git: commit --no-edit
+    Note over git-nested: Stop on other conflicts. --continue goes on here
+    opt A submodule pull stopped before
+        Note over git-nested: --continue finishes it there, then runs commit
+    end
+
+    loop For each submodule upstream changed
+        alt moved
+            git-nested->>Git: mv <old> <new>
+        else removed
+            git-nested->>Git: rm -r <path>
+        else added
+            Note over git-nested: Same as clone. Not for update = none
+        else new pin
+            Note over git-nested: Same as pull -b <pin> -u. Skipped if it has a pin
+        end
+        git-nested->>Git: commit
+    end
+
+    opt --single-commit
+        git-nested->>Git: reset --soft <merge commit>
+        git-nested->>Git: commit --amend
+    end
+```
 
 ## diff
 

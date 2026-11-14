@@ -60,6 +60,8 @@ class Flags:
     output_dir: str | None = None
     tag: str | None = None
     update: bool = False
+    resume: bool = False
+    abort: bool = False
     quiet: bool = False
     verbose: int = 0
 
@@ -175,6 +177,7 @@ class CommandContext:
     patch_names: list[str] | None = None
     verify_mode: str | None = None
     submodules_action: str | None = None
+    submodules_args: list[str] | None = None
     git_tmp: Path | None = None
     head_commit: str | None = None
 
