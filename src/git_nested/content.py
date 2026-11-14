@@ -109,7 +109,7 @@ def commit_nested_branch(
         commit_gitnested_update(git, flags, subdir, msg)
 
     worktree.remove_worktree(git, subdir_worktree)
-    refs.create_nested_ref(git, refs.sanitize_subref(git, subdir.as_posix()), 'commit', nested_commit_ref)
+    refs.create_nested_ref(git, refs.sanitize_subref(subdir.as_posix()), 'commit', nested_commit_ref)
 
 
 def place_with_patches(git: GitRunner, config: NestedConfig, subdir: Path, nested_commit_ref: str) -> list[str] | None:
@@ -157,9 +157,9 @@ def _drop_gitlink(git: GitRunner, path: Path) -> None:
         path.rmdir()
 
 
-def nested_tree(git: GitRunner, config: NestedConfig, subdir: Path) -> str:
+def nested_tree(config: NestedConfig, subdir: Path) -> str:
     """The tree that subdir got its content from in the last clone, pull or commit."""
-    tree = f'refs/nested/{refs.sanitize_subref(git, subdir.as_posix())}/commit'
+    tree = f'refs/nested/{refs.sanitize_subref(subdir.as_posix())}/commit'
     return f'{tree}:{config.path}' if config.path else tree
 
 

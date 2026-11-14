@@ -13,6 +13,10 @@ from . import output
 from .constants import REQUIRED_GIT_VERSION
 from .errors import GitNestedError
 
+# The version of each git binary, so it is asked only once per process.
+# The test suite runs many commands in one process.
+_VERSIONS: dict[str, str] = {}
+
 
 class GitRunner:
     """Simplified git command execution."""
@@ -56,6 +60,17 @@ class GitRunner:
         result = self.run(args=args, may_fail=may_fail, **kwargs)
         return result.stdout.strip()
 
+    def cached_output(self, args: Sequence[str]) -> str:
+        """check_output, but git is asked only once per directory.
+
+        Only for answers that do not change while a command runs.
+        """
+        cache: dict[tuple[Path, tuple[str, ...]], str] = self.__dict__.setdefault('_cache', {})
+        key = (Path.cwd(), tuple(args))
+        if key not in cache:
+            cache[key] = self.check_output(args)
+        return cache[key]
+
     def is_tracked(self, path: Path) -> bool:
         """Check if given path is tracked by git.
 
@@ -81,15 +96,17 @@ class GitRunner:
 
     def check(self) -> None:
         """Check that environment is suitable."""
-        if not shutil.which('git'):
+        path = shutil.which('git')
+        if not path:
             raise GitNestedError("git is not on PATH")
-        version = self.get_version()
+        version = _VERSIONS.get(path) or self.get_version()
 
         def version_tuple(v: str) -> tuple[int, ...]:
             return tuple(map(int, (v.split("."))))
 
         if version_tuple(version) < version_tuple(REQUIRED_GIT_VERSION):
             raise GitNestedError(f"git {REQUIRED_GIT_VERSION} or newer is required, but this is {version}")
+        _VERSIONS[path] = version
 
     def get_version(self) -> str:
         """Return the installed git version string (e.g. '2.43.0')."""

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from urllib.parse import quote
 
@@ -26,7 +27,7 @@ def worktree_suffix(git: GitRunner) -> str:
 
     So the worktrees of this repository each get their own nested branches.
     """
-    git_dir, common_dir = git.check_output(['rev-parse', '--git-dir', '--git-common-dir']).splitlines()
+    git_dir, common_dir = git.cached_output(['rev-parse', '--git-dir', '--git-common-dir']).splitlines()
     if Path(git_dir).resolve() == Path(common_dir).resolve():
         return ''
     return f'@{Path(git_dir).name}'
@@ -86,14 +87,18 @@ def guess_subdir(remote: str) -> str:
     return Path(remote).name.removesuffix('.git')
 
 
-def _is_valid_ref(git: GitRunner, ref: str) -> bool:
+# The rules of `git check-ref-format`, checked here to save a git call
+_BAD_REF = re.compile(r'[\x00-\x20\x7f~^:?*\[\\]|\.\.|@\{|//|^/|/$|\.$|(^|/)\.|\.lock(/|$)')
+
+
+def _is_valid_ref(ref: str) -> bool:
     """Check whether ref is already a valid git ref name (as a nested/ subref)."""
-    return git.run(['check-ref-format', f'nested/{ref}'], may_fail=True).returncode == 0
+    return not _BAD_REF.search(f'nested/{ref}')
 
 
-def sanitize_subref(git: GitRunner, ref: str) -> str:
+def sanitize_subref(ref: str) -> str:
     """Sanitize subref to be a valid git ref."""
-    if _is_valid_ref(git, ref):
+    if _is_valid_ref(ref):
         return ref
 
     sanitized = quote(ref, safe='/')
@@ -106,6 +111,6 @@ def sanitize_subref(git: GitRunner, ref: str) -> str:
         sanitized = sanitized.removesuffix('.lock') + '_lock'
     sanitized = sanitized.removesuffix('.')
 
-    if not _is_valid_ref(git, sanitized):
+    if not _is_valid_ref(sanitized):
         raise GitNestedError(f"can't derive a git ref name from {ref}")
     return sanitized

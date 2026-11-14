@@ -77,7 +77,8 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-26.04, macos-latest, windows-latest]
-        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+        # A PR runs only the oldest and newest Python. main runs all of them.
+        python-version: ${{ fromJSON(github.event_name == 'pull_request' && '["3.10", "3.14"]' || '["3.10", "3.11", "3.12", "3.13", "3.14"]') }}
 
     steps:
       - name: Checkout code
@@ -87,6 +88,27 @@ jobs:
           # authorship) needs real history, not the default shallow, tagless
           # checkout.
           fetch-depth: 0
+      # The tests start many git processes and write many small files.
+      # On Windows, Defender scans each one, which makes the tests slow.
+      - name: Turn off Defender scanning
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Set-MpPreference -DisableRealtimeMonitoring $true
+      # A Dev Drive is a fast ReFS drive. TEMP points there, so the test
+      # repos in tmp_path live on it.
+      - name: Set up Dev Drive
+        if: runner.os == 'Windows'
+        uses: samypr100/setup-dev-drive@v4.1.0
+        with:
+          drive-size: 8GB
+          drive-path: ${{ runner.temp }}/dev_drive.vhdx
+          trusted-dev-drive: true
+          env-mapping: |
+            TEMP,{{ DEV_DRIVE }}/tmp
+            TMP,{{ DEV_DRIVE }}/tmp
+      - name: Create temp dir on Dev Drive
+        if: runner.os == 'Windows'
+        run: mkdir -p "$TEMP" && echo "TEMP=$TEMP"
       - name: Install uv
         uses: astral-sh/setup-uv@v10.3.3
         with:

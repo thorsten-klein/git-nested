@@ -139,7 +139,7 @@ def _adopt_existing_subdir(
         git, config, upstream_commit, upstream_commit, subdir, 'clone'
     )
     content.commit_gitnested_update(git, flags, subdir, msg)
-    refs.create_nested_ref(git, refs.sanitize_subref(git, subdir.as_posix()), 'commit', upstream_commit)
+    refs.create_nested_ref(git, refs.sanitize_subref(subdir.as_posix()), 'commit', upstream_commit)
 
 
 def _clone_into(
@@ -193,7 +193,7 @@ def nest_submodules(git: GitRunner, flags: Flags, config: NestedConfig, subdir: 
     are skipped.
     """
     in_index = dict(submodules.gitlinks(git, subdir))
-    for relative, pinned in sorted(submodules.gitlinks_at(git, content.nested_tree(git, config, subdir)).items()):
+    for relative, pinned in sorted(submodules.gitlinks_at(git, content.nested_tree(config, subdir)).items()):
         path = f'{subdir.as_posix()}/{relative}'
         if (Path(path) / GITNESTED_FILENAME).is_file() or ((config.filter or config.exclude) and path not in in_index):
             continue
