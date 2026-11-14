@@ -158,15 +158,12 @@ class NestedTestEnvironment:
             file_path = Path(cwd) / file if cwd else Path(file)
             file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.write_text(f"new file {file}\n")
-            subprocess.run(['git', 'add', '--force', str(file)], cwd=cwd, check=True)
-
+        subprocess.run(['git', 'add', '--force', '--', *map(str, files)], cwd=cwd, check=True)
         subprocess.run(['git', 'commit', '--quiet', '-m', f'add new file: {files[-1]}'], cwd=cwd, check=True)
 
     def remove_files(self, *files, cwd=None):
         """Remove files and commit"""
-        for file in files:
-            subprocess.run(['git', 'rm', file], cwd=cwd, check=True)
-
+        subprocess.run(['git', 'rm', '--', *map(str, files)], cwd=cwd, check=True)
         subprocess.run(['git', 'commit', '--quiet', '-m', f'Removed file: {files[-1]}'], cwd=cwd, check=True)
 
     def modify_files(self, *files, text=None, cwd=None):
@@ -176,8 +173,7 @@ class NestedTestEnvironment:
             file_path = Path(cwd) / file if cwd else Path(file)
             with file_path.open('a') as f:
                 f.write(f'{text}\n')
-            subprocess.run(['git', 'add', str(file)], cwd=cwd, check=True)
-
+        subprocess.run(['git', 'add', '--', *map(str, files)], cwd=cwd, check=True)
         subprocess.run(['git', 'commit', '-m', f'modified file: {files[-1]}'], cwd=cwd, check=True)
 
 
@@ -188,10 +184,9 @@ class NestedTestEnvironment:
 
 def clone_repo(upstream: str, path: Path):
     path.parent.mkdir(parents=True, exist_ok=True)
-    subprocess.run(['git', 'clone', upstream, path], check=True, capture_output=True)
     name = path.name
-    subprocess.run(['git', 'config', 'user.name', f'{name.capitalize()}User'], cwd=path, check=True)
-    subprocess.run(['git', 'config', 'user.email', f'{name}@{name}'], cwd=path, check=True)
+    identity = ['-c', f'user.name={name.capitalize()}User', '-c', f'user.email={name}@{name}']
+    subprocess.run(['git', 'clone', *identity, upstream, path], check=True, capture_output=True)
 
 
 def remove_tree(path: Path) -> None:
@@ -224,8 +219,8 @@ def create_upstream_repo(repo_path: Path) -> Path:
     work_dir = repo_path.parent / (repo_path.name + ".tmp")
     work_dir.mkdir(exist_ok=True)
     subprocess.run(['git', 'init'], cwd=work_dir, check=True, capture_output=True)
-    subprocess.run(['git', 'config', 'user.name', 'Test'], cwd=work_dir, check=True, capture_output=True)
-    subprocess.run(['git', 'config', 'user.email', 'test@test'], cwd=work_dir, check=True, capture_output=True)
+    with (work_dir / '.git' / 'config').open('a') as f:
+        f.write('[user]\n\tname = Test\n\temail = test@test\n')
     return work_dir
 
 
@@ -417,8 +412,42 @@ def git_exec_path(tmp_path_factory) -> Path | None:
     return shadow
 
 
+def _isolate_git(home: Path, git_exec_path: Path | None, path_dirs: list[Path]) -> dict[str, str]:
+    """Write a global git config into home and return env vars that use only it"""
+    (home / '.gitconfig').write_text(
+        '[user]\n\tname = Test User\n\temail = test@example.com\n[init]\n\tdefaultBranch = master\n'
+    )
+    env_vars = {
+        'HOME': str(home),
+        'GIT_CONFIG_GLOBAL': str(home / '.gitconfig'),
+        'GIT_CONFIG_SYSTEM': os.devnull,
+        # Drops config injected through the caller's environment, such as safe.bareRepository.
+        'GIT_CONFIG_COUNT': '0',
+        'PATH': os.pathsep.join([*map(str, path_dirs), os.getenv('PATH', '')]),
+    }
+    if git_exec_path:
+        env_vars['GIT_EXEC_PATH'] = str(git_exec_path)
+    return env_vars
+
+
+@pytest.fixture(scope='session')
+def upstream_template(tmp_path_factory, git_exec_path) -> Path:
+    """The foo and bar upstreams, built once per session
+
+    Each test gets a copy. Copying is much faster than building them again,
+    above all on Windows, where each git call is slow.
+    """
+    template = tmp_path_factory.mktemp('upstream-template')
+    home = template / 'home'
+    home.mkdir()
+    with update_env(_isolate_git(home, git_exec_path, [])):
+        create_upstream_foo(template / 'upstream' / 'foo')
+        create_upstream_bar(template / 'upstream' / 'bar')
+    return template / 'upstream'
+
+
 @pytest.fixture
-def env(tmp_path, git_exec_path):
+def env(tmp_path, git_exec_path, upstream_template):
     """Setup isolated test environment with git repos"""
     root_dir = Path(__file__).parent.parent
     tmp_dir = Path(tmp_path)
@@ -438,31 +467,12 @@ def env(tmp_path, git_exec_path):
         (shim_dir / 'python3').write_text(f'#!/bin/sh\nexec "{Path(sys.executable).as_posix()}" "$@"\n')
         path_dirs.insert(0, shim_dir)
 
-    # Set up isolated environment variables
-    env_vars = {
-        'HOME': str(test_env.test_home),
-        'GIT_CONFIG_GLOBAL': str(test_env.test_home / '.gitconfig'),
-        'GIT_CONFIG_SYSTEM': os.devnull,
-        # Drops config injected through the caller's environment, such as safe.bareRepository.
-        'GIT_CONFIG_COUNT': '0',
-        # bin/ holds the 'git-nested' launcher `git nested` dispatches to --
-        # replaced by the directory of the frozen binary when testing that.
-        'PATH': os.pathsep.join([*map(str, path_dirs), os.getenv('PATH', '')]),
-    }
-    if git_exec_path:
-        env_vars['GIT_EXEC_PATH'] = str(git_exec_path)
-
-    with update_env(env_vars):
-        # Configure git
-        subprocess.run(['git', 'config', '--global', 'user.name', 'Test User'], check=True)
-        subprocess.run(['git', 'config', '--global', 'user.email', 'test@example.com'], check=True)
-        subprocess.run(['git', 'config', '--global', 'init.defaultBranch', 'master'], check=True)
-
-        # Create test repositories. 'init' is deliberately absent -- it is
-        # built lazily by NestedTestEnvironment.clone_init, see there.
-        create_upstream_foo(test_env.upstream / 'foo')
-        create_upstream_bar(test_env.upstream / 'bar')
-
+    # bin/ holds the 'git-nested' launcher `git nested` dispatches to --
+    # replaced by the directory of the frozen binary when testing that.
+    with update_env(_isolate_git(test_env.test_home, git_exec_path, path_dirs)):
+        # 'init' is deliberately absent -- it is built lazily by
+        # NestedTestEnvironment.clone_init, see there.
+        shutil.copytree(upstream_template, test_env.upstream)
         yield test_env
 
 
