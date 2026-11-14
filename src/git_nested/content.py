@@ -191,6 +191,56 @@ def matches_upstream(git: GitRunner, subdir: Path, upstream_commit: str, ignored
     )
 
 
+_GITATTRIBUTES = Path('.gitattributes')
+_KEEP_BYTES_HEADER = "# git-nested: files that stay as upstream has them\n"
+
+
+def keep_upstream_bytes(git: GitRunner, flags: Flags, subdir: Path) -> None:
+    """Stop the parent's .gitattributes from changing files in subdir.
+
+    For a submodule, the parent's attributes do not count. For a nested
+    repo they do. A rule like '*.bat text eol=crlf' then shows upstream's
+    files as changed. This adds '-text' for them to .gitattributes, in a
+    commit of its own.
+    """
+    changed = [path for path in git.check_output(['diff', '--name-only', '-z', '--', subdir]).split('\0') if path]
+    paths = [path for path in changed if _only_attributes_differ(git, path)]
+    if not paths:
+        return
+    text = _GITATTRIBUTES.read_text(encoding='utf-8') if _GITATTRIBUTES.is_file() else ''
+    with _GITATTRIBUTES.open('w', encoding='utf-8', newline='\n') as f:
+        f.write(_with_rules(text, paths))
+    git.run(['add', '--', _GITATTRIBUTES, *paths])
+    output.say(f"{subdir.as_posix()}: .gitattributes keeps {len(paths)} files as upstream has them")
+    message = f"git nested: keep {subdir.as_posix()} files as upstream has them"
+    own_message = cast('Flags', dataclasses.replace(flags, message_file=None))
+    commit_gitnested_update(git, own_message, subdir, message)
+
+
+def _with_rules(text: str, paths: list[str]) -> str:
+    """`text` of .gitattributes, with '-text' for `paths` at the end."""
+    if text and not text.endswith('\n'):
+        text += '\n'
+    if _KEEP_BYTES_HEADER not in text:
+        text += _KEEP_BYTES_HEADER
+    return text + ''.join(f"{_attribute_pattern(path)} -text\n" for path in paths)
+
+
+def _only_attributes_differ(git: GitRunner, path: str) -> bool:
+    """Whether the file has the bytes of its blob, and git shows it as changed only because of attributes."""
+    blob = git.check_output(['ls-files', '-s', '--', path]).split()[1:2]
+    return bool(blob) and git.check_output(['hash-object', '--no-filters', '--', path]) == blob[0]
+
+
+def _attribute_pattern(path: str) -> str:
+    """`path` as a .gitattributes pattern for this one file, from the top."""
+    escaped = ''.join(f'\\{char}' if char in '*?[\\' else char for char in path)
+    if any(char in escaped for char in ' "#') or not escaped.isascii():
+        # C-style quotes: a backslash of the pattern is written twice
+        return '"/' + escaped.replace('\\', '\\\\').replace('"', '\\"') + '"'
+    return f'/{escaped}'
+
+
 def commit_gitnested_update(git: GitRunner, flags: Flags, subdir: Path, msg: str) -> None:
     """Commit what is staged onto the current branch, with --file's message if given, else `msg`.
 

@@ -111,6 +111,10 @@ If nothing changed, it does nothing and says "already up to date".
 - `--adopt` can not be used with `--filter` or `--recurse-submodules`.
 - Without `--recurse-submodules`, submodules of upstream stay empty, and
   git-nested warns about it. See [Upstream submodules](../guides/submodules.md).
+- If your `.gitattributes` would change files of the nested repository,
+  for example `*.bat text eol=crlf`, `clone` and `pull` add `-text` for
+  these files to `.gitattributes`, in a commit of their own. So the files
+  stay as upstream has them.
 - If upstream is empty, `clone` stops. Use [`init`](init.md) and then
   [`push`](push.md) to fill it.
 - With [patches](../guides/patches.md), `--force` starts over: it takes

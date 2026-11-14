@@ -178,6 +178,7 @@ def _clone_into(
         subdir_worktree=None,
         command='clone',
     )
+    content.keep_upstream_bytes(git, flags, subdir)
     if flags.recurse_submodules:
         nest_submodules(git, flags, config, subdir)
     else:
