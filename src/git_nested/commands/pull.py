@@ -165,7 +165,7 @@ def _rewrite_history_with_prefix(
     git: GitRunner, flags: Flags, nested_commit_ref: str, subdir: Path, git_tmp: Path, subref: str
 ) -> str:
     """Replay `nested_commit_ref` as commits whose trees live under `subdir/`."""
-    scratch = git_tmp / '.pull-no-squash' / f'{refs.sanitize_subref(git, subref)}-{uuid4().hex}'
+    scratch = git_tmp / '.pull-no-squash' / f'{refs.sanitize_subref(subref)}-{uuid4().hex}'
     scratch.mkdir(parents=True, exist_ok=True)
     index_env = {**os.environ, 'GIT_INDEX_FILE': str(scratch / 'index')}
     rewritten: dict[str, str] = {}
@@ -334,7 +334,7 @@ def follow_inner(ctx: CommandContext, config: NestedConfig, subdir: Path) -> Non
     If one stops on conflicts, a new pull of subdir does the rest.
     """
     git = ctx.git
-    for relative, pin in sorted(submodules.gitlinks_at(git, content.nested_tree(git, config, subdir)).items()):
+    for relative, pin in sorted(submodules.gitlinks_at(git, content.nested_tree(config, subdir)).items()):
         path = subdir / relative
         if not (path / GITNESTED_FILENAME).is_file():
             continue

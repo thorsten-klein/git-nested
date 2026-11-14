@@ -61,7 +61,7 @@ def setup_command(
         tuple: (subdir, gitnested, subref, config)
     """
     subdir = resolve_subdir(subdir)
-    subref = refs.sanitize_subref(git, subdir.as_posix())
+    subref = refs.sanitize_subref(subdir.as_posix())
     gitnested = resolve_gitnested_file(subdir)
 
     if not flags.force:

@@ -414,12 +414,7 @@ def test_classify_raises_on_invalid_regex():
 
 
 def test_check_repository_raises_on_nested_branch_checked_out():
-    git = (
-        FakeGit()
-        .respond('rev-parse', '--git-dir')
-        .respond('rev-parse', '--git-common-dir', stdout='.git')
-        .respond('symbolic-ref', stdout='nested/sub')
-    )
+    git = FakeGit().respond('rev-parse', '--git-dir', stdout='.git\ntrue').respond('symbolic-ref', stdout='nested/sub')
     flags = Flags()
     with pytest.raises(GitNestedError, match="while the nested branch"):
         checks.check_repository(git, 'pull', flags)
@@ -428,9 +423,8 @@ def test_check_repository_raises_on_nested_branch_checked_out():
 def test_check_repository_skips_clean_tree_for_branch():
     git = (
         FakeGit()
-        .respond('rev-parse', '--git-dir', stdout='.git')
+        .respond('rev-parse', '--git-dir', stdout='.git\ntrue')
         .respond('symbolic-ref', returncode=1)
-        .respond('rev-parse', '--is-inside-work-tree', stdout='true')
         .respond('rev-parse', 'HEAD', stdout='deadbeef')
     )
     assert checks.check_repository(git, 'branch', Flags()) == (Path('.git/tmp'), 'deadbeef')
@@ -440,9 +434,8 @@ def test_check_repository_skips_clean_tree_for_branch():
 def test_check_repository_checks_clean_tree_for_push_commit():
     git = (
         FakeGit()
-        .respond('rev-parse', '--git-dir', stdout='.git')
+        .respond('rev-parse', '--git-dir', stdout='.git\ntrue')
         .respond('symbolic-ref', returncode=1)
-        .respond('rev-parse', '--is-inside-work-tree', stdout='true')
         .respond('update-index', returncode=0)
         .respond('diff-files', '--quiet', '--ignore-submodules', returncode=1)
     )
@@ -454,9 +447,8 @@ def test_check_repository_checks_clean_tree_for_push_commit():
 def test_check_repository_returns_no_head_in_empty_repo():
     git = (
         FakeGit()
-        .respond('rev-parse', '--git-dir', stdout='.git')
+        .respond('rev-parse', '--git-dir', stdout='.git\ntrue')
         .respond('symbolic-ref', stdout='main')
-        .respond('rev-parse', '--is-inside-work-tree', stdout='true')
         .respond('update-index')
         .respond('diff-files', '--quiet', '--ignore-submodules')
         .respond('rev-list', 'HEAD', '-1', returncode=1)

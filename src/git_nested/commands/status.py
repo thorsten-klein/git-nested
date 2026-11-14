@@ -36,7 +36,7 @@ def get_status(git: GitRunner, flags: Flags) -> str:
 
 def _status_for_subdir(git: GitRunner, flags: Flags, subdir: Path) -> str:
     """The status report of one nested subdir."""
-    subref = refs.sanitize_subref(git, subdir.as_posix())
+    subref = refs.sanitize_subref(subdir.as_posix())
     gitnested = subdir / GITNESTED_FILENAME
     if not gitnested.is_file():
         return f"'{subdir.as_posix()}' is not a nested repository\n"

@@ -20,7 +20,7 @@ def check_repository(git: GitRunner, command: str, flags: Flags) -> tuple[Path |
         return None, None
 
     try:
-        git.run(['rev-parse', '--git-dir'])
+        git_dir, inside_work_tree = git.check_output(['rev-parse', '--git-dir', '--is-inside-work-tree']).splitlines()
     except GitNestedError:
         # A deliberate re-interpretation of git's own message, not an
         # incidental failure, so the chain is suppressed -- and since
@@ -29,14 +29,14 @@ def check_repository(git: GitRunner, command: str, flags: Flags) -> tuple[Path |
         raise GitNestedError("not inside a git repository") from None
 
     # Per worktree of this repository, so they do not block each other.
-    git_tmp = Path(git.check_output(['rev-parse', '--git-dir'])) / 'tmp'
+    git_tmp = Path(git_dir) / 'tmp'
 
     # Not a nested branch. A detached HEAD is fine: commits go there, as with git commit.
     current_branch = git.check_output(['symbolic-ref', '--short', '--quiet', 'HEAD'], may_fail=True)
     if current_branch.startswith('nested/'):
         raise GitNestedError(f"can't {command} while the nested branch {current_branch} is checked out")
 
-    if git.check_output(['rev-parse', '--is-inside-work-tree'], may_fail=True) != 'true':
+    if inside_work_tree != 'true':
         raise GitNestedError("not inside a git working tree")
 
     if _needs_clean_worktree(command, flags):

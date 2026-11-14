@@ -88,6 +88,7 @@ def test_git_runner_raises_when_git_not_on_path(monkeypatch):
 
 def test_git_runner_raises_when_git_version_too_old(monkeypatch):
     monkeypatch.setattr(GitRunner, "get_version", lambda self: "1.0.0")
+    monkeypatch.setattr(git_module, "_VERSIONS", {})
     git = GitRunner()
     with pytest.raises(GitNestedError, match="or newer is required"):
         git.check()
@@ -124,9 +125,9 @@ def test_sanitize_subref_raises_when_unsanitizable(monkeypatch):
     """Force the 'even sanitized, still not a valid ref' guard for an input we can't otherwise construct"""
     # Patch the definition in git_nested.refs, not any re-export of it: only
     # the definition is what sanitize_subref's own call resolves through.
-    monkeypatch.setattr(refs, "_is_valid_ref", lambda git, ref: False)
+    monkeypatch.setattr(refs, "_is_valid_ref", lambda ref: False)
     with pytest.raises(GitNestedError, match="can't derive a git ref name"):
-        refs.sanitize_subref(git=NO_GIT, ref="whatever")
+        refs.sanitize_subref(ref="whatever")
 
 
 def test_sanitize_subref_drops_a_trailing_dot():
@@ -135,8 +136,54 @@ def test_sanitize_subref_drops_a_trailing_dot():
     The e2e encoding tests reach this too, but with directory names Windows
     cannot create, so there it is only covered here.
     """
-    git = FakeGit().respond('check-ref-format', 'nested/trailing-dots...', returncode=1).respond('check-ref-format')
-    assert refs.sanitize_subref(git, 'trailing-dots...') == 'trailing-dots_'
+    assert refs.sanitize_subref('trailing-dots...') == 'trailing-dots_'
+
+
+# Checked against `git check-ref-format nested/<name>`
+@pytest.mark.parametrize(
+    ('ref', 'valid'),
+    [
+        ('lib', True),
+        ('lib/inner', True),
+        ('lib-1.2_x', True),
+        ('äöü', True),
+        ('a@b', True),
+        ('a.b', True),
+        ('', False),
+        ('a b', False),
+        ('a\tb', False),
+        ('a\x7fb', False),
+        ('a~b', False),
+        ('a^b', False),
+        ('a:b', False),
+        ('a?b', False),
+        ('a*b', False),
+        ('a[b', False),
+        ('a\\b', False),
+        ('a..b', False),
+        ('a@{b', False),
+        ('a//b', False),
+        ('/a', False),
+        ('a/', False),
+        ('a.', False),
+        ('.a', False),
+        ('a/.b', False),
+        ('a.lock', False),
+        ('a.lock/b', False),
+        ('a.locks', True),
+    ],
+)
+def test_is_valid_ref_follows_git_rules(ref, valid):
+    assert refs._is_valid_ref(ref) is valid
+
+
+def test_cached_output_asks_git_once_per_directory(tmp_path, monkeypatch):
+    git = FakeGit().respond('rev-parse', stdout='.git')
+    assert git.cached_output(['rev-parse', '--git-dir']) == '.git'
+    assert git.cached_output(['rev-parse', '--git-dir']) == '.git'
+    monkeypatch.chdir(tmp_path)
+    git.cached_output(['rev-parse', '--git-dir'])
+    assert git.calls.count(('rev-parse', '--git-dir')) == 2
 
 
 # ============================================================================
