@@ -534,18 +534,32 @@ def _fold_into_merge(git: GitRunner, flags: Flags, merge: str) -> None:
     git.run(['commit', '-q', '--amend', '--no-verify', '-F', '-', *_signing(flags)], input=f"{message}\n\n{changes}\n")
 
 
+def _finish_stopped(git: GitRunner, path: str, tree: Path) -> None:
+    """Finish the merge, `git am` or rebase that stopped in the worktree of `path`."""
+    if git.run(['rev-parse', '-q', '--verify', 'MERGE_HEAD'], cwd=tree, may_fail=True).returncode == 0:
+        finish = ['commit', '-q', '--no-edit']
+    elif Path(tree, git.check_output(['rev-parse', '--git-path', 'rebase-apply'], cwd=tree)).is_dir():
+        # A pull with patches applies them with git am
+        finish = ['am', '--continue']
+    elif Path(tree, git.check_output(['rev-parse', '--git-path', 'rebase-merge'], cwd=tree)).is_dir():
+        finish = ['rebase', '--continue']
+    else:
+        return
+    left = git.check_output(['diff', '--name-only', '--diff-filter=U'], cwd=tree).split()
+    if left:
+        raise GitNestedError(f"{path}: fix the conflicts in {tree.as_posix()} first: {', '.join(left)}")
+    git.run(['-c', 'core.editor=true', *finish], cwd=tree)
+
+
 def _finish_pending(ctx: CommandContext, path: str) -> None:
     """Commit the submodule pull that stopped on conflicts, if you have not done it yet."""
     git = ctx.git
     branch = refs.nested_branch(git, refs.sanitize_subref(path))
-    tree = worktree.find_worktree(git, branch)
-    if tree is None:
+    # A rebase that stopped has no branch checked out
+    tree = worktree.find_worktree(git, branch) or ctx.tmp / branch
+    if not tree.is_dir():
         return
-    if git.run(['rev-parse', '-q', '--verify', 'MERGE_HEAD'], cwd=tree, may_fail=True).returncode == 0:
-        left = git.check_output(['diff', '--name-only', '--diff-filter=U'], cwd=tree).split()
-        if left:
-            raise GitNestedError(f"{path}: fix the conflicts in {tree.as_posix()} first: {', '.join(left)}")
-        git.run(['commit', '-q', '--no-edit'], cwd=tree)
+    _finish_stopped(git, path, tree)
     inner = Flags(
         gpg_sign=ctx.flags.gpg_sign, signoff=ctx.flags.signoff, quiet=ctx.flags.quiet, verbose=ctx.flags.verbose
     )

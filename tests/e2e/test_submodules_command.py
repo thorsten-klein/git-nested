@@ -1191,3 +1191,153 @@ def test_init_resolves_relative_urls_only_when_asked(foo_bar_cloned):
 
     cmd_git_nested(['submodules', 'init', '--resolve-relative', (env.upstream / 'bar').as_posix()], cwd=repo)
     assert_gitnested_field(repo / 'sub' / '.gitnested', remote=(env.upstream / 'foo').as_posix())
+
+
+# ============================================================================
+# Nested repos with patches
+# ============================================================================
+
+PATCHES = '.gitnested.patches'
+
+
+def _commit(env, message):
+    env.run(['git', 'add', '-A'], cwd=env.fork)
+    env.run(['git', 'commit', '-q', '-m', message], cwd=env.fork)
+
+
+def _with_patch(env, path='sub'):
+    """Turn the patches on for `path`, change its Foo, and keep that change as a patch."""
+    cmd_git_nested(['config', path, 'patches', PATCHES], cwd=env.fork)
+    # bytes: write_text would make it CRLF on Windows
+    (env.fork / path / 'Foo').write_bytes(b"local\n")
+    _commit(env, 'local change')
+    cmd_git_nested(['patches', 'create', path], cwd=env.fork)
+    _commit(env, 'the patch')
+
+
+def _verified(env, path='sub'):
+    return cmd_git_nested(['patches', 'verify', path], cwd=env.fork).output.strip().endswith(" with 1 patch")
+
+
+def _upstream_changes_foo(env, text):
+    """Upstream foo changes Foo, and bar pins it. Return the pin."""
+    foo = env.workspace / 'foo'
+    (foo / 'Foo').write_bytes(text)
+    env.run(['git', 'commit', '-qam', 'upstream Foo'], cwd=foo)
+    env.run(['git', 'push', '-q'], cwd=foo)
+    env.run(['git', 'pull', '-q'], cwd=env.workspace / 'bar' / 'sub')
+    _push_bar(env, 'bump sub')
+    return git_rev_parse(['HEAD'], cwd=foo)
+
+
+def test_pull_applies_the_patches_on_the_new_pin(fork):
+    env = fork
+    _with_patch(env)
+    pinned = _upstream_bumps_sub(env)
+
+    _pull(env)
+
+    assert (env.fork / 'sub' / 'Foo').read_text() == "local\n"
+    assert (env.fork / 'sub' / 'FooNew').is_file()
+    assert_gitnested_field(env.fork / 'sub' / '.gitnested', commit=pinned)
+    assert _verified(env)
+    _assert_flat(env, env.fork)
+
+
+def test_pull_drops_a_patch_upstream_has(fork):
+    env = fork
+    _with_patch(env)
+    _upstream_changes_foo(env, b"local\n")
+
+    _pull(env)
+
+    assert (env.fork / 'sub' / 'Foo').read_text() == "local\n"
+    assert not list((env.fork / 'sub' / PATCHES).glob('*.patch'))
+    _assert_flat(env, env.fork)
+
+
+def test_continue_finishes_a_patch_that_does_not_apply(fork):
+    env = fork
+    _with_patch(env)
+    pinned = _upstream_changes_foo(env, b"upstream\n")
+
+    result = _pull(env, check=False)
+
+    assert result.returncode == 1
+    assert "the patch 0001-TODO-title.patch does not apply" in result.output
+    assert 'submodules pull --continue' in result.output
+    worktree = env.fork / '.git' / 'tmp' / 'nested' / 'sub'
+    (worktree / 'Foo').write_bytes(b"upstream and local\n")
+    env.run(['git', 'add', 'Foo'], cwd=worktree)
+
+    _pull(env, '--continue')
+
+    assert (env.fork / 'sub' / 'Foo').read_text() == "upstream and local\n"
+    assert_gitnested_field(env.fork / 'sub' / '.gitnested', commit=pinned)
+    assert "+upstream and local" in (env.fork / 'sub' / PATCHES / '0001-TODO-title.patch').read_text()
+    assert _verified(env)
+    _assert_flat(env, env.fork)
+
+
+def test_pull_moves_the_patches_with_a_moved_submodule(fork):
+    env = fork
+    _with_patch(env)
+    (env.workspace / 'bar' / 'ext').mkdir()
+    env.run(['git', 'mv', 'sub', 'ext/sub'], cwd=env.workspace / 'bar')
+    _push_bar(env, 'move sub')
+
+    _pull(env)
+
+    assert (env.fork / 'ext' / 'sub' / 'Foo').read_text() == "local\n"
+    assert _verified(env, 'ext/sub')
+    _assert_flat(env, env.fork)
+
+
+def test_pull_warns_when_it_removes_a_submodule_with_patches(fork):
+    env = fork
+    _with_patch(env)
+    env.run(['git', 'rm', '-q', 'sub'], cwd=env.workspace / 'bar')
+    _push_bar(env, 'drop sub')
+
+    result = _pull(env)
+
+    assert not (env.fork / 'sub').exists()
+    assert 'sub' in result.output
+    _assert_flat(env, env.fork)
+
+
+def test_continue_finishes_a_rebase_that_stopped(fork):
+    """Without patches, but with method rebase: the pull stops in a rebase."""
+    env = fork
+    cmd_git_nested(['config', 'sub', 'method', 'rebase'], cwd=env.fork)
+    (env.fork / 'sub' / 'Foo').write_bytes(b"local\n")
+    _commit(env, 'local change')
+    pinned = _upstream_changes_foo(env, b"upstream\n")
+
+    assert _pull(env, check=False).returncode == 1
+    worktree = env.fork / '.git' / 'tmp' / 'nested' / 'sub'
+    (worktree / 'Foo').write_bytes(b"upstream and local\n")
+    env.run(['git', 'add', 'Foo'], cwd=worktree)
+
+    _pull(env, '--continue')
+
+    assert (env.fork / 'sub' / 'Foo').read_text() == "upstream and local\n"
+    assert_gitnested_field(env.fork / 'sub' / '.gitnested', commit=pinned)
+    _assert_flat(env, env.fork)
+
+
+def test_continue_after_you_finished_the_patch_yourself(fork):
+    env = fork
+    _with_patch(env)
+    _upstream_changes_foo(env, b"upstream\n")
+    assert _pull(env, check=False).returncode == 1
+    worktree = env.fork / '.git' / 'tmp' / 'nested' / 'sub'
+    (worktree / 'Foo').write_bytes(b"upstream and local\n")
+    env.run(['git', 'add', 'Foo'], cwd=worktree)
+    env.run(['git', '-c', 'core.editor=true', 'am', '--continue'], cwd=worktree)
+
+    _pull(env, '--continue')
+
+    assert (env.fork / 'sub' / 'Foo').read_text() == "upstream and local\n"
+    assert _verified(env)
+    _assert_flat(env, env.fork)
