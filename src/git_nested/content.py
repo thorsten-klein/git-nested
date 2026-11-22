@@ -59,6 +59,16 @@ def create_nested_branch(
     return subdir_worktree
 
 
+def _gitnested_files(gitnested: Path) -> list[Path]:
+    """The .gitnested files to update.
+
+    A level file has the regular .gitnested next to it. Both are kept in step,
+    so that operating on the nested repo directly still sees current info.
+    """
+    regular = gitnested.parent / GITNESTED_FILENAME
+    return [gitnested] + ([regular] if regular != gitnested and regular.exists() else [])
+
+
 def commit_nested_branch(
     git: GitRunner,
     flags: Flags,
@@ -82,10 +92,7 @@ def commit_nested_branch(
     # After the level files: an inner nested repo of our own needs none
     keep_inner_nested(git, flags, config, subdir, head_commit)
 
-    # A level file has the regular .gitnested next to it, which is kept in
-    # step so that operating on the nested repo directly still sees current info.
-    regular = gitnested.parent / GITNESTED_FILENAME
-    for path in [gitnested] + ([regular] if regular != gitnested and regular.exists() else []):
+    for path in _gitnested_files(gitnested):
         output.verbose(f"writing {path.as_posix()}")
         gitfile.update_gitrepo_file(
             git=git,

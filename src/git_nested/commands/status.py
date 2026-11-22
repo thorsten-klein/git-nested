@@ -115,11 +115,7 @@ def _against_upstream(
     behind = (
         git.check_output(['rev-list', '--count', f'{config.commit}..{fetched}']) if git.rev_exists(fetched) else '-'
     )
-    upstream = config.commit
-    if config.filter or config.exclude:
-        upstream = filters.build_filtered_commit(
-            git, Path.cwd(), config.filter or [], config.exclude or [], config.commit
-        )
+    upstream = filters.filtered_view(git, config, config.commit)
     folder = config.patches_inside(subdir)
     skipped = (*inner, *([folder] if folder else []))
     return behind, 'same' if content.matches_upstream(git, subdir, upstream, skipped) else 'changed'

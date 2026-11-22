@@ -92,6 +92,13 @@ def read_config(gitnested: Path, flags: Flags) -> NestedConfig:
     return config
 
 
+def _write_given_fields(nested: dict, flags: Flags) -> None:
+    """Write these fields only when given."""
+    for field in ('filter', 'exclude', 'path', 'pin', 'submodules'):
+        if getattr(flags, field):
+            nested[field] = getattr(flags, field)
+
+
 def update_gitrepo_file(
     git: GitRunner,
     flags: Flags,
@@ -110,11 +117,7 @@ def update_gitrepo_file(
     nested['commit'] = upstream_head_commit
     nested['method'] = flags.method or config.method or 'merge'
     nested['cmdver'] = VERSION
-    # These are written only when given
-    for field in ('filter', 'exclude', 'path', 'pin', 'submodules'):
-        if getattr(flags, field):
-            nested[field] = getattr(flags, field)
-
+    _write_given_fields(nested, flags)
     _update_lineage(nested, initial, flags, config, command)
     # The parent only moves once the nested commit has caught up with upstream.
     if head_commit and nested_commit_ref and git.check_output(['rev-parse', nested_commit_ref]) == upstream_head_commit:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import NoReturn
 
 from .. import discovery, output, refs
 from ..cli import setup
@@ -10,6 +11,12 @@ from ..constants import FETCH_HEAD_REV
 from ..errors import GitNestedError
 from ..git import GitRunner
 from ..models import CommandContext, Flags, NestedConfig
+
+
+def _raise_fetch_error(git: GitRunner, config: NestedConfig, cmd: list[str], stderr: str | None) -> NoReturn:
+    if config.branch and discovery.has_branch(git, config.remote, config.branch) is False:
+        raise GitNestedError(f"{config.remote} has no branch {config.branch} yet; 'git nested push' makes it")
+    raise GitNestedError(f"command failed: git {' '.join(cmd)}\n{stderr or ''}")
 
 
 def do_fetch(git: GitRunner, config: NestedConfig, subref: str) -> str:
@@ -28,9 +35,7 @@ def do_fetch(git: GitRunner, config: NestedConfig, subref: str) -> str:
 
     result = git.network(cmd, f"fetching {config.remote} {branch_info}", may_fail=True)
     if result.returncode != 0:
-        if config.branch and discovery.has_branch(git, config.remote, config.branch) is False:
-            raise GitNestedError(f"{config.remote} has no branch {config.branch} yet; 'git nested push' makes it")
-        raise GitNestedError(f"command failed: git {' '.join(cmd)}\n{result.stderr or ''}")
+        _raise_fetch_error(git, config, cmd, result.stderr)
 
     output.verbose("reading the upstream HEAD commit")
     upstream_head_commit = git.check_output(['rev-parse', FETCH_HEAD_REV])

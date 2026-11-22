@@ -18,7 +18,7 @@ from pathlib import Path
 from . import output
 from .errors import GitNestedError
 from .git import GitRunner
-from .models import Flags
+from .models import Flags, NestedConfig
 
 
 def _classify(
@@ -95,6 +95,13 @@ def build_filtered_commit(git: GitRunner, cwd: Path, entries: list[str], exclude
         return git.check_output(
             ['commit-tree', '-p', commit, '-m', 'git-nested: filtered view for merge', filtered_tree], cwd=cwd
         )
+
+
+def filtered_view(git: GitRunner, config: NestedConfig, commit: str) -> str:
+    """The commit as git-nested sees it: filtered when the config has a filter or exclude."""
+    if config.filter or config.exclude:
+        return build_filtered_commit(git, Path.cwd(), config.filter or [], config.exclude or [], commit)
+    return commit
 
 
 def _matches(patterns: list[re.Pattern], path: str) -> bool:

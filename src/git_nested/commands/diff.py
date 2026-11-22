@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from .. import filters, output
 from ..cli import setup
 from ..models import CommandContext
@@ -20,10 +18,7 @@ def cmd_diff(ctx: CommandContext) -> None:
         return
 
     upstream = fetch.do_fetch(git, config, subref)
-    if config.path:
-        upstream = f'{upstream}:{config.path}'
-    elif config.filter or config.exclude:
-        upstream = filters.build_filtered_commit(git, Path.cwd(), config.filter or [], config.exclude or [], upstream)
+    upstream = f'{upstream}:{config.path}' if config.path else filters.filtered_view(git, config, upstream)
     local_tree = git.check_output(['rev-parse', f'HEAD:{subdir.as_posix()}'])
     folder = config.patches_inside(subdir)
     skip = [':(exclude,glob)**/.gitnested*', *([f':(exclude,literal){folder}'] if folder else [])]
