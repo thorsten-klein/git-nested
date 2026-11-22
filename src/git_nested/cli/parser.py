@@ -97,12 +97,15 @@ def _flags_from_args(args: argparse.Namespace) -> Flags:
     for opt, flag_attr in SUPPORTED_OPT_ATTRS:
         if getattr(args, opt, None) is not None:
             setattr(flags, flag_attr, getattr(args, opt))
+    _check_message_flags(flags)
+    return flags
 
+
+def _check_message_flags(flags: Flags) -> None:
     if flags.message_file and not Path(flags.message_file).is_file():
         output.error(f"no commit message file at {flags.message_file}")
     if flags.message_file and flags.message:
         output.error("-m and --file can't be used together")
-    return flags
 
 
 # Flags that name one thing, so they make no sense for every nested repository at once.

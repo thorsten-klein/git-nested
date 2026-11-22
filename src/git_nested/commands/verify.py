@@ -32,9 +32,7 @@ def upstream_base(git: GitRunner, config: NestedConfig, subref: str, subdir: Pat
     if config.path:
         tree = git.check_output(['rev-parse', f'{commit}:{config.path}'])
         return git.check_output(['commit-tree', '-p', commit, '-m', f'{config.path} of {commit}', tree])
-    if config.filter or config.exclude:
-        return filters.build_filtered_commit(git, Path.cwd(), config.filter or [], config.exclude or [], commit)
-    return commit
+    return filters.filtered_view(git, config, commit)
 
 
 def _fetch_commit(git: GitRunner, config: NestedConfig, subref: str, subdir: Path) -> None:

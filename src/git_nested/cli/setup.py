@@ -52,6 +52,16 @@ def _check_existing_worktree(git: GitRunner, command: str, subdir: Path, gitnest
         output.error(messages.worktree_exists(subdir, worktree_path, prunable=gitnested.exists()))
 
 
+def _load_config(git: GitRunner, command: str, flags: Flags, gitnested: Path, upstream: str | None) -> NestedConfig:
+    # clone and init have no .gitnested yet. clean does not need it.
+    if command not in ['clone', 'init', 'clean']:
+        return gitfile.read_config(gitnested, flags)
+    # Check nested.format now, not after the content is in place.
+    if command != 'clean':
+        gitfile.new_file_is_toml(git)
+    return NestedConfig(remote=flags.remote or upstream or '', branch=flags.branch or '', pin=flags.pin or '')
+
+
 def setup_command(
     git: GitRunner, command: str, flags: Flags, subdir: str | Path | None, upstream: str | None
 ) -> tuple[Path, Path, str, NestedConfig]:
@@ -67,15 +77,7 @@ def setup_command(
     if not flags.force:
         _check_existing_worktree(git, command, subdir, gitnested, refs.nested_branch(git, subref))
 
-    # clone and init have no .gitnested yet. clean does not need it.
-    if command in ['clone', 'init', 'clean']:
-        # Check nested.format now, not after the content is in place.
-        if command != 'clean':
-            gitfile.new_file_is_toml(git)
-        config = NestedConfig(remote=flags.remote or upstream or '', branch=flags.branch or '', pin=flags.pin or '')
-    else:
-        config = gitfile.read_config(gitnested, flags)
-
+    config = _load_config(git, command, flags, gitnested, upstream)
     # `patches` reads the patches folder as it is, committed or not
     skip = config.patches_inside(subdir) if command == 'patches' else None
     checks.warn_uncommitted_subdir_changes(git, command, flags, subdir, skip)
