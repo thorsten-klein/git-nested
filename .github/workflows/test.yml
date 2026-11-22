@@ -137,8 +137,15 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
           files: junit.xml
-      - name: SonarCloud Scan
+      # Dependabot PRs get no secrets, so they skip the scan.
+      - name: Check for Sonar token
+        id: sonar
         if: matrix.os == 'ubuntu-26.04' && matrix.python-version == '3.14'
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: echo "enabled=${SONAR_TOKEN:+true}" >> "$GITHUB_OUTPUT"
+      - name: SonarCloud Scan
+        if: steps.sonar.outputs.enabled == 'true'
         uses: SonarSource/sonarqube-scan-action@v8
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
